@@ -8,6 +8,7 @@ Personal finance management tool for tracking spendings, income, capital, and bu
 
 - **Runtime**: Bun
 - **Language**: TypeScript (strict mode)
+- **Linter/Formatter**: Biome
 - **Dependency Injection**: TSyringe (injection by type, no string tokens)
 - **Testing**: Bun's built-in test runner
 - **Architecture**: Clean Architecture (Layered / Hexagonal)
@@ -210,11 +211,11 @@ DTOs decouple layers and define contracts at boundaries:
    - Good: `(sheet) => sheet.title`, `(rangeData) => rangeData.values`, `for (let rowIndex = 0; ...)`
    - Exception: Well-known conventions in very short scopes (e.g., `x, y` for coordinates)
 
-3. **Run typecheck after changes** - After creating or editing TypeScript files:
+3. **Run typecheck and lint after changes** - After creating or editing TypeScript files:
    ```bash
-   npm run typecheck
+   npm run typecheck && npm run check:fix
    ```
-   Fix any type errors before considering the task complete.
+   Fix any type errors and lint issues before considering the task complete.
 
 ### Entities
 

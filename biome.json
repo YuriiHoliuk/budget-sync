@@ -25,6 +25,9 @@
     }
   },
   "javascript": {
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
+    },
     "formatter": {
       "quoteStyle": "single",
       "jsxQuoteStyle": "double",
@@ -49,6 +52,7 @@
       "correctness": {
         "noUnusedVariables": "error",
         "noUnusedImports": "error",
+        "noUnusedFunctionParameters": "off",
         "useHookAtTopLevel": "off"
       },
       "style": {
