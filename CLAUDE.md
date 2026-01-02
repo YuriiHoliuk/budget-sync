@@ -103,8 +103,10 @@ src/
 │
 ├── modules/                       # Reusable, business-agnostic code
 │   ├── spreadsheet/               # Google Sheets API wrapper
-│   │   ├── SpreadsheetsClient.ts
-│   │   ├── types.ts
+│   │   ├── SpreadsheetsClient.ts  # Low-level spreadsheet operations
+│   │   ├── SpreadsheetTable.ts    # Table-like access with schema validation
+│   │   ├── types.ts               # Types (CellValue, Row, ColumnDefinition, etc.)
+│   │   ├── errors.ts              # Spreadsheet-specific errors
 │   │   └── index.ts
 │   └── http/                      # HTTP client utilities
 │       ├── HttpClient.ts
@@ -194,6 +196,25 @@ DTOs decouple layers and define contracts at boundaries:
 ---
 
 ## Coding Conventions
+
+### General Rules
+
+1. **No typecasting** - Avoid using `as SomeType` assertions. Instead:
+   - Use proper type guards and narrowing
+   - Create helper methods that handle type conversions safely
+   - Use `unknown` as an intermediate type only when absolutely necessary, and document why
+   - Exceptions: `as const` for literal types and `satisfies` for type checking are acceptable
+
+2. **No one-letter variables** - Use descriptive names:
+   - Bad: `(s) => s.title`, `(d) => d.values`, `for (let i = 0; ...)`
+   - Good: `(sheet) => sheet.title`, `(rangeData) => rangeData.values`, `for (let rowIndex = 0; ...)`
+   - Exception: Well-known conventions in very short scopes (e.g., `x, y` for coordinates)
+
+3. **Run typecheck after changes** - After creating or editing TypeScript files:
+   ```bash
+   npm run typecheck
+   ```
+   Fix any type errors before considering the task complete.
 
 ### Entities
 
@@ -702,3 +723,38 @@ TEST_SPREADSHEET_ID=test-123 bun test tests/integration/repositories
 6. **Use cases are generic** - Named `SyncTransactions`, not `SyncFromMonobank` or `ExportToSpreadsheet`
 7. **Unit tests mock boundaries** - Repositories and gateways are mocked
 8. **Integration tests use real APIs** - Run manually, support env overrides
+9. **External libraries are isolated** - See below
+
+### External Library Isolation
+
+Any third-party library (except core libraries like `tsyringe`, `reflect-metadata`) must be used only in a limited, isolated scope:
+
+- **Module-level isolation**: If using Google Sheets API, it should only be imported in `src/modules/spreadsheet/`. The rest of the codebase imports from our module, not from `googleapis` directly.
+
+- **Export only own interfaces**: Modules export their own types and classes, never re-export library types. This hides implementation details.
+
+- **Single point of change**: When replacing a library, only one module/file needs modification. The rest of the project continues using our interfaces unchanged.
+
+**Example:**
+
+```
+src/modules/spreadsheet/
+├── SpreadsheetsClient.ts    # Uses 'googleapis' internally
+├── SpreadsheetTable.ts      # Table-like access with schema validation
+├── types.ts                 # Our own types (CellValue, Row, ColumnDefinition, etc.)
+├── errors.ts                # Module-specific errors
+└── index.ts                 # Exports only our classes and types
+```
+
+```typescript
+// BAD - googleapis used directly in infrastructure
+import { google } from 'googleapis';  // Direct dependency
+
+// GOOD - our module wraps the library
+import { SpreadsheetsClient } from '@modules/spreadsheet';  // Our abstraction
+```
+
+This applies to any external library:
+- HTTP clients (`axios`, `node-fetch`) → wrap in `src/modules/http/`
+- Date libraries (`date-fns`, `dayjs`) → wrap in a utility module
+- Validation libraries → wrap in domain or shared module
