@@ -59,7 +59,13 @@
         "noUselessConstructor": "error",
         "noForEach": "off",
         "noStaticOnlyClass": "off",
-        "useLiteralKeys": "off"
+        "useLiteralKeys": "off",
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 10
+          }
+        }
       },
       "correctness": {
         "noUnusedVariables": "error",

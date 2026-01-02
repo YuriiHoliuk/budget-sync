@@ -51,83 +51,172 @@ export class SyncTransactionsUseCase {
   async execute(
     options: SyncTransactionsOptions = {},
   ): Promise<SyncTransactionsResultDTO> {
-    const requestDelayMs = options.requestDelayMs ?? DEFAULT_REQUEST_DELAY_MS;
-    const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
-    const initialBackoffMs =
-      options.initialBackoffMs ?? DEFAULT_INITIAL_BACKOFF_MS;
-    const earliestSyncDate =
-      options.earliestSyncDate ?? DEFAULT_EARLIEST_SYNC_DATE;
-    const syncOverlapMs = options.syncOverlapMs ?? DEFAULT_SYNC_OVERLAP_MS;
+    const config = this.buildConfig(options);
+    const result = this.createEmptyResult();
 
-    const result: SyncTransactionsResultDTO = {
+    const accounts = await this.fetchAccountsOrReportError(result);
+    if (!accounts) {
+      return result;
+    }
+
+    result.totalAccounts = accounts.length;
+    await this.syncAllAccounts(accounts, config, result);
+
+    return result;
+  }
+
+  private buildConfig(options: SyncTransactionsOptions): Required<
+    Omit<SyncTransactionsOptions, 'earliestSyncDate'>
+  > & {
+    earliestSyncDate: Date;
+  } {
+    return {
+      requestDelayMs: options.requestDelayMs ?? DEFAULT_REQUEST_DELAY_MS,
+      maxRetries: options.maxRetries ?? DEFAULT_MAX_RETRIES,
+      initialBackoffMs: options.initialBackoffMs ?? DEFAULT_INITIAL_BACKOFF_MS,
+      earliestSyncDate: options.earliestSyncDate ?? DEFAULT_EARLIEST_SYNC_DATE,
+      syncOverlapMs: options.syncOverlapMs ?? DEFAULT_SYNC_OVERLAP_MS,
+    };
+  }
+
+  private createEmptyResult(): SyncTransactionsResultDTO {
+    return {
       totalAccounts: 0,
       syncedAccounts: 0,
       newTransactions: 0,
       skippedTransactions: 0,
       errors: [],
     };
+  }
 
-    let accounts: Account[];
+  private async fetchAccountsOrReportError(
+    result: SyncTransactionsResultDTO,
+  ): Promise<Account[] | null> {
     try {
-      accounts = await this.accountRepository.findByBank('monobank');
+      return await this.accountRepository.findByBank('monobank');
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
       result.errors.push(`Failed to fetch accounts: ${errorMessage}`);
-      return result;
+      return null;
     }
+  }
 
-    result.totalAccounts = accounts.length;
-
+  private async syncAllAccounts(
+    accounts: Account[],
+    config: ReturnType<typeof this.buildConfig>,
+    result: SyncTransactionsResultDTO,
+  ): Promise<void> {
     let isFirstRequest = true;
 
     for (const account of accounts) {
-      try {
-        const now = new Date();
-        const syncFrom = this.calculateSyncFrom(
-          account.lastSyncTime,
-          earliestSyncDate,
-          syncOverlapMs,
-        );
+      const syncResult = await this.syncSingleAccount(
+        account,
+        config,
+        isFirstRequest,
+      );
+      isFirstRequest = false;
 
-        const chunks = chunkDateRange(syncFrom, now, 31);
+      this.mergeAccountResult(result, syncResult);
+    }
+  }
 
-        for (const chunk of chunks) {
-          if (!isFirstRequest) {
-            await delay(requestDelayMs);
-          }
-          isFirstRequest = false;
+  private async syncSingleAccount(
+    account: Account,
+    config: ReturnType<typeof this.buildConfig>,
+    isFirstRequest: boolean,
+  ): Promise<{
+    synced: boolean;
+    newTransactions: number;
+    skippedTransactions: number;
+    error?: string;
+  }> {
+    try {
+      const now = new Date();
+      const syncFrom = this.calculateSyncFrom(
+        account.lastSyncTime,
+        config.earliestSyncDate,
+        config.syncOverlapMs,
+      );
 
-          const transactions = await this.fetchTransactionsWithRetry(
-            account.externalId,
-            chunk.from,
-            chunk.to,
-            maxRetries,
-            initialBackoffMs,
-          );
+      const { newCount, skippedCount } = await this.syncAccountChunks(
+        account.externalId,
+        syncFrom,
+        now,
+        config,
+        isFirstRequest,
+      );
 
-          const { newCount, skippedCount } =
-            await this.deduplicateAndSaveTransactions(transactions);
+      await this.accountRepository.updateLastSyncTime(
+        account.id,
+        now.getTime(),
+      );
 
-          result.newTransactions += newCount;
-          result.skippedTransactions += skippedCount;
-        }
+      return {
+        synced: true,
+        newTransactions: newCount,
+        skippedTransactions: skippedCount,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      return {
+        synced: false,
+        newTransactions: 0,
+        skippedTransactions: 0,
+        error: `Failed to sync account ${account.externalId}: ${errorMessage}`,
+      };
+    }
+  }
 
-        await this.accountRepository.updateLastSyncTime(
-          account.id,
-          now.getTime(),
-        );
-        result.syncedAccounts++;
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Unknown error';
-        result.errors.push(
-          `Failed to sync account ${account.externalId}: ${errorMessage}`,
-        );
+  private async syncAccountChunks(
+    accountExternalId: string,
+    syncFrom: Date,
+    syncTo: Date,
+    config: ReturnType<typeof this.buildConfig>,
+    isFirstRequest: boolean,
+  ): Promise<{ newCount: number; skippedCount: number }> {
+    const chunks = chunkDateRange(syncFrom, syncTo, 31);
+    let totalNewCount = 0;
+    let totalSkippedCount = 0;
+    let shouldDelay = !isFirstRequest;
+
+    for (const chunk of chunks) {
+      if (shouldDelay) {
+        await delay(config.requestDelayMs);
       }
+      shouldDelay = true;
+
+      const transactions = await this.fetchTransactionsWithRetry(
+        accountExternalId,
+        chunk.from,
+        chunk.to,
+        config.maxRetries,
+        config.initialBackoffMs,
+      );
+
+      const { newCount, skippedCount } =
+        await this.deduplicateAndSaveTransactions(transactions);
+
+      totalNewCount += newCount;
+      totalSkippedCount += skippedCount;
     }
 
-    return result;
+    return { newCount: totalNewCount, skippedCount: totalSkippedCount };
+  }
+
+  private mergeAccountResult(
+    result: SyncTransactionsResultDTO,
+    accountResult: Awaited<ReturnType<typeof this.syncSingleAccount>>,
+  ): void {
+    if (accountResult.synced) {
+      result.syncedAccounts++;
+    }
+    result.newTransactions += accountResult.newTransactions;
+    result.skippedTransactions += accountResult.skippedTransactions;
+    if (accountResult.error) {
+      result.errors.push(accountResult.error);
+    }
   }
 
   private calculateSyncFrom(

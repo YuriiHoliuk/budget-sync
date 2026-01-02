@@ -226,6 +226,34 @@ DTOs decouple layers and define contracts at boundaries:
    ```
    Fix any type errors and lint issues before considering the task complete.
 
+4. **Clean code and low complexity** - Code should read like a story:
+   - **One abstraction level per function** - Each function should operate at a single level of abstraction. Don't mix high-level orchestration with low-level details.
+   - **Keep cognitive complexity low** - Biome enforces max complexity of 10 via `noExcessiveCognitiveComplexity`. If a function exceeds this, refactor it.
+   - **Extract meaningful methods** - When you see nested loops, conditionals, or try-catch blocks, extract them into well-named private methods.
+   - **Method names should tell a story** - A public method should read as a sequence of high-level steps.
+   - **Order methods by usage (reading order)** - Public/entry methods first, then private methods in the order they are called. Reader should be able to read top-to-bottom like a newspaper article.
+     ```typescript
+     // Methods ordered by reading flow:
+     // 1. Public entry point first
+     async execute(): Promise<Result> {
+       const accounts = await this.fetchAccounts();
+       return await this.syncAllAccounts(accounts);
+     }
+
+     // 2. Then methods in order of first usage
+     private async fetchAccounts(): Promise<Account[]> { /* ... */ }
+
+     private async syncAllAccounts(accounts: Account[]): Promise<Result> {
+       for (const account of accounts) {
+         await this.syncSingleAccount(account);
+       }
+     }
+
+     // 3. Deeper helpers come last
+     private async syncSingleAccount(account: Account): Promise<void> { /* ... */ }
+     ```
+   - **Prefer early returns** - Reduce nesting by handling edge cases first with early returns.
+
 ### Entities
 
 ```typescript

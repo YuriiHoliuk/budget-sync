@@ -242,6 +242,14 @@ export class SpreadsheetTable<T extends Record<string, ColumnDefinition>> {
     );
     const dataRows = allRows.slice(1);
 
+    return this.filterDataRows(dataRows, predicate, options);
+  }
+
+  private filterDataRows(
+    dataRows: Row[],
+    predicate: (record: SchemaToRecord<T>) => boolean,
+    options: SpreadsheetTableOptions,
+  ): Array<{ rowIndex: number; record: SchemaToRecord<T> }> {
     const results: Array<{ rowIndex: number; record: SchemaToRecord<T> }> = [];
 
     for (let dataRowIndex = 0; dataRowIndex < dataRows.length; dataRowIndex++) {
@@ -251,20 +259,39 @@ export class SpreadsheetTable<T extends Record<string, ColumnDefinition>> {
       }
 
       const spreadsheetRowIndex = dataRowIndex + 2;
+      const match = this.tryParseAndMatch(
+        row,
+        spreadsheetRowIndex,
+        predicate,
+        options.skipInvalidRows ?? false,
+      );
 
-      try {
-        const record = this.parseRow(row, spreadsheetRowIndex);
-        if (predicate(record)) {
-          results.push({ rowIndex: spreadsheetRowIndex, record });
-        }
-      } catch (error) {
-        if (!options.skipInvalidRows) {
-          throw error;
-        }
+      if (match) {
+        results.push(match);
       }
     }
 
     return results;
+  }
+
+  private tryParseAndMatch(
+    row: Row,
+    rowIndex: number,
+    predicate: (record: SchemaToRecord<T>) => boolean,
+    skipInvalidRows: boolean,
+  ): { rowIndex: number; record: SchemaToRecord<T> } | null {
+    try {
+      const record = this.parseRow(row, rowIndex);
+      if (predicate(record)) {
+        return { rowIndex, record };
+      }
+      return null;
+    } catch (error) {
+      if (!skipInvalidRows) {
+        throw error;
+      }
+      return null;
+    }
   }
 
   /**
@@ -381,56 +408,67 @@ export class SpreadsheetTable<T extends Record<string, ColumnDefinition>> {
     switch (type) {
       case 'string':
         return String(value);
-
-      case 'number': {
-        if (typeof value === 'number') {
-          return value;
-        }
-        // Handle locale-specific decimal separators (e.g., "1 234,56" -> 1234.56)
-        const normalizedValue = String(value)
-          .replace(/\s/g, '') // Remove thousand separators (spaces)
-          .replace(',', '.'); // Convert comma decimal to period
-        const parsedNumber = Number(normalizedValue);
-        if (Number.isNaN(parsedNumber)) {
-          throw new RowParseError(rowIndex, columnName, 'number', value);
-        }
-        return parsedNumber;
-      }
-
-      case 'boolean': {
-        if (typeof value === 'boolean') {
-          return value;
-        }
-        const normalizedValue = String(value).toLowerCase();
-        if (
-          normalizedValue === 'true' ||
-          normalizedValue === 'yes' ||
-          normalizedValue === '1'
-        ) {
-          return true;
-        }
-        if (
-          normalizedValue === 'false' ||
-          normalizedValue === 'no' ||
-          normalizedValue === '0'
-        ) {
-          return false;
-        }
-        throw new RowParseError(rowIndex, columnName, 'boolean', value);
-      }
-
-      case 'date': {
-        // CellValue from spreadsheet is always string/number/boolean, not Date
-        const parsedDate = new Date(String(value));
-        if (Number.isNaN(parsedDate.getTime())) {
-          throw new RowParseError(rowIndex, columnName, 'date', value);
-        }
-        return parsedDate;
-      }
-
+      case 'number':
+        return this.parseNumberValue(value, rowIndex, columnName);
+      case 'boolean':
+        return this.parseBooleanValue(value, rowIndex, columnName);
+      case 'date':
+        return this.parseDateValue(value, rowIndex, columnName);
       default:
         return value;
     }
+  }
+
+  private parseNumberValue(
+    value: CellValue,
+    rowIndex: number,
+    columnName: string,
+  ): number {
+    if (typeof value === 'number') {
+      return value;
+    }
+    // Handle locale-specific decimal separators (e.g., "1 234,56" -> 1234.56)
+    const normalizedValue = String(value)
+      .replace(/\s/g, '') // Remove thousand separators (spaces)
+      .replace(',', '.'); // Convert comma decimal to period
+    const parsedNumber = Number(normalizedValue);
+    if (Number.isNaN(parsedNumber)) {
+      throw new RowParseError(rowIndex, columnName, 'number', value);
+    }
+    return parsedNumber;
+  }
+
+  private parseBooleanValue(
+    value: CellValue,
+    rowIndex: number,
+    columnName: string,
+  ): boolean {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    const normalizedValue = String(value).toLowerCase();
+    const truthyValues = ['true', 'yes', '1'];
+    const falsyValues = ['false', 'no', '0'];
+
+    if (truthyValues.includes(normalizedValue)) {
+      return true;
+    }
+    if (falsyValues.includes(normalizedValue)) {
+      return false;
+    }
+    throw new RowParseError(rowIndex, columnName, 'boolean', value);
+  }
+
+  private parseDateValue(
+    value: CellValue,
+    rowIndex: number,
+    columnName: string,
+  ): Date {
+    const parsedDate = new Date(String(value));
+    if (Number.isNaN(parsedDate.getTime())) {
+      throw new RowParseError(rowIndex, columnName, 'date', value);
+    }
+    return parsedDate;
   }
 
   /**
