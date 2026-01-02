@@ -32,6 +32,10 @@ export interface AccountRecord {
   externalId?: string;
   /** IBAN (optional) */
   iban?: string;
+  /** Bank name (e.g., "monobank") */
+  bank?: string;
+  /** Last sync timestamp in Unix seconds */
+  lastSyncTime?: number;
 }
 
 /**
@@ -83,6 +87,8 @@ export class SpreadsheetAccountMapper {
       creditLimit,
       externalId: account.externalId,
       iban: account.iban,
+      bank: account.bank,
+      lastSyncTime: account.lastSyncTime,
     };
   }
 
@@ -131,6 +137,8 @@ export class SpreadsheetAccountMapper {
         creditLimit,
         type: accountType,
         iban: record.iban,
+        bank: record.bank,
+        lastSyncTime: record.lastSyncTime,
       },
       accountId,
     );

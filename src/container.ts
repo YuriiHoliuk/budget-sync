@@ -9,6 +9,7 @@ import 'reflect-metadata';
 
 import { BANK_GATEWAY_TOKEN } from '@domain/gateways/BankGateway.ts';
 import { ACCOUNT_REPOSITORY_TOKEN } from '@domain/repositories/AccountRepository.ts';
+import { TRANSACTION_REPOSITORY_TOKEN } from '@domain/repositories/TransactionRepository.ts';
 import {
   MONOBANK_CONFIG_TOKEN,
   MonobankGateway,
@@ -18,6 +19,11 @@ import {
   SPREADSHEETS_CLIENT_TOKEN,
   SpreadsheetAccountRepository,
 } from '@infrastructure/repositories/SpreadsheetAccountRepository.ts';
+import {
+  ACCOUNT_NAME_RESOLVER_TOKEN,
+  SpreadsheetTransactionRepository,
+} from '@infrastructure/repositories/SpreadsheetTransactionRepository.ts';
+import { SpreadsheetAccountNameResolver } from '@infrastructure/services/AccountNameResolver.ts';
 import { SpreadsheetsClient } from '@modules/spreadsheet/SpreadsheetsClient.ts';
 import { container } from 'tsyringe';
 
@@ -72,6 +78,16 @@ export function setupContainer(): typeof container {
   container.register(BANK_GATEWAY_TOKEN, { useClass: MonobankGateway });
   container.register(ACCOUNT_REPOSITORY_TOKEN, {
     useClass: SpreadsheetAccountRepository,
+  });
+
+  // Account name resolver (needed by transaction repository)
+  container.register(ACCOUNT_NAME_RESOLVER_TOKEN, {
+    useClass: SpreadsheetAccountNameResolver,
+  });
+
+  // Transaction repository
+  container.register(TRANSACTION_REPOSITORY_TOKEN, {
+    useClass: SpreadsheetTransactionRepository,
   });
 
   return container;

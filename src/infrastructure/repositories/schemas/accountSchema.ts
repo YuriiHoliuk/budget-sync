@@ -59,6 +59,16 @@ export const accountSchema = {
     type: 'string',
     required: false,
   } as ColumnDefinition,
+  bank: {
+    name: 'Банк',
+    type: 'string',
+    required: false,
+  } as ColumnDefinition,
+  lastSyncTime: {
+    name: 'Остання синхронізація',
+    type: 'number',
+    required: false,
+  } as ColumnDefinition,
 } as const;
 
 /**

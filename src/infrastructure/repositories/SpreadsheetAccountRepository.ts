@@ -93,6 +93,45 @@ export class SpreadsheetAccountRepository
   }
 
   /**
+   * Find all accounts for a specific bank.
+   */
+  findByBank(bank: string): Promise<Account[]> {
+    return this.findAllBy((record) => record.bank === bank);
+  }
+
+  /**
+   * Update the last sync timestamp for an account.
+   * Finds the account by externalId and updates only the lastSyncTime field.
+   */
+  async updateLastSyncTime(
+    accountId: string,
+    timestamp: number,
+  ): Promise<void> {
+    const predicate = (record: SchemaToRecord<AccountSchema>) =>
+      record.externalId === accountId;
+
+    const result = await this.table.findRow(predicate, {
+      skipInvalidRows: true,
+    });
+
+    if (!result) {
+      throw new Error(
+        `Account not found for updating last sync time: ${accountId}`,
+      );
+    }
+
+    const updatedRecord = {
+      ...result.record,
+      lastSyncTime: timestamp,
+    };
+
+    await this.table.updateRowAt(
+      result.rowIndex,
+      updatedRecord as SchemaToRecord<AccountSchema>,
+    );
+  }
+
+  /**
    * Update an existing account in the spreadsheet.
    * Finds the account by externalId and updates its data.
    * Preserves user-defined name, only updates externalName with bank name.

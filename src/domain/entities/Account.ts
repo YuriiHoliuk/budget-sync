@@ -9,6 +9,8 @@ export interface AccountProps {
   type?: string;
   iban?: string;
   maskedPan?: string[];
+  bank?: string;
+  lastSyncTime?: number;
 }
 
 export class Account {
@@ -52,6 +54,14 @@ export class Account {
 
   get creditLimit(): Money | undefined {
     return this.props.creditLimit;
+  }
+
+  get bank(): string | undefined {
+    return this.props.bank;
+  }
+
+  get lastSyncTime(): number | undefined {
+    return this.props.lastSyncTime;
   }
 
   /**

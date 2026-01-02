@@ -14,4 +14,9 @@ export const ACCOUNT_REPOSITORY_TOKEN = Symbol('AccountRepository');
 export abstract class AccountRepository extends Repository<Account, string> {
   abstract findByExternalId(externalId: string): Promise<Account | null>;
   abstract findByIban(iban: string): Promise<Account | null>;
+  abstract findByBank(bank: string): Promise<Account[]>;
+  abstract updateLastSyncTime(
+    accountId: string,
+    timestamp: number,
+  ): Promise<void>;
 }

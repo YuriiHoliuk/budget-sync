@@ -23,6 +23,7 @@ export class MonobankMapper {
       type: raw.type,
       iban: raw.iban,
       maskedPan: raw.maskedPan,
+      bank: 'monobank',
     });
   }
 
