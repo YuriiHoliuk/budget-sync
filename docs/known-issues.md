@@ -112,17 +112,10 @@ For very large datasets, maintain a separate index (SQLite, JSON file) with exte
 
 ---
 
-## 5. No Retry for Spreadsheet API Failures
+## 5. Improve testing coverage
 
-**Problem:** If Google Sheets API fails during write, we don't retry - the sync partially completes.
-
-**Potential fix:** Add retry logic for spreadsheet operations, or implement transactional batching.
-
-## 6. Code is not very readable
-
-**Problem:** The code contains inline try-catch blocks for error handling. Also many imperative code from different levels of abstraction.
+**Problem:** We have unit tests for simplest things only and integration for real API (2 of them).
 
 **Potential fix:**
-Introduce more methods.
-Add tool for static analysis to check cyclomatic complexity.
-Instruct CLAUDE.md to follow clean code, code should be read as a story.
+- Add more unit tests for every class and method. We use DI and can mock everything.
+- Add "e2e" tests, where we use test spreadsheet and real API but mocked monobank API.
