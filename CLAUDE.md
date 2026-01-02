@@ -26,6 +26,15 @@ Environment variables in `.env`:
 - Monobank API docs: `docs/monobank-api.md`
 - Google Sheets API docs: `docs/google-sheets-api.md`
 
+## Spreadsheet Scripts
+
+When you need to manually read or edit the spreadsheet structure (e.g., to understand sheet names, column headers, or add new columns), use the scripts in `scripts/`. See `scripts/README.md` for detailed usage.
+
+**Available scripts:**
+- `bun scripts/list-spreadsheet-sheets.ts` - List all sheet names
+- `bun scripts/read-spreadsheet-headers.ts <sheetName>` - Read column headers
+- `bun scripts/add-spreadsheet-columns.ts <sheetName> <columns...>` - Add new columns
+
 ---
 
 ## Architecture
