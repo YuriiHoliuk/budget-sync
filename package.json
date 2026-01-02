@@ -1,0 +1,23 @@
+{
+  "name": "budget-sync",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run src/main.ts",
+    "dev": "bun --watch run src/main.ts",
+    "test": "bun test tests/unit",
+    "test:watch": "bun test --watch tests/unit",
+    "test:integration": "bun test tests/integration",
+    "test:coverage": "bun test --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "reflect-metadata": "^0.2.2",
+    "tsyringe": "^4.8.0"
+  }
+}

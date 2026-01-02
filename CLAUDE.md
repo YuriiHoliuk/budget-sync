@@ -1,0 +1,704 @@
+# Budget Sync
+
+Personal finance management tool for tracking spendings, income, capital, and budgeting.
+
+> **Note**: Code examples in this document are illustrative only. They demonstrate patterns and conventions but should not be copied verbatim. Adapt them to actual requirements.
+
+## Tech Stack
+
+- **Runtime**: Bun
+- **Language**: TypeScript (strict mode)
+- **Dependency Injection**: TSyringe (injection by type, no string tokens)
+- **Testing**: Bun's built-in test runner
+- **Architecture**: Clean Architecture (Layered / Hexagonal)
+
+## Configuration
+
+Environment variables in `.env`:
+- `MONOBANK_TOKEN` - Personal Monobank API token
+- `SPREADSHEET_ID` - Google Spreadsheet document ID
+- `GOOGLE_SERVICE_ACCOUNT_FILE` - Path to Google service account JSON
+
+## Resources
+
+- Spreadsheet: https://docs.google.com/spreadsheets/d/135dmcPNwvPA8tEuND4-UlUwMmPqpiNZBINoQJH1qJCw/edit
+- Monobank API docs: `docs/monobank-api.md`
+- Google Sheets API docs: `docs/google-sheets-api.md`
+
+---
+
+## Architecture
+
+### Clean Architecture Layers
+
+```
+src/
+├── domain/              # Core business logic (innermost layer)
+├── application/         # Use cases and orchestration
+├── infrastructure/      # External implementations
+├── modules/             # Reusable, business-agnostic utilities
+├── presentation/        # Entry points (CLI, HTTP)
+└── main.ts              # Composition root (DI setup)
+```
+
+### Dependency Rule
+
+Dependencies MUST point inward:
+- `domain` → imports nothing from other layers
+- `application` → imports from `domain` only
+- `infrastructure` → imports from `domain` and `application`
+- `presentation` → imports from `application` (and DI container)
+
+**Never import infrastructure code in domain or application layers.**
+
+---
+
+## Project Structure
+
+```
+src/
+├── domain/
+│   ├── entities/
+│   │   ├── Transaction.ts
+│   │   ├── Account.ts
+│   │   ├── Budget.ts
+│   │   └── Category.ts
+│   ├── value-objects/
+│   │   ├── Money.ts
+│   │   ├── Currency.ts
+│   │   ├── DateRange.ts
+│   │   └── TransactionId.ts
+│   ├── repositories/              # Abstract classes (interfaces)
+│   │   ├── TransactionRepository.ts
+│   │   └── AccountRepository.ts
+│   ├── gateways/                  # Abstract classes (interfaces)
+│   │   └── BankGateway.ts         # Generic - no "Monobank" in name
+│   ├── services/                  # Domain services
+│   │   └── BudgetCalculationService.ts
+│   └── errors/
+│       └── DomainErrors.ts
+│
+├── application/
+│   ├── use-cases/
+│   │   ├── SyncTransactions.ts    # Generic - no "Bank" or "Spreadsheet"
+│   │   ├── GetTransactions.ts
+│   │   └── CategorizeTransaction.ts
+│   ├── dtos/
+│   │   ├── SyncRequestDTO.ts
+│   │   └── SyncResultDTO.ts
+│   └── services/
+│       └── TransactionService.ts
+│
+├── infrastructure/
+│   ├── repositories/
+│   │   ├── SpreadsheetTransactionRepository.ts  # Impl knows about spreadsheet
+│   │   └── InMemoryTransactionRepository.ts
+│   ├── gateways/
+│   │   └── MonobankGateway.ts     # Impl knows about Monobank
+│   ├── mappers/                   # Mappers live here, used by repos/gateways
+│   │   ├── MonobankTransactionMapper.ts
+│   │   └── SpreadsheetRowMapper.ts
+│   └── config/
+│       └── environment.ts
+│
+├── modules/                       # Reusable, business-agnostic code
+│   ├── spreadsheet/               # Google Sheets API wrapper
+│   │   ├── SpreadsheetsClient.ts
+│   │   ├── types.ts
+│   │   └── index.ts
+│   └── http/                      # HTTP client utilities
+│       ├── HttpClient.ts
+│       └── index.ts
+│
+├── presentation/
+│   ├── cli/
+│   │   └── commands/
+│   │       └── sync.ts
+│   └── http/                      # Future: webhooks
+│       ├── controllers/
+│       └── routes/
+│
+├── container.ts                   # DI container setup
+└── main.ts                        # Entry point
+```
+
+---
+
+## Domain Model
+
+### Entities (have identity)
+
+**Transaction**
+- `id: TransactionId` - unique identifier
+- `externalId: string` - ID from source (for deduplication)
+- `date: Date`
+- `amount: Money`
+- `description: string`
+- `category: Category | null`
+- `account: AccountId`
+- `type: TransactionType` (CREDIT | DEBIT)
+
+**Account**
+- `id: AccountId`
+- `externalId: string` - ID from source
+- `name: string`
+- `currency: Currency`
+- `balance: Money`
+
+**Category**
+- `id: CategoryId`
+- `name: string`
+- `type: CategoryType` (INCOME | EXPENSE)
+
+**Budget**
+- `id: BudgetId`
+- `category: CategoryId`
+- `amount: Money`
+- `period: DateRange`
+
+### Value Objects (immutable, no identity)
+
+Value Objects encapsulate validation and behavior for primitive-like concepts:
+
+**Why use them?**
+- Single source of validation (rules defined once)
+- Type safety (can't pass raw number where Money expected)
+- Encapsulated behavior (arithmetic, formatting, comparison)
+- Immutability (prevents accidental mutations)
+
+**Money**
+- `amount: number` (in minor units, e.g., kopecks)
+- `currency: Currency`
+- Methods: `add()`, `subtract()`, `isNegative()`, `format()`
+
+**Currency**
+- `code: string` (ISO 4217: UAH, USD, EUR)
+
+**DateRange**
+- `from: Date`
+- `to: Date`
+- Methods: `contains(date)`, `overlaps(range)`
+
+**TransactionType**: `CREDIT` | `DEBIT`
+
+### DTOs (Data Transfer Objects)
+
+DTOs decouple layers and define contracts at boundaries:
+
+**Why use them?**
+- Decouple presentation from domain (HTTP controller doesn't need domain entities)
+- Version API independently (change domain without breaking API)
+- Validate/transform at boundary (parse strings to dates, etc.)
+- Clear input/output contracts for use cases
+
+---
+
+## Coding Conventions
+
+### Entities
+
+```typescript
+// domain/entities/Transaction.ts
+export class Transaction extends Entity<TransactionId> {
+  private constructor(id: TransactionId, private props: TransactionProps) {
+    super(id);
+  }
+
+  static create(props: TransactionProps, id?: TransactionId): Transaction {
+    // Validation logic here
+    return new Transaction(id ?? TransactionId.generate(), props);
+  }
+
+  get amount(): Money {
+    return this.props.amount;
+  }
+
+  categorize(categoryId: CategoryId): void {
+    this.props.category = categoryId;
+  }
+}
+```
+
+### Value Objects
+
+```typescript
+// domain/value-objects/Money.ts
+export class Money {
+  private constructor(
+    public readonly amount: number,  // Minor units (kopecks)
+    public readonly currency: Currency
+  ) {}
+
+  static create(amount: number, currency: Currency): Money {
+    return new Money(amount, currency);
+  }
+
+  add(other: Money): Money {
+    this.assertSameCurrency(other);
+    return new Money(this.amount + other.amount, this.currency);
+  }
+
+  private assertSameCurrency(other: Money): void {
+    if (!this.currency.equals(other.currency)) {
+      throw new Error('Cannot operate on different currencies');
+    }
+  }
+}
+```
+
+### Repository Interface (Domain)
+
+Use abstract class for DI by type:
+
+```typescript
+// domain/repositories/TransactionRepository.ts
+export abstract class TransactionRepository {
+  abstract findById(id: TransactionId): Promise<Transaction | null>;
+  abstract findByExternalId(externalId: string): Promise<Transaction | null>;
+  abstract findByDateRange(range: DateRange): Promise<Transaction[]>;
+  abstract save(transaction: Transaction): Promise<void>;
+  abstract saveMany(transactions: Transaction[]): Promise<void>;
+}
+```
+
+### Gateway Interface (Domain)
+
+Gateway returns **domain objects**, not external formats:
+
+```typescript
+// domain/gateways/BankGateway.ts
+export abstract class BankGateway {
+  abstract getAccounts(): Promise<Account[]>;
+  abstract getTransactions(accountId: string, from: Date, to: Date): Promise<Transaction[]>;
+}
+```
+
+**Important**: Gateway returns `Transaction[]` (domain), not bank-specific format. Mapping is internal to the implementation.
+
+### Use Case (Application)
+
+Use cases work only with **domain types** and **DTOs**:
+
+```typescript
+// application/use-cases/SyncTransactions.ts
+import { injectable } from 'tsyringe';
+
+// DTOs define input/output contracts
+export interface SyncRequestDTO {
+  accountId: string;
+  from: Date;
+  to: Date;
+}
+
+export interface SyncResultDTO {
+  newTransactions: number;
+  skippedTransactions: number;
+}
+
+@injectable()
+export class SyncTransactionsUseCase {
+  constructor(
+    private bankGateway: BankGateway,           // Injected by type
+    private transactionRepo: TransactionRepository
+  ) {}
+
+  async execute(request: SyncRequestDTO): Promise<SyncResultDTO> {
+    // Gateway returns domain objects - no mapping here
+    const transactions = await this.bankGateway.getTransactions(
+      request.accountId,
+      request.from,
+      request.to
+    );
+
+    let newCount = 0;
+    let skippedCount = 0;
+
+    for (const transaction of transactions) {
+      const existing = await this.transactionRepo.findByExternalId(
+        transaction.externalId
+      );
+
+      if (!existing) {
+        await this.transactionRepo.save(transaction);
+        newCount++;
+      } else {
+        skippedCount++;
+      }
+    }
+
+    return { newTransactions: newCount, skippedTransactions: skippedCount };
+  }
+}
+```
+
+### Gateway Implementation (Infrastructure)
+
+Mapper is internal to infrastructure - use case never sees external format:
+
+```typescript
+// infrastructure/gateways/MonobankGateway.ts
+import { injectable } from 'tsyringe';
+import { BankGateway } from '../../domain/gateways/BankGateway';
+import { Transaction } from '../../domain/entities/Transaction';
+import { MonobankTransactionMapper } from '../mappers/MonobankTransactionMapper';
+
+@injectable()
+export class MonobankGateway extends BankGateway {
+  private readonly baseUrl = 'https://api.monobank.ua';
+  private readonly mapper = new MonobankTransactionMapper();
+
+  constructor(
+    private http: HttpClient,
+    private config: Config
+  ) {
+    super();
+  }
+
+  async getTransactions(accountId: string, from: Date, to: Date): Promise<Transaction[]> {
+    const fromTs = Math.floor(from.getTime() / 1000);
+    const toTs = Math.floor(to.getTime() / 1000);
+
+    const response = await this.http.get(
+      `${this.baseUrl}/personal/statement/${accountId}/${fromTs}/${toTs}`,
+      { headers: { 'X-Token': this.config.monobankToken } }
+    );
+
+    // Mapping happens here - internal to gateway
+    return response.data.map((item: MonobankStatementItem) =>
+      this.mapper.toDomain(item, accountId)
+    );
+  }
+}
+```
+
+### Repository Implementation (Infrastructure)
+
+```typescript
+// infrastructure/repositories/SpreadsheetTransactionRepository.ts
+import { injectable } from 'tsyringe';
+import { TransactionRepository } from '../../domain/repositories/TransactionRepository';
+import { SpreadsheetRowMapper } from '../mappers/SpreadsheetRowMapper';
+
+@injectable()
+export class SpreadsheetTransactionRepository extends TransactionRepository {
+  private readonly mapper = new SpreadsheetRowMapper();
+
+  constructor(
+    private spreadsheet: SpreadsheetsClient,
+    private config: Config
+  ) {
+    super();
+  }
+
+  async save(transaction: Transaction): Promise<void> {
+    const row = this.mapper.toRow(transaction);  // Mapping internal to repo
+    await this.spreadsheet.appendRows(
+      this.config.spreadsheetId,
+      'Transactions',
+      [row]
+    );
+  }
+
+  async findByExternalId(externalId: string): Promise<Transaction | null> {
+    const rows = await this.spreadsheet.readRange(/* ... */);
+    const row = rows.find(r => r[0] === externalId);
+    return row ? this.mapper.toDomain(row) : null;
+  }
+}
+```
+
+### Reusable Module (Business-Agnostic)
+
+```typescript
+// modules/spreadsheet/SpreadsheetsClient.ts
+import { google } from 'googleapis';
+
+export class SpreadsheetsClient {
+  private sheets;
+
+  constructor(serviceAccountPath: string) {
+    const auth = new google.auth.GoogleAuth({
+      keyFile: serviceAccountPath,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    this.sheets = google.sheets({ version: 'v4', auth });
+  }
+
+  async readRange(spreadsheetId: string, range: string): Promise<string[][]> {
+    const response = await this.sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+    });
+    return response.data.values || [];
+  }
+
+  async appendRows(spreadsheetId: string, sheetName: string, rows: string[][]): Promise<void> {
+    await this.sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: rows },
+    });
+  }
+}
+```
+
+---
+
+## Dependency Injection
+
+### Injection by Type (No String Tokens)
+
+Define interfaces as abstract classes to enable type-based injection:
+
+```typescript
+// domain/repositories/TransactionRepository.ts
+export abstract class TransactionRepository {
+  abstract findById(id: TransactionId): Promise<Transaction | null>;
+  // ...
+}
+
+// domain/gateways/BankGateway.ts
+export abstract class BankGateway {
+  abstract getTransactions(...): Promise<Transaction[]>;
+  // ...
+}
+```
+
+### Container Setup
+
+```typescript
+// container.ts
+import 'reflect-metadata';
+import { container } from 'tsyringe';
+
+// Register by type - no string tokens needed
+container.register(BankGateway, { useClass: MonobankGateway });
+container.register(TransactionRepository, { useClass: SpreadsheetTransactionRepository });
+
+// Modules
+container.register(SpreadsheetsClient, {
+  useValue: new SpreadsheetsClient(config.serviceAccountFile)
+});
+container.register(HttpClient, { useClass: HttpClient });
+container.register(Config, { useValue: config });
+
+export { container };
+```
+
+### Usage in Classes
+
+```typescript
+@injectable()
+export class SyncTransactionsUseCase {
+  constructor(
+    private bankGateway: BankGateway,           // Auto-resolved by type
+    private transactionRepo: TransactionRepository  // Auto-resolved by type
+  ) {}
+}
+```
+
+---
+
+## Testing
+
+### Test Structure
+
+```
+tests/
+├── unit/
+│   ├── domain/
+│   │   ├── entities/
+│   │   │   └── Transaction.test.ts
+│   │   └── value-objects/
+│   │       └── Money.test.ts
+│   └── application/
+│       └── use-cases/
+│           └── SyncTransactions.test.ts
+└── integration/
+    ├── gateways/
+    │   └── MonobankGateway.test.ts
+    └── repositories/
+        └── SpreadsheetTransactionRepository.test.ts
+```
+
+### Running Tests
+
+```bash
+# Run all unit tests
+bun test tests/unit
+
+# Run with watch mode
+bun test --watch
+
+# Run specific test file
+bun test tests/unit/domain/value-objects/Money.test.ts
+
+# Run with coverage
+bun test --coverage
+
+# Run integration tests (manual, uses real APIs)
+SPREADSHEET_ID=test-sheet-id bun test tests/integration
+```
+
+### Unit Tests
+
+Unit tests use mocks for repositories and gateways:
+
+```typescript
+// tests/unit/domain/value-objects/Money.test.ts
+import { describe, test, expect } from 'bun:test';
+import { Money } from '@/domain/value-objects/Money';
+
+describe('Money', () => {
+  test('should add two money values', () => {
+    const a = Money.create(5000, Currency.UAH);
+    const b = Money.create(3000, Currency.UAH);
+    expect(a.add(b).amount).toBe(8000);
+  });
+
+  test('should throw when adding different currencies', () => {
+    const uah = Money.create(5000, Currency.UAH);
+    const usd = Money.create(100, Currency.USD);
+    expect(() => uah.add(usd)).toThrow();
+  });
+});
+```
+
+### Use Case Unit Test
+
+```typescript
+// tests/unit/application/use-cases/SyncTransactions.test.ts
+import { describe, test, expect, mock } from 'bun:test';
+
+describe('SyncTransactionsUseCase', () => {
+  test('should save new transactions', async () => {
+    const mockTransaction = Transaction.create({ /* ... */ });
+
+    const mockGateway = {
+      getTransactions: mock(() => Promise.resolve([mockTransaction])),
+    };
+
+    const mockRepo = {
+      findByExternalId: mock(() => Promise.resolve(null)),  // Not found
+      save: mock(() => Promise.resolve()),
+    };
+
+    const useCase = new SyncTransactionsUseCase(
+      mockGateway as BankGateway,
+      mockRepo as TransactionRepository
+    );
+
+    const result = await useCase.execute({
+      accountId: '0',
+      from: new Date('2024-01-01'),
+      to: new Date('2024-01-31'),
+    });
+
+    expect(result.newTransactions).toBe(1);
+    expect(mockRepo.save).toHaveBeenCalledTimes(1);
+  });
+
+  test('should skip existing transactions', async () => {
+    const existingTransaction = Transaction.create({ /* ... */ });
+
+    const mockGateway = {
+      getTransactions: mock(() => Promise.resolve([existingTransaction])),
+    };
+
+    const mockRepo = {
+      findByExternalId: mock(() => Promise.resolve(existingTransaction)),  // Found
+      save: mock(() => Promise.resolve()),
+    };
+
+    const useCase = new SyncTransactionsUseCase(
+      mockGateway as BankGateway,
+      mockRepo as TransactionRepository
+    );
+
+    const result = await useCase.execute({ /* ... */ });
+
+    expect(result.newTransactions).toBe(0);
+    expect(result.skippedTransactions).toBe(1);
+    expect(mockRepo.save).not.toHaveBeenCalled();
+  });
+});
+```
+
+### Integration Tests
+
+Integration tests use **real APIs** and are run manually. Environment variables can be overridden:
+
+```typescript
+// tests/integration/gateways/MonobankGateway.test.ts
+import { describe, test, expect } from 'bun:test';
+
+describe('MonobankGateway Integration', () => {
+  const gateway = new MonobankGateway(
+    new HttpClient(),
+    { monobankToken: process.env.MONOBANK_TOKEN! }
+  );
+
+  test('should fetch real transactions', async () => {
+    const from = new Date('2024-01-01');
+    const to = new Date('2024-01-31');
+
+    const transactions = await gateway.getTransactions('0', from, to);
+
+    expect(Array.isArray(transactions)).toBe(true);
+    // Transactions are domain objects
+    if (transactions.length > 0) {
+      expect(transactions[0]).toBeInstanceOf(Transaction);
+    }
+  });
+});
+```
+
+```typescript
+// tests/integration/repositories/SpreadsheetTransactionRepository.test.ts
+import { describe, test, expect } from 'bun:test';
+
+describe('SpreadsheetTransactionRepository Integration', () => {
+  // Use test spreadsheet - override via env
+  const spreadsheetId = process.env.TEST_SPREADSHEET_ID || process.env.SPREADSHEET_ID;
+
+  const repo = new SpreadsheetTransactionRepository(
+    new SpreadsheetsClient(process.env.GOOGLE_SERVICE_ACCOUNT_FILE!),
+    { spreadsheetId }
+  );
+
+  test('should save and retrieve transaction', async () => {
+    const transaction = Transaction.create({ /* ... */ });
+
+    await repo.save(transaction);
+    const found = await repo.findByExternalId(transaction.externalId);
+
+    expect(found).not.toBeNull();
+    expect(found!.externalId).toBe(transaction.externalId);
+  });
+});
+```
+
+**Running integration tests:**
+
+```bash
+# Use production credentials
+bun test tests/integration
+
+# Use test spreadsheet
+TEST_SPREADSHEET_ID=test-123 bun test tests/integration/repositories
+```
+
+---
+
+## Key Principles
+
+1. **Domain is pure** - No external dependencies, no infrastructure knowledge
+2. **Interfaces as abstract classes** - Enables type-based DI without string tokens
+3. **Mappers in infrastructure** - Use cases work only with domain types
+4. **Gateways return domain objects** - External formats are hidden in implementations
+5. **Repositories are generic** - Named `TransactionRepository`, not `SpreadsheetTransactionRepository` in domain
+6. **Use cases are generic** - Named `SyncTransactions`, not `SyncFromMonobank` or `ExportToSpreadsheet`
+7. **Unit tests mock boundaries** - Repositories and gateways are mocked
+8. **Integration tests use real APIs** - Run manually, support env overrides
