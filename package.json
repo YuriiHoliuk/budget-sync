@@ -6,6 +6,8 @@
   "scripts": {
     "start": "bun run src/main.ts",
     "dev": "bun --watch run src/main.ts",
+    "cli": "bun run src/main.ts",
+    "sync-accounts": "bun run src/main.ts sync-accounts",
     "test": "bun test tests/unit",
     "test:watch": "bun test --watch tests/unit",
     "test:integration": "bun test tests/integration",
@@ -16,16 +18,25 @@
     "format": "biome format .",
     "format:fix": "biome format --write .",
     "check": "biome check .",
-    "check:fix": "biome check --write ."
+    "check:fix": "biome check --write .",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",
     "@types/bun": "latest",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   },
   "dependencies": {
+    "commander": "^14.0.2",
+    "dotenv": "^17.2.3",
     "googleapis": "^169.0.0",
     "reflect-metadata": "^0.2.2",
     "tsyringe": "^4.8.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json}": ["biome check --write"]
   }
 }

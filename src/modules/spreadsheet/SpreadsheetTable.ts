@@ -386,7 +386,11 @@ export class SpreadsheetTable<T extends Record<string, ColumnDefinition>> {
         if (typeof value === 'number') {
           return value;
         }
-        const parsedNumber = Number(value);
+        // Handle locale-specific decimal separators (e.g., "1 234,56" -> 1234.56)
+        const normalizedValue = String(value)
+          .replace(/\s/g, '') // Remove thousand separators (spaces)
+          .replace(',', '.'); // Convert comma decimal to period
+        const parsedNumber = Number(normalizedValue);
         if (Number.isNaN(parsedNumber)) {
           throw new RowParseError(rowIndex, columnName, 'number', value);
         }

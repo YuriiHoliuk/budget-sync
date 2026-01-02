@@ -8,6 +8,18 @@
   "files": {
     "includes": ["src/**/*.ts", "tests/**/*.ts"]
   },
+  "overrides": [
+    {
+      "includes": ["src/presentation/cli/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    }
+  ],
   "formatter": {
     "enabled": true,
     "indentStyle": "space",

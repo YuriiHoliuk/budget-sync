@@ -5,6 +5,7 @@ export interface AccountProps {
   name: string;
   currency: Currency;
   balance: Money;
+  creditLimit?: Money;
   type?: string;
   iban?: string;
   maskedPan?: string[];
@@ -47,5 +48,30 @@ export class Account {
 
   get maskedPan(): string[] | undefined {
     return this.props.maskedPan;
+  }
+
+  get creditLimit(): Money | undefined {
+    return this.props.creditLimit;
+  }
+
+  /**
+   * Returns true if this account has a credit limit (is a credit card).
+   */
+  get isCreditAccount(): boolean {
+    return (
+      this.props.creditLimit !== undefined && this.props.creditLimit.amount > 0
+    );
+  }
+
+  /**
+   * For credit accounts, returns the actual balance (balance - creditLimit).
+   * This shows negative when credit is used.
+   * For non-credit accounts, returns the regular balance.
+   */
+  get actualBalance(): Money {
+    if (this.isCreditAccount && this.props.creditLimit) {
+      return this.props.balance.subtract(this.props.creditLimit);
+    }
+    return this.props.balance;
   }
 }

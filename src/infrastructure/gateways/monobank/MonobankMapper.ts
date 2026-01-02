@@ -11,12 +11,15 @@ export class MonobankMapper {
   toAccount(raw: MonobankAccount): Account {
     const currency = Currency.fromNumericCode(raw.currencyCode);
     const balance = Money.create(raw.balance, currency);
+    const creditLimit =
+      raw.creditLimit > 0 ? Money.create(raw.creditLimit, currency) : undefined;
 
     return Account.create({
       externalId: raw.id,
       name: this.buildAccountName(raw),
       currency,
       balance,
+      creditLimit,
       type: raw.type,
       iban: raw.iban,
       maskedPan: raw.maskedPan,
