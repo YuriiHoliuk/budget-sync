@@ -26,30 +26,42 @@ import type {
 type SheetsApi = sheets_v4.Sheets;
 
 export interface SpreadsheetsClientConfig {
-  serviceAccountFile: string;
+  /**
+   * Path to Google service account JSON file.
+   * If not provided, uses Application Default Credentials (ADC).
+   * ADC works automatically on Google Cloud (Cloud Run, GCE, etc.).
+   */
+  serviceAccountFile?: string;
 }
 
 export class SpreadsheetsClient {
   private sheets: SheetsApi | null = null;
-  private readonly serviceAccountFile: string;
+  private readonly serviceAccountFile?: string;
 
-  constructor(config: SpreadsheetsClientConfig) {
+  constructor(config: SpreadsheetsClientConfig = {}) {
     this.serviceAccountFile = config.serviceAccountFile;
   }
 
   /**
    * Initialize the Google Sheets API client (lazy initialization)
+   *
+   * Uses explicit service account file if provided, otherwise falls back
+   * to Application Default Credentials (ADC) for cloud environments.
    */
   private getClient(): SheetsApi {
     if (this.sheets) {
       return this.sheets;
     }
 
-    const auth = new google.auth.GoogleAuth({
-      keyFile: this.serviceAccountFile,
+    const authOptions: { keyFile?: string; scopes: string[] } = {
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
+    };
 
+    if (this.serviceAccountFile) {
+      authOptions.keyFile = this.serviceAccountFile;
+    }
+
+    const auth = new google.auth.GoogleAuth(authOptions);
     this.sheets = google.sheets({ version: 'v4', auth });
 
     return this.sheets;

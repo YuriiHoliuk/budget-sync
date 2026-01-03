@@ -1,0 +1,19 @@
+# Docker Compose for local testing
+#
+# Usage:
+#   docker compose build
+#   docker compose run --rm budget-sync sync-accounts
+#   docker compose run --rm budget-sync sync-transactions
+
+services:
+  budget-sync:
+    build: .
+    env_file: .env
+    volumes:
+      # Mount service account file for local development
+      # Update path to match your local service account file
+      - ${GOOGLE_SERVICE_ACCOUNT_FILE}:/secrets/google-sa.json:ro
+    environment:
+      # Override to use mounted path in container
+      - GOOGLE_SERVICE_ACCOUNT_FILE=/secrets/google-sa.json
+    command: ["sync-transactions"]

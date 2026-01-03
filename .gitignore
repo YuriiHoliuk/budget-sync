@@ -24,6 +24,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # credentials
 service-account.json
+deployer-key.json
 *.pem
 *.key
 
@@ -37,3 +38,6 @@ service-account.json
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# Downloaded packages
+*.pkg

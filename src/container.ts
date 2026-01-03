@@ -45,6 +45,14 @@ function getRequiredEnv(variableName: string): string {
 }
 
 /**
+ * Retrieves an optional environment variable.
+ * Returns undefined if the variable is not set.
+ */
+function getOptionalEnv(variableName: string): string | undefined {
+  return process.env[variableName];
+}
+
+/**
  * Sets up the dependency injection container with all required dependencies.
  *
  * This function should be called once at application startup, before
@@ -62,9 +70,11 @@ export function setupContainer(): typeof container {
     spreadsheetId: getRequiredEnv('SPREADSHEET_ID'),
   };
 
-  const spreadsheetsClient = new SpreadsheetsClient({
-    serviceAccountFile: getRequiredEnv('GOOGLE_SERVICE_ACCOUNT_FILE'),
-  });
+  // Service account file is optional - uses ADC on Google Cloud
+  const serviceAccountFile = getOptionalEnv('GOOGLE_SERVICE_ACCOUNT_FILE');
+  const spreadsheetsClient = new SpreadsheetsClient(
+    serviceAccountFile ? { serviceAccountFile } : {},
+  );
 
   // Register infrastructure dependencies (config tokens and clients)
   container.register(SPREADSHEETS_CLIENT_TOKEN, {

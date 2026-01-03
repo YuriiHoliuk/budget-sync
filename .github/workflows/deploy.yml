@@ -1,0 +1,147 @@
+# Deploy to Google Cloud Run
+#
+# Triggers on push to main branch or manual dispatch.
+# Runs tests, builds Docker image, and deploys Cloud Run Jobs.
+#
+# Required GitHub Secrets:
+#   GCP_PROJECT_ID - Google Cloud project ID (e.g., budget-sync-483105)
+#   GCP_SA_KEY    - Deployer service account JSON key
+
+name: Deploy to Google Cloud
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: europe-central2
+  REPOSITORY: budget-sync
+  IMAGE_NAME: budget-sync
+
+jobs:
+  # ========================================
+  # Job 1: Test
+  # ========================================
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type check
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run check
+
+      - name: Run tests
+        run: bun test tests/unit
+
+  # ========================================
+  # Job 2: Build and Push Docker Image
+  # ========================================
+  build:
+    name: Build
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Extract metadata
+        id: meta
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${SHORT_SHA}"
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Build Docker image
+        run: docker build -t ${{ steps.meta.outputs.image_tag }} .
+
+      - name: Push Docker image
+        run: docker push ${{ steps.meta.outputs.image_tag }}
+
+  # ========================================
+  # Job 3: Deploy Cloud Run Jobs
+  # ========================================
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy sync-transactions job
+        run: |
+          gcloud run jobs deploy sync-transactions \
+            --image=${{ needs.build.outputs.image_tag }} \
+            --region=${{ env.REGION }} \
+            --service-account=budget-sync-runner@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --set-secrets="MONOBANK_TOKEN=monobank-token:latest,SPREADSHEET_ID=spreadsheet-id:latest" \
+            --cpu=1 \
+            --memory=512Mi \
+            --max-retries=1 \
+            --task-timeout=15m \
+            --args="sync-transactions"
+
+      - name: Deploy sync-accounts job
+        run: |
+          gcloud run jobs deploy sync-accounts \
+            --image=${{ needs.build.outputs.image_tag }} \
+            --region=${{ env.REGION }} \
+            --service-account=budget-sync-runner@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --set-secrets="MONOBANK_TOKEN=monobank-token:latest,SPREADSHEET_ID=spreadsheet-id:latest" \
+            --cpu=1 \
+            --memory=256Mi \
+            --max-retries=1 \
+            --task-timeout=5m \
+            --args="sync-accounts"
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ needs.build.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Jobs deployed:**" >> $GITHUB_STEP_SUMMARY
+          echo "- sync-transactions" >> $GITHUB_STEP_SUMMARY
+          echo "- sync-accounts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Manual execution:**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "gcloud run jobs execute sync-transactions --region=${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

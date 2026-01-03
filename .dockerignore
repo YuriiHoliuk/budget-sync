@@ -1,0 +1,51 @@
+# Dependencies
+node_modules
+
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Environment and secrets
+.env
+.env.*
+*.json
+!package.json
+!tsconfig.json
+
+# Documentation
+*.md
+docs/
+LICENSE
+
+# Tests
+tests/
+*.test.ts
+coverage/
+
+# Scripts (not needed in container)
+scripts/
+
+# Build artifacts
+dist/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Husky
+.husky/
+
+# Biome
+biome.json
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
