@@ -140,7 +140,7 @@ jobs:
             --service-account=budget-sync-runner@${GCP_PROJECT}.iam.gserviceaccount.com \
             --set-secrets="MONOBANK_TOKEN=monobank-token:latest,SPREADSHEET_ID=spreadsheet-id:latest" \
             --cpu=1 \
-            --memory=256Mi \
+            --memory=512Mi \
             --max-retries=1 \
             --task-timeout=5m \
             --args="sync-accounts"
