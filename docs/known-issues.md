@@ -119,3 +119,17 @@ For very large datasets, maintain a separate index (SQLite, JSON file) with exte
 **Potential fix:**
 - Add more unit tests for every class and method. We use DI and can mock everything.
 - Add "e2e" tests, where we use test spreadsheet and real API but mocked monobank API.
+
+## 6. Use something like appConfig and avoid using env directly everywhere.
+
+## 7. File/Folder structure.
+
+**Problem:** We structure not by domain/modules but by type of entity (use-cases, repositories, gateways, dockerfiles, etc.).
+I find this approach worse but now it works fine. In case if not need to think about restructuring.
+E.g. structure per module/domain/topic, etc. And have use-case, services, repositories for similar purposes close by.
+
+## 8. We run gcloud commands to chang infrastructure.
+
+**Problem:** That's not reliable.
+
+**Potential fix:** Use some kind of IaC tool to manage infrastructure. Ideally, something simple for gcloud or something versatile like terraform to be able to migrate to other providers.

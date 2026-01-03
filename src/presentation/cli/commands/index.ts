@@ -1,2 +1,1 @@
-export { createSyncAccountsCommand } from './sync-accounts.ts';
-export { createSyncTransactionsCommand } from './sync-transactions.ts';
+export { createSyncCommand } from './sync.ts';

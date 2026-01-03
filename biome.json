@@ -18,6 +18,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["src/modules/logging/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
     }
   ],
   "formatter": {

@@ -1,4 +1,9 @@
-# Multi-stage Dockerfile for budget-sync (Bun runtime)
+# Dockerfile for sync-monobank Cloud Run Job
+#
+# Syncs accounts and transactions from Monobank to the spreadsheet.
+#
+# Build: docker build -f docker/Dockerfile.sync-monobank -t sync-monobank .
+# Run:   docker run --rm -e MONOBANK_TOKEN=... -e SPREADSHEET_ID=... sync-monobank
 
 # ========================================
 # Stage 1: Install production dependencies
@@ -43,6 +48,5 @@ RUN chown -R appuser:appgroup /app
 
 USER appuser
 
-# Default entrypoint - command can be overridden
-ENTRYPOINT ["bun", "run", "src/main.ts"]
-CMD ["sync-transactions"]
+# Cloud Run Job entrypoint
+ENTRYPOINT ["bun", "run", "src/jobs/sync-monobank.ts"]

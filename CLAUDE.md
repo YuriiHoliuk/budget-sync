@@ -18,7 +18,53 @@ Personal finance management tool for tracking spendings, income, capital, and bu
 Environment variables in `.env`:
 - `MONOBANK_TOKEN` - Personal Monobank API token
 - `SPREADSHEET_ID` - Google Spreadsheet document ID
-- `GOOGLE_SERVICE_ACCOUNT_FILE` - Path to Google service account JSON
+- `GOOGLE_SERVICE_ACCOUNT_FILE` - Path to Google service account JSON (optional on GCP, uses ADC)
+
+## Deployment
+
+Deployed to **Google Cloud Run Jobs** with automated CI/CD via GitHub Actions.
+
+- **Project**: `budget-sync-483105`
+- **Region**: `europe-central2` (Warsaw)
+- **Scheduling**: Cloud Scheduler triggers jobs on cron schedules
+
+### Scheduled Jobs
+
+| Job | Schedule | Description |
+|-----|----------|-------------|
+| `sync-transactions` | Every 3 hours | Sync accounts and transactions from Monobank |
+
+### Service Accounts
+
+| Account | Purpose |
+|---------|---------|
+| `budget-sync-runner` | Runs Cloud Run Jobs, accesses Sheets API |
+| `budget-sync-scheduler` | Triggers jobs on schedule |
+| `budget-sync-deployer` | GitHub Actions deployment |
+
+## Task Runner
+
+Project uses [Just](https://github.com/casey/just) for common commands. Run `just` to see all available commands.
+
+```bash
+# Initialize local dev environment (pulls secrets from GCP)
+just init
+
+# Sync operations
+just sync              # Sync accounts and transactions from Monobank
+just job               # Run Cloud Run job locally
+just job-debug         # Run job with debug logging (DEBUG=*)
+
+# Code quality
+just check             # typecheck + lint
+just fix               # auto-fix issues
+just test              # unit tests
+
+# GCP operations
+just gcp-run               # Execute job manually
+just gcp-logs              # View recent executions
+just gcp-scheduler          # View scheduled jobs
+```
 
 ## Resources
 
@@ -222,7 +268,8 @@ DTOs decouple layers and define contracts at boundaries:
 
 3. **Run typecheck and lint after changes** - After creating or editing TypeScript files:
    ```bash
-   npm run typecheck && npm run check:fix
+   just check   # or: bun run typecheck && bun run check
+   just fix     # to auto-fix issues
    ```
    Fix any type errors and lint issues before considering the task complete.
 
@@ -585,19 +632,17 @@ tests/
 ### Running Tests
 
 ```bash
-# Run all unit tests
+# Using just (recommended)
+just test              # Run unit tests
+just test-watch        # Watch mode
+just test-coverage     # With coverage
+just test-integration  # Integration tests (real APIs)
+
+# Or using bun directly
 bun test tests/unit
-
-# Run with watch mode
 bun test --watch
-
-# Run specific test file
-bun test tests/unit/domain/value-objects/Money.test.ts
-
-# Run with coverage
+bun test tests/unit/domain/value-objects/Money.test.ts  # Specific file
 bun test --coverage
-
-# Run integration tests (manual, uses real APIs)
 SPREADSHEET_ID=test-sheet-id bun test tests/integration
 ```
 
@@ -759,9 +804,10 @@ TEST_SPREADSHEET_ID=test-123 bun test tests/integration/repositories
 4. **Gateways return domain objects** - External formats are hidden in implementations
 5. **Repositories are generic** - Named `TransactionRepository`, not `SpreadsheetTransactionRepository` in domain
 6. **Use cases are generic** - Named `SyncTransactions`, not `SyncFromMonobank` or `ExportToSpreadsheet`
-7. **Unit tests mock boundaries** - Repositories and gateways are mocked
-8. **Integration tests use real APIs** - Run manually, support env overrides
-9. **External libraries are isolated** - See below
+7. **Use cases don't call other use cases** - If multiple use cases need shared logic, extract it to a domain/application service. Orchestration of multiple use cases belongs in the presentation layer (CLI commands, HTTP controllers)
+8. **Unit tests mock boundaries** - Repositories and gateways are mocked
+9. **Integration tests use real APIs** - Run manually, support env overrides
+10. **External libraries are isolated** - See below
 
 ### External Library Isolation
 

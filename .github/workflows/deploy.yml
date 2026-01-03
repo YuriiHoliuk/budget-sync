@@ -18,7 +18,7 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: europe-central2
   REPOSITORY: budget-sync
-  IMAGE_NAME: budget-sync
+  IMAGE_NAME: sync-monobank
 
 jobs:
   # ========================================
@@ -85,7 +85,7 @@ jobs:
           GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
         run: |
           IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${GCP_PROJECT}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.short_sha }}"
-          docker build -t "${IMAGE_TAG}" .
+          docker build -f docker/Dockerfile.sync-monobank -t "${IMAGE_TAG}" .
 
       - name: Push Docker image
         env:
@@ -125,25 +125,7 @@ jobs:
             --cpu=1 \
             --memory=512Mi \
             --max-retries=1 \
-            --task-timeout=15m \
-            --args="sync-transactions"
-
-      - name: Deploy sync-accounts job
-        env:
-          GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-          SHORT_SHA: ${{ needs.build.outputs.short_sha }}
-        run: |
-          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${GCP_PROJECT}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${SHORT_SHA}"
-          gcloud run jobs deploy sync-accounts \
-            --image="${IMAGE_TAG}" \
-            --region=${{ env.REGION }} \
-            --service-account=budget-sync-runner@${GCP_PROJECT}.iam.gserviceaccount.com \
-            --set-secrets="MONOBANK_TOKEN=monobank-token:latest,SPREADSHEET_ID=spreadsheet-id:latest" \
-            --cpu=1 \
-            --memory=512Mi \
-            --max-retries=1 \
-            --task-timeout=5m \
-            --args="sync-accounts"
+            --task-timeout=15m
 
       - name: Deployment summary
         env:
@@ -154,8 +136,7 @@ jobs:
           echo "**Image tag:** \`${SHORT_SHA}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Jobs deployed:**" >> $GITHUB_STEP_SUMMARY
-          echo "- sync-transactions" >> $GITHUB_STEP_SUMMARY
-          echo "- sync-accounts" >> $GITHUB_STEP_SUMMARY
+          echo "- sync-transactions (syncs both accounts and transactions)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Manual execution:**" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
