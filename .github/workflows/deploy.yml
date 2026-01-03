@@ -76,11 +76,14 @@ jobs:
 
       - name: Extract metadata
         id: meta
+        env:
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
         run: |
           SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${SHORT_SHA}"
+          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${GCP_PROJECT}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${SHORT_SHA}"
           echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
           echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "Image tag: ${IMAGE_TAG}"
 
       - name: Build Docker image
         run: docker build -t ${{ steps.meta.outputs.image_tag }} .
@@ -106,11 +109,14 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Deploy sync-transactions job
+        env:
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
         run: |
           gcloud run jobs deploy sync-transactions \
-            --image=${{ needs.build.outputs.image_tag }} \
+            --image="${IMAGE_TAG}" \
             --region=${{ env.REGION }} \
-            --service-account=budget-sync-runner@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --service-account=budget-sync-runner@${GCP_PROJECT}.iam.gserviceaccount.com \
             --set-secrets="MONOBANK_TOKEN=monobank-token:latest,SPREADSHEET_ID=spreadsheet-id:latest" \
             --cpu=1 \
             --memory=512Mi \
@@ -119,11 +125,14 @@ jobs:
             --args="sync-transactions"
 
       - name: Deploy sync-accounts job
+        env:
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
         run: |
           gcloud run jobs deploy sync-accounts \
-            --image=${{ needs.build.outputs.image_tag }} \
+            --image="${IMAGE_TAG}" \
             --region=${{ env.REGION }} \
-            --service-account=budget-sync-runner@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --service-account=budget-sync-runner@${GCP_PROJECT}.iam.gserviceaccount.com \
             --set-secrets="MONOBANK_TOKEN=monobank-token:latest,SPREADSHEET_ID=spreadsheet-id:latest" \
             --cpu=1 \
             --memory=256Mi \
