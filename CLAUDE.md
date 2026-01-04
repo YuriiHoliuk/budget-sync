@@ -321,7 +321,15 @@ DTOs decouple layers and define contracts at boundaries:
    ```
    Fix any type errors and lint issues before considering the task complete.
 
-4. **Clean code and low complexity** - Code should read like a story:
+4. **Write and update unit tests** - When creating or modifying code, ensure test coverage:
+   - **New files**: Create corresponding test file in `tests/unit/` mirroring the source path
+   - **Modified files**: Update existing tests or add new test cases for changed behavior
+   - **What to test**: Use cases, entities, value objects, mappers, gateways, services with business logic
+   - **What NOT to test**: Abstract interfaces, type definitions, simple DTOs, DI container setup, CLI entry points
+   - **Mocking**: Mock all dependencies (repositories, gateways) - we use DI so everything is mockable
+   - **Run tests**: `just test` after changes to ensure nothing breaks
+
+5. **Clean code and low complexity** - Code should read like a story:
    - **One abstraction level per function** - Each function should operate at a single level of abstraction. Don't mix high-level orchestration with low-level details.
    - **Keep cognitive complexity low** - Biome enforces max complexity of 10 via `noExcessiveCognitiveComplexity`. If a function exceeds this, refactor it.
    - **Extract meaningful methods** - When you see nested loops, conditionals, or try-catch blocks, extract them into well-named private methods.

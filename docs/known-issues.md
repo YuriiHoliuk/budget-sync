@@ -112,13 +112,20 @@ For very large datasets, maintain a separate index (SQLite, JSON file) with exte
 
 ---
 
-## 5. Improve testing coverage
+## 5. Improve testing coverage (Partially Done)
 
 **Problem:** We have unit tests for simplest things only and integration for real API (2 of them).
 
-**Potential fix:**
-- Add more unit tests for every class and method. We use DI and can mock everything.
-- Add "e2e" tests, where we use test spreadsheet and real API but mocked monobank API.
+**Done:**
+- Unit tests for use cases: SyncMonobank, SyncTransactions, SyncAccounts
+- Unit tests for domain entities: Transaction, Account
+- Unit tests for infrastructure: MonobankGateway, AccountNameResolver
+- Unit tests for modules: BaseLogger, delay utility
+- Total: 364 tests across 15 files
+
+**Remaining:**
+- Add "e2e" tests with test spreadsheet and mocked Monobank API
+- Consider adding unit tests for spreadsheet repositories (currently covered by integration tests)
 
 ## 6. Use something like appConfig and avoid using env directly everywhere.
 
