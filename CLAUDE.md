@@ -42,6 +42,54 @@ Deployed to **Google Cloud Run Jobs** with automated CI/CD via GitHub Actions.
 | `budget-sync-scheduler` | Triggers jobs on schedule |
 | `budget-sync-deployer` | GitHub Actions deployment |
 
+## Infrastructure Management
+
+Infrastructure is managed with Terraform via CI/CD. Configuration files are in `terraform/`.
+
+### How Changes Are Applied
+
+All changes are applied automatically through GitHub Actions:
+
+| You do | CI/CD does |
+|--------|-----------|
+| Edit `terraform/*.tf` | Terraform plan (PR) → apply (merge) |
+| Edit `src/**` | Build → Deploy |
+| Edit both | Terraform apply → Build → Deploy |
+
+**There are no manual apply steps.** Push your changes and CI/CD handles the rest.
+
+### What Terraform Manages
+
+- Service accounts and IAM bindings
+- Artifact Registry repository
+- Secret Manager secrets (metadata only)
+- Cloud Run Job configuration
+- Cloud Scheduler job
+
+### What Terraform Does NOT Manage
+
+- Docker image tags (updated by gcloud CLI in CI/CD)
+- Secret values (add via `gcloud secrets versions add`)
+- API enablement (one-time setup)
+
+### Making Infrastructure Changes
+
+1. Edit `.tf` files in `terraform/`
+2. Run `just tf-plan` locally to preview (optional)
+3. Run `just tf-fmt` to format files
+4. Create PR - CI shows terraform plan
+5. Merge PR - CI applies changes automatically
+
+### Local Development Commands
+
+```bash
+just tf-init      # Initialize (required once)
+just tf-plan      # Preview changes (read-only)
+just tf-fmt       # Format before commit
+just tf-validate  # Check syntax
+just tf-state     # List managed resources
+```
+
 ## Task Runner
 
 Project uses [Just](https://github.com/casey/just) for common commands. Run `just` to see all available commands.

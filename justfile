@@ -118,3 +118,32 @@ docker-run:
         -e GOOGLE_SERVICE_ACCOUNT_FILE=/app/service-account.json \
         sync-monobank:local
 
+# =============================================================================
+# Terraform Commands (local development only)
+# =============================================================================
+# NOTE: Production changes are applied automatically via CI/CD when you push
+# to main. These commands are for local debugging and development only.
+
+# Initialize Terraform (required before other tf-* commands)
+tf-init:
+    cd terraform && terraform init
+
+# Preview what would change (read-only, safe to run anytime)
+tf-plan:
+    cd terraform && terraform plan
+
+# Format Terraform files before committing
+tf-fmt:
+    cd terraform && terraform fmt -recursive
+
+# Validate Terraform configuration syntax
+tf-validate:
+    cd terraform && terraform validate
+
+# Show current state (what Terraform thinks exists)
+tf-state:
+    cd terraform && terraform state list
+
+# Show details of a specific resource
+tf-show resource:
+    cd terraform && terraform state show {{resource}}
