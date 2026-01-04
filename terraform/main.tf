@@ -62,6 +62,41 @@ resource "google_project_iam_member" "deployer_sa_user" {
   member  = "serviceAccount:${google_service_account.deployer.email}"
 }
 
+# Deployer: Manage service accounts (for Terraform)
+resource "google_project_iam_member" "deployer_sa_admin" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountAdmin"
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+# Deployer: Manage secrets (for Terraform)
+resource "google_project_iam_member" "deployer_secret_admin" {
+  project = var.project_id
+  role    = "roles/secretmanager.admin"
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+# Deployer: Manage Cloud Scheduler (for Terraform)
+resource "google_project_iam_member" "deployer_scheduler_admin" {
+  project = var.project_id
+  role    = "roles/cloudscheduler.admin"
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+# Deployer: Manage IAM bindings (for Terraform)
+resource "google_project_iam_member" "deployer_iam_admin" {
+  project = var.project_id
+  role    = "roles/resourcemanager.projectIamAdmin"
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+# Deployer: Access Terraform state bucket
+resource "google_storage_bucket_iam_member" "deployer_state_access" {
+  bucket = "budget-sync-terraform-state"
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.deployer.email}"
+}
+
 # =============================================================================
 # Artifact Registry
 # =============================================================================

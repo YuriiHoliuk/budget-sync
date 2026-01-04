@@ -53,6 +53,31 @@ import {
   to = google_project_iam_member.deployer_sa_user
 }
 
+import {
+  id = "budget-sync-483105 roles/iam.serviceAccountAdmin serviceAccount:budget-sync-deployer@budget-sync-483105.iam.gserviceaccount.com"
+  to = google_project_iam_member.deployer_sa_admin
+}
+
+import {
+  id = "budget-sync-483105 roles/secretmanager.admin serviceAccount:budget-sync-deployer@budget-sync-483105.iam.gserviceaccount.com"
+  to = google_project_iam_member.deployer_secret_admin
+}
+
+import {
+  id = "budget-sync-483105 roles/cloudscheduler.admin serviceAccount:budget-sync-deployer@budget-sync-483105.iam.gserviceaccount.com"
+  to = google_project_iam_member.deployer_scheduler_admin
+}
+
+import {
+  id = "budget-sync-483105 roles/resourcemanager.projectIamAdmin serviceAccount:budget-sync-deployer@budget-sync-483105.iam.gserviceaccount.com"
+  to = google_project_iam_member.deployer_iam_admin
+}
+
+import {
+  id = "budget-sync-terraform-state roles/storage.objectAdmin serviceAccount:budget-sync-deployer@budget-sync-483105.iam.gserviceaccount.com"
+  to = google_storage_bucket_iam_member.deployer_state_access
+}
+
 # Artifact Registry
 import {
   id = "projects/budget-sync-483105/locations/europe-central2/repositories/budget-sync"
