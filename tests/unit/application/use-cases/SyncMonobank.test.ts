@@ -2,136 +2,29 @@ import 'reflect-metadata';
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { SyncMonobankOptions } from '@application/use-cases/SyncMonobank.ts';
 import { SyncMonobankUseCase } from '@application/use-cases/SyncMonobank.ts';
-import { Account } from '@domain/entities/Account.ts';
-import { Transaction } from '@domain/entities/Transaction.ts';
+import type { Account } from '@domain/entities/Account.ts';
+import type { Transaction } from '@domain/entities/Transaction.ts';
 import type { BankGateway } from '@domain/gateways/BankGateway.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
 import type { TransactionRepository } from '@domain/repositories/TransactionRepository.ts';
 import { Currency } from '@domain/value-objects/Currency.ts';
 import { Money } from '@domain/value-objects/Money.ts';
-import { TransactionType } from '@domain/value-objects/TransactionType.ts';
 import { MonobankRateLimitError } from '@infrastructure/gateways/monobank/errors.ts';
 import type { Logger } from '@modules/logging';
+import {
+  createMockAccountRepository,
+  createMockBankGateway,
+  createMockLogger,
+  createMockTransactionRepository,
+  createTestAccount,
+  createTestTransaction,
+  FAST_TEST_OPTIONS,
+} from '../../helpers';
 
-// Helper functions to create test entities
-function createAccount(
-  overrides: Partial<{
-    externalId: string;
-    name: string;
-    balance: Money;
-    type: string;
-    iban: string;
-    maskedPan: string[];
-    lastSyncTime: number;
-  }> = {},
-): Account {
-  return Account.create({
-    externalId: overrides.externalId ?? 'acc-123',
-    name: overrides.name ?? 'Test Account',
-    currency: Currency.UAH,
-    balance: overrides.balance ?? Money.create(100000, Currency.UAH),
-    type: overrides.type ?? 'black',
-    iban: overrides.iban ?? 'UA123456789012345678901234567',
-    maskedPan: overrides.maskedPan ?? ['*1234'],
-    bank: 'monobank',
-    lastSyncTime: overrides.lastSyncTime,
-  });
-}
-
-function createTransaction(
-  overrides: Partial<{
-    externalId: string;
-    date: Date;
-    amount: Money;
-    description: string;
-    type: TransactionType;
-    accountId: string;
-  }> = {},
-): Transaction {
-  return Transaction.create({
-    externalId: overrides.externalId ?? 'tx-123',
-    date: overrides.date ?? new Date('2026-01-01T12:00:00.000Z'),
-    amount: overrides.amount ?? Money.create(5000, Currency.UAH),
-    description: overrides.description ?? 'Test Transaction',
-    type: overrides.type ?? TransactionType.DEBIT,
-    accountId: overrides.accountId ?? 'acc-123',
-  });
-}
-
-// Mock implementations
-function createMockLogger(): Logger {
-  return {
-    info: mock(() => undefined),
-    debug: mock(() => undefined),
-    warn: mock(() => undefined),
-    error: mock(() => undefined),
-  } as unknown as Logger;
-}
-
-function createMockBankGateway(
-  overrides: Partial<{
-    getAccounts: () => Promise<Account[]>;
-    getTransactions: (
-      accountId: string,
-      from: Date,
-      to: Date,
-    ) => Promise<Transaction[]>;
-  }> = {},
-): BankGateway {
-  return {
-    getAccounts: overrides.getAccounts ?? mock(() => Promise.resolve([])),
-    getTransactions:
-      overrides.getTransactions ??
-      mock(() => Promise.resolve([] as Transaction[])),
-  } as unknown as BankGateway;
-}
-
-function createMockAccountRepository(
-  overrides: Partial<{
-    findByExternalId: (externalId: string) => Promise<Account | null>;
-    findByIban: (iban: string) => Promise<Account | null>;
-    findByBank: (bank: string) => Promise<Account[]>;
-    save: (account: Account) => Promise<void>;
-    update: (account: Account) => Promise<void>;
-    updateLastSyncTime: (accountId: string, timestamp: number) => Promise<void>;
-  }> = {},
-): AccountRepository {
-  return {
-    findByExternalId:
-      overrides.findByExternalId ?? mock(() => Promise.resolve(null)),
-    findByIban: overrides.findByIban ?? mock(() => Promise.resolve(null)),
-    findByBank: overrides.findByBank ?? mock(() => Promise.resolve([])),
-    save: overrides.save ?? mock(() => Promise.resolve()),
-    update: overrides.update ?? mock(() => Promise.resolve()),
-    updateLastSyncTime:
-      overrides.updateLastSyncTime ?? mock(() => Promise.resolve()),
-  } as unknown as AccountRepository;
-}
-
-function createMockTransactionRepository(
-  overrides: Partial<{
-    findByExternalIds: (
-      externalIds: string[],
-    ) => Promise<Map<string, Transaction>>;
-    saveMany: (transactions: Transaction[]) => Promise<void>;
-  }> = {},
-): TransactionRepository {
-  return {
-    findByExternalIds:
-      overrides.findByExternalIds ??
-      mock(() => Promise.resolve(new Map<string, Transaction>())),
-    saveMany: overrides.saveMany ?? mock(() => Promise.resolve()),
-  } as unknown as TransactionRepository;
-}
-
-// Default test options with minimal delays for fast tests
-const fastTestOptions: SyncMonobankOptions = {
-  requestDelayMs: 0,
-  maxRetries: 1,
-  initialBackoffMs: 0,
-  earliestSyncDate: new Date('2026-01-01'),
-  syncOverlapMs: 0,
-};
+// Alias for backward compatibility within tests
+const createAccount = createTestAccount;
+const createTransaction = createTestTransaction;
+const fastTestOptions: SyncMonobankOptions = FAST_TEST_OPTIONS;
 
 describe('SyncMonobankUseCase', () => {
   let mockLogger: Logger;

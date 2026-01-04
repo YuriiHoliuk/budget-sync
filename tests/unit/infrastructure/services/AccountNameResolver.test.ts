@@ -1,36 +1,20 @@
 import 'reflect-metadata';
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import { Account } from '@domain/entities/Account.ts';
+import type { Account } from '@domain/entities/Account.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
-import { Currency, Money } from '@domain/value-objects/index.ts';
 import { SpreadsheetAccountNameResolver } from '@infrastructure/services/AccountNameResolver.ts';
+import { createMockAccountRepository, createTestAccount } from '../../helpers';
 
 describe('SpreadsheetAccountNameResolver', () => {
   let mockAccountRepository: AccountRepository;
   let resolver: SpreadsheetAccountNameResolver;
 
   const createAccount = (externalId: string, name: string): Account => {
-    return Account.create({
-      externalId,
-      name,
-      currency: Currency.UAH,
-      balance: Money.create(100000, Currency.UAH),
-    });
+    return createTestAccount({ externalId, name });
   };
 
   beforeEach(() => {
-    mockAccountRepository = {
-      findByExternalId: mock(() => Promise.resolve(null)),
-      findByIban: mock(() => Promise.resolve(null)),
-      findByBank: mock(() => Promise.resolve([])),
-      updateLastSyncTime: mock(() => Promise.resolve()),
-      findById: mock(() => Promise.resolve(null)),
-      findAll: mock(() => Promise.resolve([])),
-      save: mock(() => Promise.resolve()),
-      saveMany: mock(() => Promise.resolve()),
-      delete: mock(() => Promise.resolve()),
-    } as unknown as AccountRepository;
-
+    mockAccountRepository = createMockAccountRepository();
     resolver = new SpreadsheetAccountNameResolver(mockAccountRepository);
   });
 

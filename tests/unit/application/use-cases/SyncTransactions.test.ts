@@ -1,11 +1,10 @@
 import 'reflect-metadata';
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, type mock, test } from 'bun:test';
 import {
   type SyncTransactionsOptions,
   SyncTransactionsUseCase,
 } from '@application/use-cases/SyncTransactions.ts';
-import { Account } from '@domain/entities/Account.ts';
-import { Transaction } from '@domain/entities/Transaction.ts';
+import type { Transaction } from '@domain/entities/Transaction.ts';
 import type { BankGateway } from '@domain/gateways/BankGateway.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
 import type { TransactionRepository } from '@domain/repositories/TransactionRepository.ts';
@@ -13,80 +12,39 @@ import { Currency } from '@domain/value-objects/Currency.ts';
 import { Money } from '@domain/value-objects/Money.ts';
 import { TransactionType } from '@domain/value-objects/TransactionType.ts';
 import { MonobankRateLimitError } from '@infrastructure/gateways/monobank/errors.ts';
+import {
+  createMockAccountRepository,
+  createMockBankGateway,
+  createMockTransactionRepository,
+  createTestAccount,
+  createTestTransaction as createTestTransactionBase,
+  DEFAULT_SYNC_OPTIONS,
+} from '../../helpers';
 
-function createTestAccount(
-  overrides: Partial<Parameters<typeof Account.create>[0]> = {},
-): Account {
-  return Account.create({
-    externalId: 'account-123',
-    name: 'Test Account',
-    currency: Currency.UAH,
-    balance: Money.create(100000, Currency.UAH),
-    bank: 'monobank',
-    ...overrides,
-  });
-}
-
+// Custom wrapper to maintain test-specific behavior (random externalId generation)
 function createTestTransaction(
-  overrides: Partial<Parameters<typeof Transaction.create>[0]> = {},
+  overrides: Partial<{
+    externalId: string;
+    date: Date;
+    amount: Money;
+    description: string;
+    type: TransactionType;
+    accountId: string;
+  }> = {},
 ): Transaction {
   const externalId =
     overrides.externalId ?? `tx-${Date.now()}-${Math.random()}`;
-  return Transaction.create({
+  return createTestTransactionBase({
     externalId,
-    date: new Date('2026-01-02T10:00:00.000Z'),
-    amount: Money.create(-5000, Currency.UAH),
-    description: 'Test transaction',
-    type: TransactionType.DEBIT,
-    accountId: 'account-123',
-    ...overrides,
+    date: overrides.date ?? new Date('2026-01-02T10:00:00.000Z'),
+    amount: overrides.amount ?? Money.create(-5000, Currency.UAH),
+    description: overrides.description ?? 'Test transaction',
+    type: overrides.type ?? TransactionType.DEBIT,
+    accountId: overrides.accountId ?? 'account-123',
   });
 }
 
-function createMockBankGateway(): BankGateway {
-  return {
-    getAccounts: mock(() => Promise.resolve([])),
-    getTransactions: mock(() => Promise.resolve([])),
-  } as BankGateway;
-}
-
-function createMockAccountRepository(): AccountRepository {
-  return {
-    findById: mock(() => Promise.resolve(null)),
-    findByExternalId: mock(() => Promise.resolve(null)),
-    findByIban: mock(() => Promise.resolve(null)),
-    findByBank: mock(() => Promise.resolve([])),
-    findAll: mock(() => Promise.resolve([])),
-    save: mock(() => Promise.resolve()),
-    update: mock(() => Promise.resolve()),
-    delete: mock(() => Promise.resolve()),
-    updateLastSyncTime: mock(() => Promise.resolve()),
-  } as AccountRepository;
-}
-
-function createMockTransactionRepository(): TransactionRepository {
-  return {
-    findById: mock(() => Promise.resolve(null)),
-    findByExternalId: mock(() => Promise.resolve(null)),
-    findByExternalIds: mock(() =>
-      Promise.resolve(new Map<string, Transaction>()),
-    ),
-    findByAccountId: mock(() => Promise.resolve([])),
-    findAll: mock(() => Promise.resolve([])),
-    save: mock(() => Promise.resolve()),
-    update: mock(() => Promise.resolve()),
-    delete: mock(() => Promise.resolve()),
-    saveMany: mock(() => Promise.resolve()),
-  } as TransactionRepository;
-}
-
-const DEFAULT_TEST_OPTIONS: SyncTransactionsOptions = {
-  requestDelayMs: 0,
-  maxRetries: 3,
-  initialBackoffMs: 0,
-  earliestSyncDate: new Date('2026-01-01'),
-  syncOverlapMs: 600000,
-};
+const DEFAULT_TEST_OPTIONS: SyncTransactionsOptions = DEFAULT_SYNC_OPTIONS;
 
 describe('SyncTransactionsUseCase', () => {
   let bankGateway: BankGateway;

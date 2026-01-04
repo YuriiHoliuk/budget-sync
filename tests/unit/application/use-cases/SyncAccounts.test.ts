@@ -1,50 +1,27 @@
 import 'reflect-metadata';
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import { SyncAccountsUseCase } from '@application/use-cases/SyncAccounts.ts';
-import { Account } from '@domain/entities/Account.ts';
 import type { BankGateway } from '@domain/gateways/BankGateway.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
 import { Currency } from '@domain/value-objects/Currency.ts';
 import { Money } from '@domain/value-objects/Money.ts';
+import {
+  createMockAccountRepository,
+  createMockBankGateway,
+  createTestAccount,
+} from '../../helpers';
 
 describe('SyncAccountsUseCase', () => {
   let mockBankGateway: BankGateway;
   let mockAccountRepository: AccountRepository;
   let useCase: SyncAccountsUseCase;
 
-  const createAccount = (
-    overrides: Partial<Parameters<typeof Account.create>[0]> = {},
-  ) => {
-    return Account.create({
-      externalId: 'acc-123',
-      name: 'Main Card',
-      currency: Currency.UAH,
-      balance: Money.create(100000, Currency.UAH),
-      type: 'black',
-      iban: 'UA123456789012345678901234567',
-      maskedPan: ['*1234'],
-      ...overrides,
-    });
-  };
+  // Alias for backward compatibility within tests
+  const createAccount = createTestAccount;
 
   beforeEach(() => {
-    mockBankGateway = {
-      getAccounts: mock(() => Promise.resolve([])),
-      getTransactions: mock(() => Promise.resolve([])),
-    } as unknown as BankGateway;
-
-    mockAccountRepository = {
-      findByExternalId: mock(() => Promise.resolve(null)),
-      findByIban: mock(() => Promise.resolve(null)),
-      findByBank: mock(() => Promise.resolve([])),
-      findById: mock(() => Promise.resolve(null)),
-      findAll: mock(() => Promise.resolve([])),
-      save: mock(() => Promise.resolve()),
-      update: mock(() => Promise.resolve()),
-      delete: mock(() => Promise.resolve()),
-      updateLastSyncTime: mock(() => Promise.resolve()),
-    } as unknown as AccountRepository;
-
+    mockBankGateway = createMockBankGateway();
+    mockAccountRepository = createMockAccountRepository();
     useCase = new SyncAccountsUseCase(mockBankGateway, mockAccountRepository);
   });
 
