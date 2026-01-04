@@ -37,6 +37,8 @@
     "tsyringe": "^4.8.0"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,json}": ["biome check --write"]
+    "src/**/*.ts": ["biome check --write"],
+    "tests/**/*.ts": ["biome check --write"],
+    "terraform/*.tf": ["terraform fmt"]
   }
 }
