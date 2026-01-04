@@ -74,7 +74,7 @@ import {
 }
 
 import {
-  id = "budget-sync-terraform-state roles/storage.objectAdmin serviceAccount:budget-sync-deployer@budget-sync-483105.iam.gserviceaccount.com"
+  id = "budget-sync-terraform-state roles/storage.admin serviceAccount:budget-sync-deployer@budget-sync-483105.iam.gserviceaccount.com"
   to = google_storage_bucket_iam_member.deployer_state_access
 }
 

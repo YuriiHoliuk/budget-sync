@@ -90,10 +90,10 @@ resource "google_project_iam_member" "deployer_iam_admin" {
   member  = "serviceAccount:${google_service_account.deployer.email}"
 }
 
-# Deployer: Access Terraform state bucket
+# Deployer: Admin access to Terraform state bucket
 resource "google_storage_bucket_iam_member" "deployer_state_access" {
   bucket = "budget-sync-terraform-state"
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.admin"
   member = "serviceAccount:${google_service_account.deployer.email}"
 }
 
