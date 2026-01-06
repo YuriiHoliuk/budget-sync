@@ -4,6 +4,10 @@ Personal finance management tool for tracking spendings, income, capital, and bu
 
 > **Note**: Code examples in this document are illustrative only. They demonstrate patterns and conventions but should not be copied verbatim. Adapt them to actual requirements.
 
+## Troubleshooting
+
+When encountering errors during development or deployment, check `docs/TROUBLESHOOTING.md` for known issues and quick fixes. If the issue isn't documented and may occur again, add it to the troubleshooting doc after resolving.
+
 ## Tech Stack
 
 - **Runtime**: Bun
