@@ -141,3 +141,8 @@ E.g. structure per module/domain/topic, etc. And have use-case, services, reposi
 More: commands have logic in action, should use something, like Command class or so.
 great we have server class, controller class, which injects use-cases. But we also have main file that uses server class. And all together looks too much.
 Jobs are just main + some functions, looks like a mess.
+
+## 10. Manual deploy for new things.
+I see the issue - Terraform creates the resources but needs an existing image. The Deploy workflow runs after CI and updates existing resources. For new resources, we need to build/push the image first.
+
+How can we avoid that?

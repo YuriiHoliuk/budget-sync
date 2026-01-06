@@ -380,6 +380,26 @@ resource "google_cloud_run_v2_service" "webhook" {
         value = var.project_id
       }
 
+      env {
+        name = "MONOBANK_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.monobank_token.secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "SPREADSHEET_ID"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.spreadsheet_id.secret_id
+            version = "latest"
+          }
+        }
+      }
+
       resources {
         limits = {
           cpu    = "1"
