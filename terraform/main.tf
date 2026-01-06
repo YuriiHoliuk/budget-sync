@@ -83,6 +83,13 @@ resource "google_project_iam_member" "deployer_scheduler_admin" {
   member  = "serviceAccount:${google_service_account.deployer.email}"
 }
 
+# Deployer: Manage Pub/Sub (for Terraform)
+resource "google_project_iam_member" "deployer_pubsub_admin" {
+  project = var.project_id
+  role    = "roles/pubsub.admin"
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
 # Deployer: Manage IAM bindings (for Terraform)
 resource "google_project_iam_member" "deployer_iam_admin" {
   project = var.project_id
