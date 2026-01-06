@@ -1,3 +1,5 @@
+import { RateLimitError } from '@domain/errors/DomainErrors.ts';
+
 export class MonobankApiError extends Error {
   constructor(
     message: string,
@@ -9,11 +11,17 @@ export class MonobankApiError extends Error {
   }
 }
 
-export class MonobankRateLimitError extends MonobankApiError {
+/**
+ * Monobank-specific rate limit error.
+ * Extends domain RateLimitError so use cases can catch the generic type.
+ */
+export class MonobankRateLimitError extends RateLimitError {
+  public readonly statusCode = 429;
+
   constructor(
     message: string = 'Rate limit exceeded. Please wait before making another request.',
   ) {
-    super(message, 429);
+    super(message);
     this.name = 'MonobankRateLimitError';
   }
 }

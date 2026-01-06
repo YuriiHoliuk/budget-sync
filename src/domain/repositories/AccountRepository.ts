@@ -1,4 +1,5 @@
 import type { Account } from '../entities/Account.ts';
+import type { Money } from '../value-objects/Money.ts';
 import { Repository } from './Repository.ts';
 
 /**
@@ -19,4 +20,12 @@ export abstract class AccountRepository extends Repository<Account, string> {
     accountId: string,
     timestamp: number,
   ): Promise<void>;
+
+  /**
+   * Update the balance of an account.
+   * @param externalId - The external ID of the account to update
+   * @param newBalance - The new balance to set
+   * @throws AccountNotFoundError if account with given externalId doesn't exist
+   */
+  abstract updateBalance(externalId: string, newBalance: Money): Promise<void>;
 }

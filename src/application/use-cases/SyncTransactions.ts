@@ -1,5 +1,6 @@
 import type { Account } from '@domain/entities/Account.ts';
 import type { Transaction } from '@domain/entities/Transaction.ts';
+import { RateLimitError } from '@domain/errors/DomainErrors.ts';
 import {
   BANK_GATEWAY_TOKEN,
   type BankGateway,
@@ -12,7 +13,6 @@ import {
   TRANSACTION_REPOSITORY_TOKEN,
   type TransactionRepository,
 } from '@domain/repositories/TransactionRepository.ts';
-import { MonobankRateLimitError } from '@infrastructure/gateways/monobank/errors.ts';
 import { inject, injectable } from 'tsyringe';
 import { chunkDateRange, delay } from '../utils/index.ts';
 
@@ -247,7 +247,7 @@ export class SyncTransactionsUseCase {
       try {
         return await this.bankGateway.getTransactions(accountId, from, to);
       } catch (error) {
-        if (error instanceof MonobankRateLimitError && attempt < maxRetries) {
+        if (error instanceof RateLimitError && attempt < maxRetries) {
           const backoffMs = initialBackoffMs * 2 ** attempt;
           await delay(backoffMs);
           lastError = error;

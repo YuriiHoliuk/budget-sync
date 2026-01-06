@@ -79,3 +79,146 @@ export const DEFAULT_SYNC_OPTIONS = {
   earliestSyncDate: new Date('2026-01-01'),
   syncOverlapMs: 600000,
 } as const;
+
+/**
+ * Type for Monobank statement item used in tests.
+ */
+export interface TestStatementItem {
+  id: string;
+  time: number;
+  description: string;
+  mcc: number;
+  originalMcc: number;
+  hold: boolean;
+  amount: number;
+  operationAmount: number;
+  currencyCode: number;
+  commissionRate: number;
+  cashbackAmount: number;
+  balance: number;
+  comment?: string;
+  receiptId?: string;
+  invoiceId?: string;
+  counterEdrpou?: string;
+  counterIban?: string;
+  counterName?: string;
+}
+
+/**
+ * Default values for test Monobank statement items (used in webhooks).
+ */
+const DEFAULT_STATEMENT_ITEM: TestStatementItem = {
+  id: 'stmt-123',
+  time: Math.floor(new Date('2026-01-01T12:00:00.000Z').getTime() / 1000),
+  description: 'Test Transaction',
+  mcc: 5411, // Grocery stores
+  originalMcc: 5411,
+  hold: false,
+  amount: -5000, // -50.00 UAH
+  operationAmount: -5000,
+  currencyCode: 980, // UAH
+  commissionRate: 0,
+  cashbackAmount: 0,
+  balance: 100000, // 1000.00 UAH
+};
+
+/**
+ * Creates a test Monobank statement item for webhook tests.
+ * Override any property as needed for specific test scenarios.
+ */
+export function createTestStatementItem(
+  overrides: Partial<TestStatementItem> = {},
+): TestStatementItem {
+  return {
+    ...DEFAULT_STATEMENT_ITEM,
+    ...overrides,
+  };
+}
+
+/**
+ * Creates a valid webhook payload for testing.
+ * Override any property as needed for specific test scenarios.
+ */
+export function createTestWebhookPayload(
+  overrides: {
+    account?: string;
+    statementItem?: Partial<TestStatementItem>;
+  } = {},
+) {
+  return {
+    type: 'StatementItem' as const,
+    data: {
+      account: overrides.account ?? 'acc-123',
+      statementItem: createTestStatementItem(overrides.statementItem),
+    },
+  };
+}
+
+/**
+ * Type for queued webhook transaction DTO in tests.
+ */
+export interface TestQueuedWebhookTransactionDTO {
+  accountExternalId: string;
+  newBalanceAmount: number;
+  newBalanceCurrencyCode: number;
+  transaction: {
+    externalId: string;
+    date: string;
+    amount: number;
+    currencyCode: number;
+    operationAmount: number;
+    operationCurrencyCode: number;
+    description: string;
+    type: 'CREDIT' | 'DEBIT';
+    mcc: number;
+    hold: boolean;
+    balanceAmount: number;
+    comment?: string;
+    counterpartyName?: string;
+    counterpartyIban?: string;
+  };
+}
+
+/**
+ * Default values for queued webhook transaction DTO.
+ */
+const DEFAULT_QUEUED_TRANSACTION: TestQueuedWebhookTransactionDTO = {
+  accountExternalId: 'acc-123',
+  newBalanceAmount: 100000,
+  newBalanceCurrencyCode: 980,
+  transaction: {
+    externalId: 'tx-123',
+    date: '2026-01-01T12:00:00.000Z',
+    amount: -5000,
+    currencyCode: 980,
+    operationAmount: -5000,
+    operationCurrencyCode: 980,
+    description: 'Test Transaction',
+    type: 'DEBIT',
+    mcc: 5411,
+    hold: false,
+    balanceAmount: 100000,
+  },
+};
+
+/**
+ * Creates a test queued webhook transaction DTO.
+ * Override any property as needed for specific test scenarios.
+ */
+export function createTestQueuedTransaction(
+  overrides: Partial<{
+    accountExternalId: string;
+    newBalanceAmount: number;
+    newBalanceCurrencyCode: number;
+    transaction: Partial<TestQueuedWebhookTransactionDTO['transaction']>;
+  }> = {},
+): TestQueuedWebhookTransactionDTO {
+  return {
+    ...DEFAULT_QUEUED_TRANSACTION,
+    ...overrides,
+    transaction: {
+      ...DEFAULT_QUEUED_TRANSACTION.transaction,
+      ...overrides.transaction,
+    },
+  };
+}

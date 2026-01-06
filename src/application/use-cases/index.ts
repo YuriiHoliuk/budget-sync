@@ -1,3 +1,7 @@
+export type { EnqueueWebhookTransactionResultDTO } from './EnqueueWebhookTransaction.ts';
+export { EnqueueWebhookTransactionUseCase } from './EnqueueWebhookTransaction.ts';
+export type { ProcessIncomingTransactionResultDTO } from './ProcessIncomingTransaction.ts';
+export { ProcessIncomingTransactionUseCase } from './ProcessIncomingTransaction.ts';
 export type { SyncAccountsResultDTO } from './SyncAccounts.ts';
 export { SyncAccountsUseCase } from './SyncAccounts.ts';
 export type {

@@ -6,7 +6,9 @@
  */
 
 import type { Account } from '@domain/entities/Account.ts';
+import { AccountNotFoundError } from '@domain/errors/DomainErrors.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
+import type { Money } from '@domain/value-objects/Money.ts';
 import type { SpreadsheetsClient } from '@modules/spreadsheet/SpreadsheetsClient.ts';
 import type { SchemaToRecord } from '@modules/spreadsheet/types.ts';
 import { inject, injectable } from 'tsyringe';
@@ -107,17 +109,10 @@ export class SpreadsheetAccountRepository
     accountId: string,
     timestamp: number,
   ): Promise<void> {
-    const predicate = (record: SchemaToRecord<AccountSchema>) =>
-      record.externalId === accountId;
-
-    const result = await this.table.findRow(predicate, {
-      skipInvalidRows: true,
-    });
+    const result = await this.findAccountRowByExternalId(accountId);
 
     if (!result) {
-      throw new Error(
-        `Account not found for updating last sync time: ${accountId}`,
-      );
+      throw new AccountNotFoundError(accountId);
     }
 
     const updatedRecord = {
@@ -129,6 +124,67 @@ export class SpreadsheetAccountRepository
       result.rowIndex,
       updatedRecord as SchemaToRecord<AccountSchema>,
     );
+  }
+
+  /**
+   * Update the balance of an account.
+   * Finds the account by externalId and updates only the balance field.
+   *
+   * @param externalId - The external ID of the account to update
+   * @param newBalance - The new balance to set (in minor units)
+   * @throws AccountNotFoundError if account with given externalId doesn't exist
+   */
+  async updateBalance(externalId: string, newBalance: Money): Promise<void> {
+    const result = await this.findAccountRowByExternalId(externalId);
+
+    if (!result) {
+      throw new AccountNotFoundError(externalId);
+    }
+
+    const creditLimitMajor = this.getCreditLimitFromRecord(result.record);
+    const creditLimitMinor = Math.round(creditLimitMajor * 100);
+
+    // Calculate actual balance for spreadsheet storage
+    // Spreadsheet stores: actualBalance = balance - creditLimit
+    // So we need: actualBalance = newBalance - creditLimit
+    const actualBalanceMajor = (newBalance.amount - creditLimitMinor) / 100;
+
+    const updatedRecord = {
+      ...result.record,
+      balance: actualBalanceMajor,
+    };
+
+    await this.table.updateRowAt(
+      result.rowIndex,
+      updatedRecord as SchemaToRecord<AccountSchema>,
+    );
+  }
+
+  /**
+   * Extract credit limit from a record, handling null/undefined values.
+   * Returns 0 if credit limit is not set.
+   */
+  private getCreditLimitFromRecord(
+    record: SchemaToRecord<AccountSchema>,
+  ): number {
+    const creditLimit = record.creditLimit;
+    if (typeof creditLimit === 'number') {
+      return creditLimit;
+    }
+    return 0;
+  }
+
+  /**
+   * Find an account row by external ID.
+   * Returns the row with its index for updates.
+   */
+  private findAccountRowByExternalId(externalId: string) {
+    const predicate = (record: SchemaToRecord<AccountSchema>) =>
+      record.externalId === externalId;
+
+    return this.table.findRow(predicate, {
+      skipInvalidRows: true,
+    });
   }
 
   /**

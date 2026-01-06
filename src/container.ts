@@ -8,12 +8,18 @@
 import 'reflect-metadata';
 
 import { BANK_GATEWAY_TOKEN } from '@domain/gateways/BankGateway.ts';
+import { MESSAGE_QUEUE_GATEWAY_TOKEN } from '@domain/gateways/MessageQueueGateway.ts';
 import { ACCOUNT_REPOSITORY_TOKEN } from '@domain/repositories/AccountRepository.ts';
 import { TRANSACTION_REPOSITORY_TOKEN } from '@domain/repositories/TransactionRepository.ts';
 import {
   MONOBANK_CONFIG_TOKEN,
   MonobankGateway,
 } from '@infrastructure/gateways/monobank/MonobankGateway.ts';
+import {
+  PUBSUB_CLIENT_TOKEN,
+  PUBSUB_QUEUE_CONFIG_TOKEN,
+  PubSubMessageQueueGateway,
+} from '@infrastructure/gateways/pubsub/index.ts';
 import {
   SPREADSHEET_CONFIG_TOKEN,
   SPREADSHEETS_CLIENT_TOKEN,
@@ -24,6 +30,7 @@ import {
   SpreadsheetTransactionRepository,
 } from '@infrastructure/repositories/SpreadsheetTransactionRepository.ts';
 import { SpreadsheetAccountNameResolver } from '@infrastructure/services/AccountNameResolver.ts';
+import { PubSubClient } from '@modules/pubsub/index.ts';
 import { SpreadsheetsClient } from '@modules/spreadsheet/SpreadsheetsClient.ts';
 import { container } from 'tsyringe';
 
@@ -76,16 +83,35 @@ export function setupContainer(): typeof container {
     serviceAccountFile ? { serviceAccountFile } : {},
   );
 
+  // Pub/Sub configuration
+  const pubSubQueueConfig = {
+    topicName: getOptionalEnv('PUBSUB_TOPIC') ?? 'webhook-transactions',
+    subscriptionName:
+      getOptionalEnv('PUBSUB_SUBSCRIPTION') ?? 'webhook-transactions-sub',
+  };
+  const gcpProjectId = getOptionalEnv('GCP_PROJECT_ID');
+  const pubSubClient = new PubSubClient({
+    projectId: gcpProjectId,
+    serviceAccountFile,
+  });
+
   // Register infrastructure dependencies (config tokens and clients)
   container.register(SPREADSHEETS_CLIENT_TOKEN, {
     useValue: spreadsheetsClient,
   });
   container.register(MONOBANK_CONFIG_TOKEN, { useValue: monobankConfig });
   container.register(SPREADSHEET_CONFIG_TOKEN, { useValue: spreadsheetConfig });
+  container.register(PUBSUB_CLIENT_TOKEN, { useValue: pubSubClient });
+  container.register(PUBSUB_QUEUE_CONFIG_TOKEN, {
+    useValue: pubSubQueueConfig,
+  });
 
   // Register domain abstractions with their infrastructure implementations
   // Uses Symbol tokens defined in domain layer for type-safe injection
   container.register(BANK_GATEWAY_TOKEN, { useClass: MonobankGateway });
+  container.register(MESSAGE_QUEUE_GATEWAY_TOKEN, {
+    useClass: PubSubMessageQueueGateway,
+  });
   container.register(ACCOUNT_REPOSITORY_TOKEN, {
     useClass: SpreadsheetAccountRepository,
   });

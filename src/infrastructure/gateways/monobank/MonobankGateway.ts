@@ -1,6 +1,8 @@
+import type { WebhookTransactionData } from '@domain/dtos/WebhookTransactionData.ts';
 import type { Account } from '@domain/entities/Account.ts';
 import type { Transaction } from '@domain/entities/Transaction.ts';
 import { BankGateway } from '@domain/gateways/BankGateway.ts';
+import { Currency, Money } from '@domain/value-objects/index.ts';
 import { inject, injectable } from 'tsyringe';
 import {
   MonobankApiError,
@@ -13,6 +15,7 @@ import type {
   MonobankErrorResponse,
   MonobankStatementItem,
 } from './types.ts';
+import { webhookPayloadSchema } from './webhookPayloadSchema.ts';
 
 export interface MonobankConfig {
   token: string;
@@ -57,6 +60,29 @@ export class MonobankGateway extends BankGateway {
     return items.map((item) => this.mapper.toTransaction(item, accountId));
   }
 
+  async setWebhook(url: string): Promise<void> {
+    await this.postRequest('/personal/webhook', { webHookUrl: url });
+  }
+
+  parseWebhookPayload(payload: unknown): WebhookTransactionData {
+    const validated = webhookPayloadSchema.parse(payload);
+    const { account: accountExternalId, statementItem } = validated.data;
+
+    const transaction = this.mapper.toTransaction(
+      statementItem,
+      accountExternalId,
+    );
+
+    const currency = Currency.fromNumericCode(statementItem.currencyCode);
+    const newBalance = Money.create(statementItem.balance, currency);
+
+    return {
+      transaction,
+      accountExternalId,
+      newBalance,
+    };
+  }
+
   private async request<TResponse>(path: string): Promise<TResponse> {
     const url = `${this.baseUrl}${path}`;
 
@@ -73,6 +99,23 @@ export class MonobankGateway extends BankGateway {
     }
 
     return response.json() as Promise<TResponse>;
+  }
+
+  private async postRequest(path: string, body: unknown): Promise<void> {
+    const url = `${this.baseUrl}${path}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-Token': this.token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      await this.handleErrorResponse(response);
+    }
   }
 
   private async handleErrorResponse(response: Response): Promise<never> {

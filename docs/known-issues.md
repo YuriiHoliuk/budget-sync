@@ -134,3 +134,10 @@ For very large datasets, maintain a separate index (SQLite, JSON file) with exte
 **Problem:** We structure not by domain/modules but by type of entity (use-cases, repositories, gateways, dockerfiles, etc.).
 I find this approach worse but now it works fine. In case if not need to think about restructuring.
 E.g. structure per module/domain/topic, etc. And have use-case, services, repositories for similar purposes close by.
+
+## 8. Static analysis should ensure layers structure and other project guidelines.
+
+## 9. Need way to write Jobs, Handlers, CLI commands as classes with DI and testing.
+More: commands have logic in action, should use something, like Command class or so.
+great we have server class, controller class, which injects use-cases. But we also have main file that uses server class. And all together looks too much.
+Jobs are just main + some functions, looks like a mess.

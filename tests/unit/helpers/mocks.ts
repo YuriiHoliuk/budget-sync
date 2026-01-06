@@ -2,8 +2,13 @@ import { mock } from 'bun:test';
 import type { Account } from '@domain/entities/Account.ts';
 import type { Transaction } from '@domain/entities/Transaction.ts';
 import type { BankGateway } from '@domain/gateways/BankGateway.ts';
+import type {
+  MessageQueueGateway,
+  QueueMessage,
+} from '@domain/gateways/MessageQueueGateway.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
 import type { TransactionRepository } from '@domain/repositories/TransactionRepository.ts';
+import type { Money } from '@domain/value-objects/Money.ts';
 import type { Logger } from '@modules/logging';
 
 /**
@@ -18,6 +23,8 @@ export function createMockBankGateway(
       from: Date,
       to: Date,
     ) => Promise<Transaction[]>;
+    setWebhook: (url: string) => Promise<void>;
+    parseWebhookPayload: (payload: unknown) => unknown;
   }> = {},
 ): BankGateway {
   return {
@@ -25,6 +32,8 @@ export function createMockBankGateway(
     getTransactions:
       overrides.getTransactions ??
       mock(() => Promise.resolve([] as Transaction[])),
+    setWebhook: overrides.setWebhook ?? mock(() => Promise.resolve()),
+    parseWebhookPayload: overrides.parseWebhookPayload ?? mock(() => ({})),
   } as unknown as BankGateway;
 }
 
@@ -43,6 +52,7 @@ export function createMockAccountRepository(
     update: (account: Account) => Promise<void>;
     delete: (id: string) => Promise<void>;
     updateLastSyncTime: (accountId: string, timestamp: number) => Promise<void>;
+    updateBalance: (externalId: string, newBalance: Money) => Promise<void>;
   }> = {},
 ): AccountRepository {
   return {
@@ -57,6 +67,7 @@ export function createMockAccountRepository(
     delete: overrides.delete ?? mock(() => Promise.resolve()),
     updateLastSyncTime:
       overrides.updateLastSyncTime ?? mock(() => Promise.resolve()),
+    updateBalance: overrides.updateBalance ?? mock(() => Promise.resolve()),
   } as unknown as AccountRepository;
 }
 
@@ -106,4 +117,22 @@ export function createMockLogger(): Logger {
     warn: mock(() => undefined),
     error: mock(() => undefined),
   } as unknown as Logger;
+}
+
+/**
+ * Creates a mock MessageQueueGateway with default implementations.
+ * Publish returns a message ID, pull returns empty array, acknowledge resolves.
+ */
+export function createMockMessageQueueGateway(
+  overrides: Partial<{
+    publish: (data: unknown) => Promise<string>;
+    pull: (maxMessages?: number) => Promise<QueueMessage[]>;
+    acknowledge: (ackId: string) => Promise<void>;
+  }> = {},
+): MessageQueueGateway {
+  return {
+    publish: overrides.publish ?? mock(() => Promise.resolve('msg-123')),
+    pull: overrides.pull ?? mock(() => Promise.resolve([])),
+    acknowledge: overrides.acknowledge ?? mock(() => Promise.resolve()),
+  } as unknown as MessageQueueGateway;
 }

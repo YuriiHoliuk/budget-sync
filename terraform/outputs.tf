@@ -32,3 +32,23 @@ output "deployer_service_account" {
   description = "Email of the deployer service account"
   value       = google_service_account.deployer.email
 }
+
+output "webhook_url" {
+  description = "Cloud Run Service URL for Monobank webhook registration"
+  value       = google_cloud_run_v2_service.webhook.uri
+}
+
+output "webhook_job_name" {
+  description = "Name of the process-webhooks Cloud Run Job"
+  value       = google_cloud_run_v2_job.process_webhooks.name
+}
+
+output "pubsub_topic" {
+  description = "Pub/Sub topic for webhook messages"
+  value       = google_pubsub_topic.webhook_transactions.name
+}
+
+output "pubsub_subscription" {
+  description = "Pub/Sub subscription for webhook messages"
+  value       = google_pubsub_subscription.webhook_transactions.name
+}

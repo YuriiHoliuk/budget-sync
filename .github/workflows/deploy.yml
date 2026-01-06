@@ -11,7 +11,6 @@ env:
   PROJECT_ID: budget-sync-483105
   REGION: europe-central2
   REPOSITORY: budget-sync
-  IMAGE_NAME: sync-monobank
 
 jobs:
   check:
@@ -40,7 +39,7 @@ jobs:
         id: filter
         run: |
           CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
-          if echo "$CHANGED" | grep -qE '^(src/|package\.json|bun\.lock|docker/|tsconfig\.json)'; then
+          if echo "$CHANGED" | grep -qE '^(src/|package\.json|bun\.lock|docker/|Dockerfile|tsconfig\.json)'; then
             echo "should_deploy=true" >> $GITHUB_OUTPUT
             echo "App files changed, will deploy"
           else
@@ -54,7 +53,7 @@ jobs:
     needs: check
     if: needs.check.outputs.should_deploy == 'true'
     outputs:
-      image_tag: ${{ steps.meta.outputs.image_tag }}
+      image: ${{ steps.meta.outputs.image }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,13 +70,14 @@ jobs:
       - name: Set image tag
         id: meta
         run: |
-          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ needs.check.outputs.sha }}"
-          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          REGISTRY="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}"
+          SHA="${{ needs.check.outputs.sha }}"
+          echo "image=${REGISTRY}/budget-sync:${SHA}" >> $GITHUB_OUTPUT
 
       - name: Build and push
         run: |
-          docker build -f docker/Dockerfile.sync-monobank -t ${{ steps.meta.outputs.image_tag }} .
-          docker push ${{ steps.meta.outputs.image_tag }}
+          docker build -t ${{ steps.meta.outputs.image }} .
+          docker push ${{ steps.meta.outputs.image }}
 
   deploy:
     name: Deploy
@@ -92,16 +92,36 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Deploy to Cloud Run
+      - name: Deploy sync-transactions job
         run: |
-          gcloud run jobs deploy sync-transactions \
-            --image=${{ needs.build.outputs.image_tag }} \
+          gcloud run jobs update sync-transactions \
+            --image=${{ needs.build.outputs.image }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }}
+
+      - name: Deploy webhook service
+        run: |
+          gcloud run services update webhook \
+            --image=${{ needs.build.outputs.image }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }}
+
+      - name: Deploy process-webhooks job
+        run: |
+          gcloud run jobs update process-webhooks \
+            --image=${{ needs.build.outputs.image }} \
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }}
 
       - name: Deployment Summary
         run: |
           echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image:** ${{ needs.build.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Image" >> $GITHUB_STEP_SUMMARY
+          echo "- **budget-sync:** ${{ needs.build.outputs.image }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployed Resources" >> $GITHUB_STEP_SUMMARY
           echo "- **Job:** sync-transactions" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service:** webhook" >> $GITHUB_STEP_SUMMARY
+          echo "- **Job:** process-webhooks" >> $GITHUB_STEP_SUMMARY
           echo "- **Region:** ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY

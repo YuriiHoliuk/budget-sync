@@ -6,8 +6,27 @@ const CURRENCY_CODES: Record<number, string> = {
   985: 'PLN',
 };
 
+const NUMERIC_CODES: Record<string, number> = {
+  UAH: 980,
+  USD: 840,
+  EUR: 978,
+  GBP: 826,
+  PLN: 985,
+};
+
 export class Currency {
   private constructor(public readonly code: string) {}
+
+  /**
+   * Get the ISO 4217 numeric code for this currency.
+   */
+  get numericCode(): number {
+    const numeric = NUMERIC_CODES[this.code];
+    if (numeric === undefined) {
+      throw new Error(`No numeric code for currency: ${this.code}`);
+    }
+    return numeric;
+  }
 
   static fromCode(code: string): Currency {
     const upperCode = code.toUpperCase();
