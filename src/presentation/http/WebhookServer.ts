@@ -8,7 +8,8 @@
 import { type HttpRequest, HttpServer } from '@modules/http/index.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging/index.ts';
 import { inject, injectable } from 'tsyringe';
-import type { WebhookController } from './controllers/WebhookController.ts';
+// biome-ignore lint/style/useImportType: TSyringe requires runtime class reference for DI
+import { WebhookController } from './controllers/WebhookController.ts';
 
 /**
  * HTTP server for handling Monobank webhooks.
