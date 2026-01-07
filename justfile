@@ -29,13 +29,17 @@ dev:
 sync:
     bun run src/main.ts sync
 
-# Run sync-monobank job locally
-job:
-    bun run src/jobs/sync-monobank.ts
+# Run sync-accounts job locally
+job-sync-accounts:
+    bun run src/jobs/sync-accounts.ts
 
-# Run sync-monobank job with debug logging
-job-debug:
-    DEBUG=* bun run src/jobs/sync-monobank.ts
+# Run process-webhooks job locally
+job-process-webhooks:
+    bun run src/jobs/process-webhooks.ts
+
+# Run a job with debug logging
+job-debug job='sync-accounts':
+    DEBUG=* bun run src/jobs/{{job}}.ts
 
 # ============================================
 # Code Quality
@@ -77,25 +81,41 @@ test-coverage:
 gcp-set-project:
     gcloud config set project budget-sync-483105
 
-# View sync-transactions job logs
-gcp-logs:
-    gcloud run jobs executions list --job=sync-transactions --region=europe-central2 --limit=5
+# List all Cloud Run jobs and services
+gcp-list:
+    @echo "=== Cloud Run Jobs ===" && \
+    gcloud run jobs list --region=europe-central2 --format="table(name,status)" && \
+    echo "" && \
+    echo "=== Cloud Run Services ===" && \
+    gcloud run services list --region=europe-central2 --format="table(name,URL)"
 
-# Manually execute sync-transactions job
-gcp-run:
-    gcloud run jobs execute sync-transactions --region=europe-central2 --wait
+# View job executions (default: sync-accounts, or specify job=process-webhooks)
+gcp-logs job='sync-accounts':
+    gcloud run jobs executions list --job={{job}} --region=europe-central2 --limit=5
+
+# Execute a Cloud Run job (default: sync-accounts)
+gcp-run job='sync-accounts':
+    gcloud run jobs execute {{job}} --region=europe-central2 --wait
 
 # View Cloud Scheduler jobs
 gcp-scheduler:
     gcloud scheduler jobs list --location=europe-central2
 
-# Trigger scheduler job immediately
-gcp-trigger:
-    gcloud scheduler jobs run sync-transactions-scheduler --location=europe-central2
+# Trigger a scheduler job (default: sync-accounts-scheduler)
+gcp-trigger scheduler='sync-accounts-scheduler':
+    gcloud scheduler jobs run {{scheduler}} --location=europe-central2
 
-# View deployed job details
-gcp-describe:
-    gcloud run jobs describe sync-transactions --region=europe-central2
+# Describe a Cloud Run job
+gcp-describe-job job='sync-accounts':
+    gcloud run jobs describe {{job}} --region=europe-central2
+
+# Describe a Cloud Run service
+gcp-describe-service service='webhook':
+    gcloud run services describe {{service}} --region=europe-central2
+
+# View webhook service logs
+gcp-webhook-logs:
+    gcloud run services logs read webhook --region=europe-central2 --limit=50
 
 # View secret versions
 gcp-secrets:
@@ -105,18 +125,29 @@ gcp-secrets:
 # Docker (local testing)
 # ============================================
 
-# Build sync-monobank Docker image locally
+# Build Docker image locally
 docker-build:
-    docker build -f docker/Dockerfile.sync-monobank -t sync-monobank:local .
+    docker build -t budget-sync:local .
 
-# Run sync-monobank job in Docker (same as production)
-docker-run:
+# Run sync-accounts job in Docker
+docker-run-sync-accounts:
     docker run --rm \
         -e MONOBANK_TOKEN=$(grep MONOBANK_TOKEN .env | cut -d= -f2) \
         -e SPREADSHEET_ID=$(grep SPREADSHEET_ID .env | cut -d= -f2) \
         -v $(pwd)/service-account.json:/app/service-account.json:ro \
         -e GOOGLE_SERVICE_ACCOUNT_FILE=/app/service-account.json \
-        sync-monobank:local
+        budget-sync:local src/jobs/sync-accounts.ts
+
+# Run process-webhooks job in Docker
+docker-run-process-webhooks:
+    docker run --rm \
+        -e MONOBANK_TOKEN=$(grep MONOBANK_TOKEN .env | cut -d= -f2) \
+        -e SPREADSHEET_ID=$(grep SPREADSHEET_ID .env | cut -d= -f2) \
+        -e PUBSUB_SUBSCRIPTION=webhook-transactions-sub \
+        -e GCP_PROJECT_ID=budget-sync-483105 \
+        -v $(pwd)/service-account.json:/app/service-account.json:ro \
+        -e GOOGLE_SERVICE_ACCOUNT_FILE=/app/service-account.json \
+        budget-sync:local src/jobs/process-webhooks.ts
 
 # =============================================================================
 # Terraform Commands (local development only)

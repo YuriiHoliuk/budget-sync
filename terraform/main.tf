@@ -154,20 +154,20 @@ resource "google_secret_manager_secret" "spreadsheet_id" {
 # Cloud Run Job
 # =============================================================================
 
-resource "google_cloud_run_v2_job" "sync_transactions" {
-  name     = "sync-transactions"
+resource "google_cloud_run_v2_job" "sync_accounts" {
+  name     = "sync-accounts"
   location = var.region
   project  = var.project_id
 
   template {
     template {
-      timeout         = "900s" # 15 minutes
+      timeout         = "300s" # 5 minutes
       max_retries     = 1
       service_account = google_service_account.runner.email
 
       containers {
         image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker.repository_id}/budget-sync:${var.image_tag}"
-        args  = ["src/jobs/sync-monobank.ts"]
+        args  = ["src/jobs/sync-accounts.ts"]
 
         env {
           name = "MONOBANK_TOKEN"
@@ -215,9 +215,9 @@ resource "google_cloud_run_v2_job" "sync_transactions" {
 # Cloud Scheduler
 # =============================================================================
 
-resource "google_cloud_scheduler_job" "sync_transactions" {
-  name             = "sync-transactions-scheduler"
-  description      = "Trigger sync-transactions job every 3 hours"
+resource "google_cloud_scheduler_job" "sync_accounts" {
+  name             = "sync-accounts-scheduler"
+  description      = "Trigger sync-accounts job every 3 hours"
   schedule         = "0 */3 * * *"
   time_zone        = "Etc/UTC"
   region           = var.region
@@ -233,7 +233,7 @@ resource "google_cloud_scheduler_job" "sync_transactions" {
 
   http_target {
     http_method = "POST"
-    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${data.google_project.current.number}/jobs/${google_cloud_run_v2_job.sync_transactions.name}:run"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${data.google_project.current.number}/jobs/${google_cloud_run_v2_job.sync_accounts.name}:run"
 
     oauth_token {
       service_account_email = google_service_account.scheduler.email
@@ -241,7 +241,7 @@ resource "google_cloud_scheduler_job" "sync_transactions" {
   }
 
   depends_on = [
-    google_cloud_run_v2_job.sync_transactions,
+    google_cloud_run_v2_job.sync_accounts,
     google_project_iam_member.scheduler_run_invoker
   ]
 }

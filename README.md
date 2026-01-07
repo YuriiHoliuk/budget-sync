@@ -76,7 +76,7 @@ just job-debug         # Run job with debug logging (DEBUG=*)
 
 ```bash
 just gcp-set-project   # Set active GCP project
-just gcp-run           # Manually run sync-transactions job
+just gcp-run           # Manually run sync-accounts job
 just gcp-logs          # View recent job executions
 just gcp-scheduler     # View scheduled jobs
 just gcp-secrets       # List secrets
@@ -120,7 +120,7 @@ Cloud Scheduler (cron) ──────────────────┘
 
 | Job | Schedule | Description |
 |-----|----------|-------------|
-| sync-transactions | Every 3 hours | Sync accounts and transactions |
+| sync-accounts | Every 3 hours | Sync accounts from Monobank |
 
 ### Manual Deployment
 
@@ -128,10 +128,10 @@ Push to `main` branch triggers automatic deployment. For manual execution:
 
 ```bash
 # Execute job manually
-gcloud run jobs execute sync-transactions --region=europe-central2
+gcloud run jobs execute sync-accounts --region=europe-central2
 
 # Trigger scheduler immediately
-gcloud scheduler jobs run sync-transactions-scheduler --location=europe-central2
+gcloud scheduler jobs run sync-accounts-scheduler --location=europe-central2
 ```
 
 ### GCP Resources

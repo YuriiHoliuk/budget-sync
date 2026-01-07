@@ -6,7 +6,7 @@
 #   docker build -t budget-sync .
 #
 # Run different jobs:
-#   docker run --rm -e MONOBANK_TOKEN=... budget-sync bun run src/jobs/sync-monobank.ts
+#   docker run --rm -e MONOBANK_TOKEN=... budget-sync bun run src/jobs/sync-accounts.ts
 #   docker run --rm -e PUBSUB_TOPIC=... budget-sync bun run src/jobs/webhook-server.ts
 #   docker run --rm -e PUBSUB_SUBSCRIPTION=... budget-sync bun run src/jobs/process-webhooks.ts
 
@@ -55,4 +55,4 @@ USER appuser
 
 # Default entrypoint - command specifies which job to run
 ENTRYPOINT ["bun", "run"]
-CMD ["src/jobs/sync-monobank.ts"]
+CMD ["src/jobs/sync-accounts.ts"]

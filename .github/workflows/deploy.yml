@@ -92,9 +92,9 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Deploy sync-transactions job
+      - name: Deploy sync-accounts job
         run: |
-          gcloud run jobs update sync-transactions \
+          gcloud run jobs update sync-accounts \
             --image=${{ needs.build.outputs.image }} \
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }}
@@ -121,7 +121,7 @@ jobs:
           echo "- **budget-sync:** ${{ needs.build.outputs.image }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Deployed Resources" >> $GITHUB_STEP_SUMMARY
-          echo "- **Job:** sync-transactions" >> $GITHUB_STEP_SUMMARY
+          echo "- **Job:** sync-accounts" >> $GITHUB_STEP_SUMMARY
           echo "- **Service:** webhook" >> $GITHUB_STEP_SUMMARY
           echo "- **Job:** process-webhooks" >> $GITHUB_STEP_SUMMARY
           echo "- **Region:** ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY

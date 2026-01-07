@@ -1,18 +1,18 @@
 /**
- * Cloud Run Job: Sync Monobank
+ * Cloud Run Job: Sync Accounts
  *
- * Synchronizes accounts and transactions from Monobank to the spreadsheet.
- * This is a direct entry point for Cloud Run Jobs that bypasses the CLI.
+ * Synchronizes accounts from Monobank to the spreadsheet.
+ * Transactions are handled separately by webhooks.
  *
  * Usage:
- *   bun run src/jobs/sync-monobank.ts
+ *   bun run src/jobs/sync-accounts.ts
  *
  * Environment:
  *   DEBUG=* or DEBUG=monobank,spreadsheet - Enable debug logging
  */
 
 import 'reflect-metadata';
-import { SyncMonobankUseCase } from '../application/use-cases/SyncMonobank.ts';
+import { SyncAccountsUseCase } from '../application/use-cases/SyncAccounts.ts';
 import { setupContainer } from '../container.ts';
 import { LOGGER_TOKEN, type Logger } from '../modules/logging/Logger.ts';
 import { StructuredLogger } from '../modules/logging/StructuredLogger.ts';
@@ -22,20 +22,25 @@ async function main() {
   container.register(LOGGER_TOKEN, { useClass: StructuredLogger });
 
   const logger = container.resolve<Logger>(LOGGER_TOKEN);
-  const useCase = container.resolve(SyncMonobankUseCase);
+  const useCase = container.resolve(SyncAccountsUseCase);
 
   try {
-    logger.info('Starting sync job');
+    logger.info('Starting accounts sync job');
     const result = await useCase.execute();
     logger.info('Job completed', {
-      accountsCreated: result.accounts.created,
-      accountsUpdated: result.accounts.updated,
-      transactionsSynced: result.transactions.syncedAccounts,
-      newTransactions: result.transactions.newTransactions,
-      skippedTransactions: result.transactions.skippedTransactions,
+      accountsCreated: result.created,
+      accountsUpdated: result.updated,
+      accountsUnchanged: result.unchanged,
       errorCount: result.errors.length,
     });
-    process.exit(0);
+
+    if (result.errors.length > 0) {
+      for (const error of result.errors) {
+        logger.error('Sync error', { error });
+      }
+    }
+
+    process.exit(result.errors.length > 0 ? 1 : 0);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Job failed', { error: message });

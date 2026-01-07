@@ -36,7 +36,7 @@ Deployed to **Google Cloud Run Jobs** with automated CI/CD via GitHub Actions.
 
 | Job | Schedule | Description |
 |-----|----------|-------------|
-| `sync-transactions` | Every 3 hours | Sync accounts and transactions from Monobank |
+| `sync-accounts` | Every 3 hours | Sync accounts from Monobank |
 
 ### Service Accounts
 

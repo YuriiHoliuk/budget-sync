@@ -95,14 +95,3 @@ import {
   to = google_secret_manager_secret.spreadsheet_id
 }
 
-# Cloud Run Job
-import {
-  id = "projects/budget-sync-483105/locations/europe-central2/jobs/sync-transactions"
-  to = google_cloud_run_v2_job.sync_transactions
-}
-
-# Cloud Scheduler
-import {
-  id = "projects/budget-sync-483105/locations/europe-central2/jobs/sync-transactions-scheduler"
-  to = google_cloud_scheduler_job.sync_transactions
-}
