@@ -95,3 +95,8 @@ import {
   to = google_secret_manager_secret.spreadsheet_id
 }
 
+# Cloud Run Job - sync-accounts (pre-existing from testing)
+import {
+  id = "projects/budget-sync-483105/locations/europe-central2/jobs/sync-accounts"
+  to = google_cloud_run_v2_job.sync_accounts
+}
