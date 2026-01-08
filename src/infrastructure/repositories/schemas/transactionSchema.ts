@@ -89,6 +89,61 @@ export const transactionSchema = {
     type: 'string',
     required: false,
   } as ColumnDefinition,
+  balanceAfter: {
+    name: 'Залишок після',
+    type: 'number',
+    required: false,
+  } as ColumnDefinition,
+  operationAmount: {
+    name: 'Сума операції',
+    type: 'number',
+    required: false,
+  } as ColumnDefinition,
+  operationCurrency: {
+    name: 'Валюта операції',
+    type: 'string',
+    required: false,
+  } as ColumnDefinition,
+  counterpartyIban: {
+    name: 'IBAN одержувача',
+    type: 'string',
+    required: false,
+  } as ColumnDefinition,
+  hold: {
+    name: 'Холд',
+    type: 'boolean',
+    required: false,
+  } as ColumnDefinition,
+  cashback: {
+    name: 'Кешбек',
+    type: 'number',
+    required: false,
+  } as ColumnDefinition,
+  commission: {
+    name: 'Комісія',
+    type: 'number',
+    required: false,
+  } as ColumnDefinition,
+  originalMcc: {
+    name: 'MCC (оригінал)',
+    type: 'number',
+    required: false,
+  } as ColumnDefinition,
+  receiptId: {
+    name: 'Чек ID',
+    type: 'string',
+    required: false,
+  } as ColumnDefinition,
+  invoiceId: {
+    name: 'Інвойс ID',
+    type: 'string',
+    required: false,
+  } as ColumnDefinition,
+  counterEdrpou: {
+    name: 'ЄДРПОУ одержувача',
+    type: 'string',
+    required: false,
+  } as ColumnDefinition,
 } as const;
 
 /**

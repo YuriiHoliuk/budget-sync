@@ -61,6 +61,7 @@ describe('SyncMonobankUseCase', () => {
           totalAccounts: 0,
           syncedAccounts: 0,
           newTransactions: 0,
+          updatedTransactions: 0,
           skippedTransactions: 0,
         },
         errors: [],

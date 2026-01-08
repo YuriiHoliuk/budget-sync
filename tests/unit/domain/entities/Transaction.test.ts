@@ -63,6 +63,12 @@ describe('Transaction', () => {
         counterpartyName: 'Grocery Store',
         counterpartyIban: 'UA123456789012345678901234567',
         hold: true,
+        cashbackAmount: Money.create(150, Currency.UAH),
+        commissionRate: Money.create(50, Currency.UAH),
+        originalMcc: 5412,
+        receiptId: 'receipt-123',
+        invoiceId: 'invoice-456',
+        counterEdrpou: '12345678',
       });
 
       const transaction = Transaction.create(props);
@@ -77,6 +83,14 @@ describe('Transaction', () => {
         'UA123456789012345678901234567',
       );
       expect(transaction.isHold).toBe(true);
+      expect(transaction.cashbackAmount?.amount).toBe(150);
+      expect(transaction.cashbackAmount?.currency.code).toBe('UAH');
+      expect(transaction.commissionRate?.amount).toBe(50);
+      expect(transaction.commissionRate?.currency.code).toBe('UAH');
+      expect(transaction.originalMcc).toBe(5412);
+      expect(transaction.receiptId).toBe('receipt-123');
+      expect(transaction.invoiceId).toBe('invoice-456');
+      expect(transaction.counterEdrpou).toBe('12345678');
     });
   });
 
@@ -274,6 +288,106 @@ describe('Transaction', () => {
       );
 
       expect(transaction.isHold).toBe(false);
+    });
+  });
+
+  describe('cashbackAmount', () => {
+    test('should return cashbackAmount when set', () => {
+      const cashback = Money.create(150, Currency.UAH);
+      const transaction = Transaction.create(
+        createDefaultProps({ cashbackAmount: cashback }),
+      );
+
+      expect(transaction.cashbackAmount?.amount).toBe(150);
+      expect(transaction.cashbackAmount?.currency.code).toBe('UAH');
+    });
+
+    test('should return undefined when cashbackAmount not provided', () => {
+      const transaction = Transaction.create(createDefaultProps());
+
+      expect(transaction.cashbackAmount).toBeUndefined();
+    });
+  });
+
+  describe('commissionRate', () => {
+    test('should return commissionRate when set', () => {
+      const commission = Money.create(50, Currency.UAH);
+      const transaction = Transaction.create(
+        createDefaultProps({ commissionRate: commission }),
+      );
+
+      expect(transaction.commissionRate?.amount).toBe(50);
+      expect(transaction.commissionRate?.currency.code).toBe('UAH');
+    });
+
+    test('should return undefined when commissionRate not provided', () => {
+      const transaction = Transaction.create(createDefaultProps());
+
+      expect(transaction.commissionRate).toBeUndefined();
+    });
+  });
+
+  describe('originalMcc', () => {
+    test('should return originalMcc when set', () => {
+      const transaction = Transaction.create(
+        createDefaultProps({ originalMcc: 5412 }),
+      );
+
+      expect(transaction.originalMcc).toBe(5412);
+    });
+
+    test('should return undefined when originalMcc not provided', () => {
+      const transaction = Transaction.create(createDefaultProps());
+
+      expect(transaction.originalMcc).toBeUndefined();
+    });
+  });
+
+  describe('receiptId', () => {
+    test('should return receiptId when set', () => {
+      const transaction = Transaction.create(
+        createDefaultProps({ receiptId: 'receipt-123' }),
+      );
+
+      expect(transaction.receiptId).toBe('receipt-123');
+    });
+
+    test('should return undefined when receiptId not provided', () => {
+      const transaction = Transaction.create(createDefaultProps());
+
+      expect(transaction.receiptId).toBeUndefined();
+    });
+  });
+
+  describe('invoiceId', () => {
+    test('should return invoiceId when set', () => {
+      const transaction = Transaction.create(
+        createDefaultProps({ invoiceId: 'invoice-456' }),
+      );
+
+      expect(transaction.invoiceId).toBe('invoice-456');
+    });
+
+    test('should return undefined when invoiceId not provided', () => {
+      const transaction = Transaction.create(createDefaultProps());
+
+      expect(transaction.invoiceId).toBeUndefined();
+    });
+  });
+
+  describe('counterEdrpou', () => {
+    test('should return counterEdrpou when set', () => {
+      const transaction = Transaction.create(
+        createDefaultProps({ counterEdrpou: '12345678' }),
+      );
+
+      expect(transaction.counterEdrpou).toBe('12345678');
+    });
+
+    test('should return undefined when counterEdrpou not provided', () => {
+      const transaction = Transaction.create(createDefaultProps());
+
+      expect(transaction.counterEdrpou).toBeUndefined();
     });
   });
 

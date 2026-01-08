@@ -200,6 +200,98 @@ export class SpreadsheetTransactionRepository
   }
 
   /**
+   * Update multiple transactions in the spreadsheet.
+   * Finds each transaction by externalId and updates its data in a batch.
+   */
+  async updateMany(transactions: Transaction[]): Promise<void> {
+    if (transactions.length === 0) {
+      return;
+    }
+
+    // Find all matching rows in a single read
+    const externalIdSet = new Set(transactions.map((tx) => tx.externalId));
+    const foundRows = await this.table.findRows(
+      (record) =>
+        record.externalId !== undefined &&
+        externalIdSet.has(String(record.externalId)),
+      { skipInvalidRows: true },
+    );
+
+    // Create a map from externalId to rowIndex
+    const rowIndexMap = new Map<string, number>();
+    for (const row of foundRows) {
+      if (row.record.externalId !== undefined) {
+        rowIndexMap.set(String(row.record.externalId), row.rowIndex);
+      }
+    }
+
+    // Resolve all account names
+    const accountNameMap = await this.resolveAccountNames(transactions);
+
+    // Build row updates for batch operation
+    const rowUpdates = this.buildRowUpdates(
+      transactions,
+      rowIndexMap,
+      accountNameMap,
+    );
+
+    if (rowUpdates.length > 0) {
+      await this.table.updateRowsAt(rowUpdates);
+    }
+  }
+
+  /**
+   * Resolve account names for all transactions.
+   */
+  private async resolveAccountNames(
+    transactions: Transaction[],
+  ): Promise<Map<string, string>> {
+    const accountIds = [...new Set(transactions.map((tx) => tx.accountId))];
+    const accountNameMap = new Map<string, string>();
+
+    await Promise.all(
+      accountIds.map(async (accountId) => {
+        const name = await this.accountNameResolver.getAccountName(accountId);
+        accountNameMap.set(accountId, name);
+      }),
+    );
+
+    return accountNameMap;
+  }
+
+  /**
+   * Build row updates for batch update operation.
+   */
+  private buildRowUpdates(
+    transactions: Transaction[],
+    rowIndexMap: Map<string, number>,
+    accountNameMap: Map<string, string>,
+  ): Array<{ rowIndex: number; record: SchemaToRecord<TransactionSchema> }> {
+    const rowUpdates: Array<{
+      rowIndex: number;
+      record: SchemaToRecord<TransactionSchema>;
+    }> = [];
+
+    for (const transaction of transactions) {
+      const rowIndex = rowIndexMap.get(transaction.externalId);
+      if (rowIndex === undefined) {
+        // Skip transactions not found in spreadsheet (shouldn't happen normally)
+        continue;
+      }
+
+      const accountName = accountNameMap.get(transaction.accountId) ?? '';
+      const record = this.mapper.toRecord(
+        transaction,
+        accountName,
+      ) as SchemaToRecord<TransactionSchema>;
+
+      rowUpdates.push({ rowIndex, record });
+    }
+
+    return rowUpdates;
+  }
+
+  /**
    * Delete a transaction from the spreadsheet by ID.
    * Note: This clears the row content but doesn't remove the row.
    */

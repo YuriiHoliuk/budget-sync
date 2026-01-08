@@ -26,8 +26,13 @@ dev:
 # ============================================
 
 # Sync accounts and transactions from Monobank to spreadsheet (CLI)
+# Use SYNC_FROM_DATE=YYYY-MM-DD to sync from a specific date (e.g., for backfilling)
 sync:
     bun run src/main.ts sync
+
+# Sync from a specific start date (backfill historical data)
+sync-from date:
+    SYNC_FROM_DATE={{date}} bun run src/main.ts sync
 
 # Run sync-accounts job locally
 job-sync-accounts:

@@ -23,24 +23,18 @@ import {
 
 // Custom wrapper to maintain test-specific behavior (random externalId generation)
 function createTestTransaction(
-  overrides: Partial<{
-    externalId: string;
-    date: Date;
-    amount: Money;
-    description: string;
-    type: TransactionType;
-    accountId: string;
-  }> = {},
+  overrides: Parameters<typeof createTestTransactionBase>[0] = {},
 ): Transaction {
   const externalId =
     overrides.externalId ?? `tx-${Date.now()}-${Math.random()}`;
   return createTestTransactionBase({
+    date: new Date('2026-01-02T10:00:00.000Z'),
+    amount: Money.create(-5000, Currency.UAH),
+    description: 'Test transaction',
+    type: TransactionType.DEBIT,
+    accountId: 'account-123',
+    ...overrides,
     externalId,
-    date: overrides.date ?? new Date('2026-01-02T10:00:00.000Z'),
-    amount: overrides.amount ?? Money.create(-5000, Currency.UAH),
-    description: overrides.description ?? 'Test transaction',
-    type: overrides.type ?? TransactionType.DEBIT,
-    accountId: overrides.accountId ?? 'account-123',
   });
 }
 
@@ -75,6 +69,7 @@ describe('SyncTransactionsUseCase', () => {
         totalAccounts: 0,
         syncedAccounts: 0,
         newTransactions: 0,
+        updatedTransactions: 0,
         skippedTransactions: 0,
         errors: [],
       });
@@ -276,7 +271,7 @@ describe('SyncTransactionsUseCase', () => {
       ).mockResolvedValue([newTx, oldTx, middleTx]);
       (
         transactionRepository.findByExternalIds as ReturnType<typeof mock>
-      ).mockResolvedValue(new Set());
+      ).mockResolvedValue(new Map());
 
       await useCase.execute(DEFAULT_TEST_OPTIONS);
 
@@ -514,6 +509,186 @@ describe('SyncTransactionsUseCase', () => {
 
       expect(result.totalAccounts).toBe(0);
       expect(result.errors).toHaveLength(0);
+    });
+  });
+
+  describe('transaction update logic', () => {
+    test('should update existing transactions with missing bank fields', async () => {
+      const account = createTestAccount();
+      // Existing transaction without balance
+      const existingTx = createTestTransaction({
+        externalId: 'tx-1',
+      });
+      // Incoming transaction with balance
+      const incomingTx = createTestTransaction({
+        externalId: 'tx-1',
+        balance: Money.create(100000, Currency.UAH),
+      });
+
+      (
+        accountRepository.findByBank as ReturnType<typeof mock>
+      ).mockResolvedValue([account]);
+      (
+        bankGateway.getTransactions as ReturnType<typeof mock>
+      ).mockResolvedValue([incomingTx]);
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map([['tx-1', existingTx]]));
+
+      const result = await useCase.execute(DEFAULT_TEST_OPTIONS);
+
+      expect(result.newTransactions).toBe(0);
+      expect(result.updatedTransactions).toBe(1);
+      expect(result.skippedTransactions).toBe(0);
+      expect(transactionRepository.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    test('should skip transactions when no new fields to update', async () => {
+      const account = createTestAccount();
+      const balance = Money.create(100000, Currency.UAH);
+      // Existing transaction with all fields already populated
+      const existingTx = createTestTransaction({
+        externalId: 'tx-1',
+        balance,
+        mcc: 5411,
+      });
+      // Incoming transaction with same fields
+      const incomingTx = createTestTransaction({
+        externalId: 'tx-1',
+        balance,
+        mcc: 5411,
+      });
+
+      (
+        accountRepository.findByBank as ReturnType<typeof mock>
+      ).mockResolvedValue([account]);
+      (
+        bankGateway.getTransactions as ReturnType<typeof mock>
+      ).mockResolvedValue([incomingTx]);
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map([['tx-1', existingTx]]));
+
+      const result = await useCase.execute(DEFAULT_TEST_OPTIONS);
+
+      expect(result.newTransactions).toBe(0);
+      expect(result.updatedTransactions).toBe(0);
+      expect(result.skippedTransactions).toBe(1);
+      expect(transactionRepository.updateMany).not.toHaveBeenCalled();
+    });
+
+    test('should preserve existing comment when updating transaction', async () => {
+      const account = createTestAccount();
+      // Existing transaction with user-entered comment
+      const existingTx = createTestTransaction({
+        externalId: 'tx-1',
+        comment: 'User note',
+      });
+      // Incoming transaction with balance and different comment
+      const incomingTx = createTestTransaction({
+        externalId: 'tx-1',
+        balance: Money.create(100000, Currency.UAH),
+        comment: 'Bank comment',
+      });
+
+      (
+        accountRepository.findByBank as ReturnType<typeof mock>
+      ).mockResolvedValue([account]);
+      (
+        bankGateway.getTransactions as ReturnType<typeof mock>
+      ).mockResolvedValue([incomingTx]);
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map([['tx-1', existingTx]]));
+
+      const result = await useCase.execute(DEFAULT_TEST_OPTIONS);
+
+      expect(result.updatedTransactions).toBe(1);
+      const updatedTransactions = (
+        transactionRepository.updateMany as ReturnType<typeof mock>
+      ).mock.calls[0]?.[0] as Transaction[];
+      expect(updatedTransactions[0]?.comment).toBe('User note');
+    });
+
+    test('should handle mix of new, updated, and skipped transactions', async () => {
+      const account = createTestAccount();
+      // New transaction
+      const newTx = createTestTransaction({ externalId: 'new-tx' });
+      // Existing transaction that needs update (missing balance)
+      const existingTxToUpdate = createTestTransaction({
+        externalId: 'update-tx',
+      });
+      const incomingTxToUpdate = createTestTransaction({
+        externalId: 'update-tx',
+        balance: Money.create(50000, Currency.UAH),
+      });
+      // Existing transaction that's up to date (has all fields)
+      const existingTxComplete = createTestTransaction({
+        externalId: 'complete-tx',
+        balance: Money.create(100000, Currency.UAH),
+        mcc: 5411,
+      });
+      const incomingTxComplete = createTestTransaction({
+        externalId: 'complete-tx',
+        balance: Money.create(100000, Currency.UAH),
+        mcc: 5411,
+      });
+
+      (
+        accountRepository.findByBank as ReturnType<typeof mock>
+      ).mockResolvedValue([account]);
+      (
+        bankGateway.getTransactions as ReturnType<typeof mock>
+      ).mockResolvedValue([newTx, incomingTxToUpdate, incomingTxComplete]);
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(
+        new Map([
+          ['update-tx', existingTxToUpdate],
+          ['complete-tx', existingTxComplete],
+        ]),
+      );
+
+      const result = await useCase.execute(DEFAULT_TEST_OPTIONS);
+
+      expect(result.newTransactions).toBe(1);
+      expect(result.updatedTransactions).toBe(1);
+      expect(result.skippedTransactions).toBe(1);
+      expect(transactionRepository.saveMany).toHaveBeenCalledTimes(1);
+      expect(transactionRepository.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    test('should update transaction when Group B fields are missing', async () => {
+      const account = createTestAccount();
+      // Existing transaction without cashback
+      const existingTx = createTestTransaction({
+        externalId: 'tx-1',
+        balance: Money.create(100000, Currency.UAH),
+      });
+      // Incoming transaction with cashback
+      const incomingTx = createTestTransaction({
+        externalId: 'tx-1',
+        balance: Money.create(100000, Currency.UAH),
+        cashbackAmount: Money.create(500, Currency.UAH),
+      });
+
+      (
+        accountRepository.findByBank as ReturnType<typeof mock>
+      ).mockResolvedValue([account]);
+      (
+        bankGateway.getTransactions as ReturnType<typeof mock>
+      ).mockResolvedValue([incomingTx]);
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map([['tx-1', existingTx]]));
+
+      const result = await useCase.execute(DEFAULT_TEST_OPTIONS);
+
+      expect(result.updatedTransactions).toBe(1);
+      const updatedTransactions = (
+        transactionRepository.updateMany as ReturnType<typeof mock>
+      ).mock.calls[0]?.[0] as Transaction[];
+      expect(updatedTransactions[0]?.cashbackAmount?.amount).toBe(500);
     });
   });
 });

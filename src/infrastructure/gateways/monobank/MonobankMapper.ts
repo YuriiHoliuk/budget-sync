@@ -49,7 +49,35 @@ export class MonobankMapper {
       counterpartyName: raw.counterName,
       counterpartyIban: raw.counterIban,
       hold: raw.hold,
+      cashbackAmount: this.mapCashbackAmount(raw.cashbackAmount, currency),
+      commissionRate: this.mapCommissionRate(raw.commissionRate, currency),
+      originalMcc: this.mapOriginalMcc(raw.originalMcc, raw.mcc),
+      receiptId: raw.receiptId,
+      invoiceId: raw.invoiceId,
+      counterEdrpou: raw.counterEdrpou,
     });
+  }
+
+  private mapCashbackAmount(
+    cashbackAmount: number,
+    currency: Currency,
+  ): Money | undefined {
+    return cashbackAmount > 0
+      ? Money.create(cashbackAmount, currency)
+      : undefined;
+  }
+
+  private mapCommissionRate(
+    commissionRate: number,
+    currency: Currency,
+  ): Money | undefined {
+    return commissionRate > 0
+      ? Money.create(commissionRate, currency)
+      : undefined;
+  }
+
+  private mapOriginalMcc(originalMcc: number, mcc: number): number | undefined {
+    return originalMcc !== mcc ? originalMcc : undefined;
   }
 
   private buildAccountName(raw: MonobankAccount): string {

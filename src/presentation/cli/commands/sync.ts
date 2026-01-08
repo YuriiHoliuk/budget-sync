@@ -1,4 +1,7 @@
-import { SyncMonobankUseCase } from '@application/use-cases/SyncMonobank.ts';
+import {
+  type SyncMonobankOptions,
+  SyncMonobankUseCase,
+} from '@application/use-cases/SyncMonobank.ts';
 import { Command } from 'commander';
 import type { DependencyContainer } from 'tsyringe';
 
@@ -19,9 +22,11 @@ export function createSyncCommand(container: DependencyContainer): Command {
           'Note: This may take several minutes due to API rate limits.\n',
         );
 
-        const requestDelayMs = Number.parseInt(options.delay, 10);
+        const syncOptions = buildSyncOptions(options);
+        logSyncFromDate(syncOptions.earliestSyncDate);
+
         const useCase = container.resolve(SyncMonobankUseCase);
-        const result = await useCase.execute({ requestDelayMs });
+        const result = await useCase.execute(syncOptions);
 
         printSummary(result);
 
@@ -42,6 +47,44 @@ export function createSyncCommand(container: DependencyContainer): Command {
   return command;
 }
 
+function buildSyncOptions(cliOptions: { delay: string }): SyncMonobankOptions {
+  const syncOptions: SyncMonobankOptions = {
+    requestDelayMs: Number.parseInt(cliOptions.delay, 10),
+  };
+
+  const syncFromDate = parseSyncFromDateEnv();
+  if (syncFromDate) {
+    syncOptions.earliestSyncDate = syncFromDate;
+    syncOptions.forceFromDate = true; // Force backfill from specified date
+  }
+
+  return syncOptions;
+}
+
+function parseSyncFromDateEnv(): Date | undefined {
+  const syncFromDateStr = process.env['SYNC_FROM_DATE'];
+  if (!syncFromDateStr) {
+    return undefined;
+  }
+
+  const date = new Date(syncFromDateStr);
+  if (Number.isNaN(date.getTime())) {
+    console.error(
+      `Invalid SYNC_FROM_DATE format: ${syncFromDateStr}. Use YYYY-MM-DD format.`,
+    );
+    process.exit(1);
+  }
+
+  return date;
+}
+
+function logSyncFromDate(earliestSyncDate: Date | undefined): void {
+  if (earliestSyncDate) {
+    const dateStr = earliestSyncDate.toISOString().split('T')[0];
+    console.log(`Syncing from date: ${dateStr}\n`);
+  }
+}
+
 function printSummary(
   result: Awaited<ReturnType<SyncMonobankUseCase['execute']>>,
 ): void {
@@ -55,12 +98,9 @@ function printSummary(
   console.log(
     `  Accounts synced: ${result.transactions.syncedAccounts}/${result.transactions.totalAccounts}`,
   );
-  console.log(
-    `  New transactions:       ${result.transactions.newTransactions}`,
-  );
-  console.log(
-    `  Skipped (duplicates):   ${result.transactions.skippedTransactions}`,
-  );
+  console.log(`  New:      ${result.transactions.newTransactions}`);
+  console.log(`  Updated:  ${result.transactions.updatedTransactions}`);
+  console.log(`  Skipped:  ${result.transactions.skippedTransactions}`);
 }
 
 function printErrors(errors: string[]): void {

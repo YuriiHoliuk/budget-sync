@@ -562,6 +562,55 @@ export class SpreadsheetsClient {
   }
 
   /**
+   * Update specific cells in multiple rows (batch sparse update)
+   *
+   * Only updates the specified columns in each row, leaving other columns untouched.
+   * This is more efficient than calling updateRowCells multiple times.
+   *
+   * @param spreadsheetId - The spreadsheet ID
+   * @param sheetName - The sheet name
+   * @param rowUpdates - Array of row updates with row index and cell updates
+   * @param options - Write options
+   */
+  async updateRowsCells(
+    spreadsheetId: string,
+    sheetName: string,
+    rowUpdates: Array<{ rowIndex: number; cellUpdates: CellUpdate[] }>,
+    options: WriteOptions = {},
+  ): Promise<{ totalUpdatedCells: number; updatedRows: number }> {
+    if (rowUpdates.length === 0) {
+      return { totalUpdatedCells: 0, updatedRows: 0 };
+    }
+
+    const allRangeData: Array<{ range: string; values: Row[] }> = [];
+
+    for (const rowUpdate of rowUpdates) {
+      if (rowUpdate.cellUpdates.length === 0) {
+        continue;
+      }
+
+      const groups = this.groupContiguousCells(rowUpdate.cellUpdates);
+
+      for (const group of groups) {
+        allRangeData.push({
+          range: this.buildRangeForGroup(sheetName, rowUpdate.rowIndex, group),
+          values: [group.map((cell) => cell.value)],
+        });
+      }
+    }
+
+    if (allRangeData.length === 0) {
+      return { totalUpdatedCells: 0, updatedRows: 0 };
+    }
+
+    const result = await this.writeRanges(spreadsheetId, allRangeData, options);
+    return {
+      totalUpdatedCells: result.totalUpdatedCells,
+      updatedRows: rowUpdates.length,
+    };
+  }
+
+  /**
    * Group contiguous cells together for efficient batch writes
    */
   private groupContiguousCells(cellUpdates: CellUpdate[]): CellUpdate[][] {

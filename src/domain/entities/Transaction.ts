@@ -14,6 +14,18 @@ export interface TransactionProps {
   counterpartyName?: string;
   counterpartyIban?: string;
   hold?: boolean;
+  /** Cashback earned (in minor units) */
+  cashbackAmount?: Money;
+  /** Commission/fees paid (in minor units) */
+  commissionRate?: Money;
+  /** Original MCC before bank correction */
+  originalMcc?: number;
+  /** Receipt ID for check.gov.ua */
+  receiptId?: string;
+  /** Invoice ID (FOP accounts) */
+  invoiceId?: string;
+  /** Counterparty tax ID (EDRPOU) */
+  counterEdrpou?: string;
 }
 
 export class Transaction {
@@ -77,6 +89,30 @@ export class Transaction {
 
   get isHold(): boolean {
     return this.props.hold ?? false;
+  }
+
+  get cashbackAmount(): Money | undefined {
+    return this.props.cashbackAmount;
+  }
+
+  get commissionRate(): Money | undefined {
+    return this.props.commissionRate;
+  }
+
+  get originalMcc(): number | undefined {
+    return this.props.originalMcc;
+  }
+
+  get receiptId(): string | undefined {
+    return this.props.receiptId;
+  }
+
+  get invoiceId(): string | undefined {
+    return this.props.invoiceId;
+  }
+
+  get counterEdrpou(): string | undefined {
+    return this.props.counterEdrpou;
   }
 
   get isCredit(): boolean {

@@ -88,6 +88,7 @@ export function createMockTransactionRepository(
     update: (transaction: Transaction) => Promise<void>;
     delete: (id: string) => Promise<void>;
     saveMany: (transactions: Transaction[]) => Promise<void>;
+    updateMany: (transactions: Transaction[]) => Promise<void>;
   }> = {},
 ): TransactionRepository {
   return {
@@ -104,6 +105,7 @@ export function createMockTransactionRepository(
     update: overrides.update ?? mock(() => Promise.resolve()),
     delete: overrides.delete ?? mock(() => Promise.resolve()),
     saveMany: overrides.saveMany ?? mock(() => Promise.resolve()),
+    updateMany: overrides.updateMany ?? mock(() => Promise.resolve()),
   } as unknown as TransactionRepository;
 }
 

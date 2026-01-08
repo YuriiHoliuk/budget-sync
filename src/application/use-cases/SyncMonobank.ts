@@ -1,5 +1,8 @@
 import type { Account } from '@domain/entities/Account.ts';
-import type { Transaction } from '@domain/entities/Transaction.ts';
+import {
+  Transaction,
+  type TransactionProps,
+} from '@domain/entities/Transaction.ts';
 import {
   BANK_GATEWAY_TOKEN,
   type BankGateway,
@@ -27,6 +30,7 @@ export interface SyncMonobankResultDTO {
     totalAccounts: number;
     syncedAccounts: number;
     newTransactions: number;
+    updatedTransactions: number;
     skippedTransactions: number;
   };
   errors: string[];
@@ -37,6 +41,8 @@ export interface SyncMonobankOptions {
   maxRetries?: number;
   initialBackoffMs?: number;
   earliestSyncDate?: Date;
+  /** When true, forces sync from earliestSyncDate ignoring lastSyncTime */
+  forceFromDate?: boolean;
   syncOverlapMs?: number;
 }
 
@@ -79,15 +85,17 @@ export class SyncMonobankUseCase {
   }
 
   private buildConfig(options: SyncMonobankOptions): Required<
-    Omit<SyncMonobankOptions, 'earliestSyncDate'>
+    Omit<SyncMonobankOptions, 'earliestSyncDate' | 'forceFromDate'>
   > & {
     earliestSyncDate: Date;
+    forceFromDate: boolean;
   } {
     return {
       requestDelayMs: options.requestDelayMs ?? DEFAULT_REQUEST_DELAY_MS,
       maxRetries: options.maxRetries ?? DEFAULT_MAX_RETRIES,
       initialBackoffMs: options.initialBackoffMs ?? DEFAULT_INITIAL_BACKOFF_MS,
       earliestSyncDate: options.earliestSyncDate ?? DEFAULT_EARLIEST_SYNC_DATE,
+      forceFromDate: options.forceFromDate ?? false,
       syncOverlapMs: options.syncOverlapMs ?? DEFAULT_SYNC_OVERLAP_MS,
     };
   }
@@ -103,6 +111,7 @@ export class SyncMonobankUseCase {
         totalAccounts: 0,
         syncedAccounts: 0,
         newTransactions: 0,
+        updatedTransactions: 0,
         skippedTransactions: 0,
       },
       errors: [],
@@ -307,6 +316,7 @@ export class SyncMonobankUseCase {
   ): Promise<{
     synced: boolean;
     newTransactions: number;
+    updatedTransactions: number;
     skippedTransactions: number;
     error?: string;
   }> {
@@ -316,6 +326,7 @@ export class SyncMonobankUseCase {
         account.lastSyncTime,
         config.earliestSyncDate,
         config.syncOverlapMs,
+        config.forceFromDate,
       );
 
       this.logger.debug('monobank', 'Syncing account transactions', {
@@ -325,13 +336,14 @@ export class SyncMonobankUseCase {
         syncTo: now.toISOString(),
       });
 
-      const { newCount, skippedCount } = await this.syncAccountChunks(
-        account.externalId,
-        syncFrom,
-        now,
-        config,
-        isFirstRequest,
-      );
+      const { newCount, updatedCount, skippedCount } =
+        await this.syncAccountChunks(
+          account.externalId,
+          syncFrom,
+          now,
+          config,
+          isFirstRequest,
+        );
 
       await this.accountRepository.updateLastSyncTime(
         account.id,
@@ -342,12 +354,14 @@ export class SyncMonobankUseCase {
         accountExternalId: account.externalId,
         accountName: account.name,
         newTransactions: newCount,
+        updatedTransactions: updatedCount,
         skippedTransactions: skippedCount,
       });
 
       return {
         synced: true,
         newTransactions: newCount,
+        updatedTransactions: updatedCount,
         skippedTransactions: skippedCount,
       };
     } catch (error) {
@@ -362,6 +376,7 @@ export class SyncMonobankUseCase {
       return {
         synced: false,
         newTransactions: 0,
+        updatedTransactions: 0,
         skippedTransactions: 0,
         error: errorText,
       };
@@ -374,9 +389,10 @@ export class SyncMonobankUseCase {
     syncTo: Date,
     config: ReturnType<typeof this.buildConfig>,
     isFirstRequest: boolean,
-  ): Promise<{ newCount: number; skippedCount: number }> {
+  ): Promise<{ newCount: number; updatedCount: number; skippedCount: number }> {
     const chunks = chunkDateRange(syncFrom, syncTo, 31);
     let totalNewCount = 0;
+    let totalUpdatedCount = 0;
     let totalSkippedCount = 0;
     let shouldDelay = !isFirstRequest;
 
@@ -412,22 +428,28 @@ export class SyncMonobankUseCase {
         config.initialBackoffMs,
       );
 
-      const { newCount, skippedCount } =
-        await this.deduplicateAndSaveTransactions(transactions);
+      const { newCount, updatedCount, skippedCount } =
+        await this.processTransactions(transactions);
 
       this.logger.debug('monobank', 'Chunk processed', {
         accountExternalId,
         from: chunk.from.toISOString(),
         to: chunk.to.toISOString(),
         newTransactions: newCount,
+        updatedTransactions: updatedCount,
         skippedTransactions: skippedCount,
       });
 
       totalNewCount += newCount;
+      totalUpdatedCount += updatedCount;
       totalSkippedCount += skippedCount;
     }
 
-    return { newCount: totalNewCount, skippedCount: totalSkippedCount };
+    return {
+      newCount: totalNewCount,
+      updatedCount: totalUpdatedCount,
+      skippedCount: totalSkippedCount,
+    };
   }
 
   private mergeAccountResult(
@@ -438,6 +460,8 @@ export class SyncMonobankUseCase {
       result.transactions.syncedAccounts++;
     }
     result.transactions.newTransactions += accountResult.newTransactions;
+    result.transactions.updatedTransactions +=
+      accountResult.updatedTransactions;
     result.transactions.skippedTransactions +=
       accountResult.skippedTransactions;
     if (accountResult.error) {
@@ -449,8 +473,10 @@ export class SyncMonobankUseCase {
     lastSyncTime: number | undefined,
     earliestSyncDate: Date,
     syncOverlapMs: number,
+    forceFromDate: boolean,
   ): Date {
-    if (lastSyncTime === undefined) {
+    // When forceFromDate is true, always use earliestSyncDate (for backfill)
+    if (forceFromDate || lastSyncTime === undefined) {
       return earliestSyncDate;
     }
 
@@ -495,11 +521,14 @@ export class SyncMonobankUseCase {
     throw lastError;
   }
 
-  private async deduplicateAndSaveTransactions(
+  /**
+   * Process incoming transactions: save new ones, update existing ones with missing fields.
+   */
+  private async processTransactions(
     transactions: Transaction[],
-  ): Promise<{ newCount: number; skippedCount: number }> {
+  ): Promise<{ newCount: number; updatedCount: number; skippedCount: number }> {
     if (transactions.length === 0) {
-      return { newCount: 0, skippedCount: 0 };
+      return { newCount: 0, updatedCount: 0, skippedCount: 0 };
     }
 
     const externalIds = transactions.map(
@@ -508,22 +537,223 @@ export class SyncMonobankUseCase {
     const existingTransactions =
       await this.transactionRepository.findByExternalIds(externalIds);
 
-    const newTransactions = transactions.filter(
-      (transaction) => !existingTransactions.has(transaction.externalId),
-    );
+    const { newTransactions, transactionsToUpdate, skippedCount } =
+      this.categorizeTransactions(transactions, existingTransactions);
 
-    if (newTransactions.length > 0) {
-      // Sort by date ascending (oldest first) so newest transactions are at the bottom
-      const sortedTransactions = [...newTransactions].sort(
-        (transactionA, transactionB) =>
-          transactionA.date.getTime() - transactionB.date.getTime(),
-      );
-      await this.transactionRepository.saveMany(sortedTransactions);
-    }
+    await this.saveNewTransactions(newTransactions);
+    await this.updateExistingTransactions(transactionsToUpdate);
 
     return {
       newCount: newTransactions.length,
-      skippedCount: transactions.length - newTransactions.length,
+      updatedCount: transactionsToUpdate.length,
+      skippedCount,
+    };
+  }
+
+  /**
+   * Categorize incoming transactions into new, to update, or skipped.
+   */
+  private categorizeTransactions(
+    incomingTransactions: Transaction[],
+    existingTransactions: Map<string, Transaction>,
+  ): {
+    newTransactions: Transaction[];
+    transactionsToUpdate: Transaction[];
+    skippedCount: number;
+  } {
+    const newTransactions: Transaction[] = [];
+    const transactionsToUpdate: Transaction[] = [];
+    let skippedCount = 0;
+
+    for (const incoming of incomingTransactions) {
+      const existing = existingTransactions.get(incoming.externalId);
+
+      if (!existing) {
+        newTransactions.push(incoming);
+        continue;
+      }
+
+      if (this.hasFieldsToUpdate(existing, incoming)) {
+        const merged = this.mergeTransactions(existing, incoming);
+        transactionsToUpdate.push(merged);
+      } else {
+        skippedCount++;
+      }
+    }
+
+    return { newTransactions, transactionsToUpdate, skippedCount };
+  }
+
+  /**
+   * Save new transactions to the repository.
+   */
+  private async saveNewTransactions(
+    transactions: Transaction[],
+  ): Promise<void> {
+    if (transactions.length === 0) {
+      return;
+    }
+
+    // Sort by date ascending (oldest first) so newest transactions are at the bottom
+    const sortedTransactions = [...transactions].sort(
+      (txA, txB) => txA.date.getTime() - txB.date.getTime(),
+    );
+
+    await this.transactionRepository.saveMany(sortedTransactions);
+  }
+
+  /**
+   * Update existing transactions with new bank data.
+   */
+  private async updateExistingTransactions(
+    transactions: Transaction[],
+  ): Promise<void> {
+    if (transactions.length === 0) {
+      return;
+    }
+
+    await this.transactionRepository.updateMany(transactions);
+  }
+
+  /**
+   * Check if incoming transaction has bank-provided fields that are missing in existing.
+   * Only checks fields that come from the bank (not user-entered fields).
+   */
+  private hasFieldsToUpdate(
+    existing: Transaction,
+    incoming: Transaction,
+  ): boolean {
+    return (
+      this.hasNewGroupAFields(existing, incoming) ||
+      this.hasNewGroupBFields(existing, incoming) ||
+      this.hasNewOtherBankFields(existing, incoming)
+    );
+  }
+
+  /**
+   * Check Group A fields (balance, operationAmount, counterpartyIban, hold).
+   */
+  private hasNewGroupAFields(
+    existing: Transaction,
+    incoming: Transaction,
+  ): boolean {
+    return (
+      (existing.balance === undefined && incoming.balance !== undefined) ||
+      (existing.operationAmount === undefined &&
+        incoming.operationAmount !== undefined) ||
+      (existing.counterpartyIban === undefined &&
+        incoming.counterpartyIban !== undefined) ||
+      (existing.isHold === false && incoming.isHold === true)
+    );
+  }
+
+  /**
+   * Check Group B fields (cashbackAmount, commissionRate, originalMcc, receiptId, invoiceId, counterEdrpou).
+   */
+  private hasNewGroupBFields(
+    existing: Transaction,
+    incoming: Transaction,
+  ): boolean {
+    return (
+      (existing.cashbackAmount === undefined &&
+        incoming.cashbackAmount !== undefined) ||
+      (existing.commissionRate === undefined &&
+        incoming.commissionRate !== undefined) ||
+      (existing.originalMcc === undefined &&
+        incoming.originalMcc !== undefined) ||
+      (existing.receiptId === undefined && incoming.receiptId !== undefined) ||
+      (existing.invoiceId === undefined && incoming.invoiceId !== undefined) ||
+      (existing.counterEdrpou === undefined &&
+        incoming.counterEdrpou !== undefined)
+    );
+  }
+
+  /**
+   * Check other bank fields (counterpartyName, mcc, comment).
+   */
+  private hasNewOtherBankFields(
+    existing: Transaction,
+    incoming: Transaction,
+  ): boolean {
+    return (
+      (existing.counterpartyName === undefined &&
+        incoming.counterpartyName !== undefined) ||
+      (existing.mcc === undefined && incoming.mcc !== undefined) ||
+      (existing.comment === undefined && incoming.comment !== undefined)
+    );
+  }
+
+  /**
+   * Merge transactions: keep user data from existing, update bank data from incoming.
+   * User-entered fields (category, budget, tags, notes) are preserved via the spreadsheet
+   * mapper - this method focuses on bank-provided fields.
+   */
+  private mergeTransactions(
+    existing: Transaction,
+    incoming: Transaction,
+  ): Transaction {
+    const mergedProps: TransactionProps = {
+      // Identity (from existing)
+      externalId: existing.externalId,
+      accountId: existing.accountId,
+      // Core bank data (from incoming - latest from API)
+      date: incoming.date,
+      amount: incoming.amount,
+      description: incoming.description,
+      type: incoming.type,
+      // Optional fields merged from both
+      ...this.mergeOptionalBankFields(existing, incoming),
+      // Comment: preserve existing if present, otherwise use incoming
+      comment: existing.comment ?? incoming.comment,
+    };
+
+    return Transaction.create(mergedProps, existing.id);
+  }
+
+  /**
+   * Merge optional bank fields: prefer incoming if present, fallback to existing.
+   */
+  private mergeOptionalBankFields(
+    existing: Transaction,
+    incoming: Transaction,
+  ): Partial<TransactionProps> {
+    return {
+      ...this.mergeGroupAFields(existing, incoming),
+      ...this.mergeGroupBAndOtherFields(existing, incoming),
+    };
+  }
+
+  /**
+   * Merge Group A fields (balance, operationAmount, counterpartyIban, hold).
+   */
+  private mergeGroupAFields(
+    existing: Transaction,
+    incoming: Transaction,
+  ): Partial<TransactionProps> {
+    return {
+      operationAmount: incoming.operationAmount ?? existing.operationAmount,
+      balance: incoming.balance ?? existing.balance,
+      counterpartyIban: incoming.counterpartyIban ?? existing.counterpartyIban,
+      hold: incoming.isHold || existing.isHold,
+      mcc: incoming.mcc ?? existing.mcc,
+      counterpartyName: incoming.counterpartyName ?? existing.counterpartyName,
+    };
+  }
+
+  /**
+   * Merge Group B and other optional fields.
+   */
+  private mergeGroupBAndOtherFields(
+    existing: Transaction,
+    incoming: Transaction,
+  ): Partial<TransactionProps> {
+    return {
+      cashbackAmount: incoming.cashbackAmount ?? existing.cashbackAmount,
+      commissionRate: incoming.commissionRate ?? existing.commissionRate,
+      originalMcc: incoming.originalMcc ?? existing.originalMcc,
+      receiptId: incoming.receiptId ?? existing.receiptId,
+      invoiceId: incoming.invoiceId ?? existing.invoiceId,
+      counterEdrpou: incoming.counterEdrpou ?? existing.counterEdrpou,
     };
   }
 }

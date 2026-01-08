@@ -246,6 +246,44 @@ export class SpreadsheetTable<T extends Record<string, ColumnDefinition>> {
   }
 
   /**
+   * Update multiple rows at specific indices (batch update)
+   *
+   * Only updates columns defined in the schema, preserving any custom
+   * columns that exist in the spreadsheet but are not part of the schema.
+   *
+   * @param rowUpdates - Array of objects with rowIndex and record to update
+   */
+  async updateRowsAt(
+    rowUpdates: Array<{ rowIndex: number; record: SchemaToRecord<T> }>,
+  ): Promise<void> {
+    if (rowUpdates.length === 0) {
+      return;
+    }
+
+    if (!this.validatedSchema) {
+      await this.validateSchema();
+    }
+
+    // Validate all row indices
+    for (const update of rowUpdates) {
+      if (update.rowIndex < 2) {
+        throw new Error('Row index must be >= 2 (row 1 is the header)');
+      }
+    }
+
+    const clientRowUpdates = rowUpdates.map((update) => ({
+      rowIndex: update.rowIndex,
+      cellUpdates: this.recordToCellUpdates(update.record),
+    }));
+
+    await this.client.updateRowsCells(
+      this.spreadsheetId,
+      this.sheetName,
+      clientRowUpdates,
+    );
+  }
+
+  /**
    * Convert a record to an array of cell updates for sparse writing
    */
   private recordToCellUpdates(

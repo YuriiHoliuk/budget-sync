@@ -21,4 +21,5 @@ export abstract class TransactionRepository extends Repository<
   ): Promise<Map<string, Transaction>>;
   abstract findByAccountId(accountId: string): Promise<Transaction[]>;
   abstract saveMany(transactions: Transaction[]): Promise<void>;
+  abstract updateMany(transactions: Transaction[]): Promise<void>;
 }

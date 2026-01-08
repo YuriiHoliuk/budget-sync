@@ -47,6 +47,28 @@ export interface TransactionRecord {
   tags?: string;
   /** User notes */
   notes?: string;
+  /** Account balance after transaction in major units */
+  balanceAfter?: number;
+  /** Operation amount in original currency (major units) */
+  operationAmount?: number;
+  /** Operation currency code (when different from account currency) */
+  operationCurrency?: string;
+  /** Counterparty IBAN */
+  counterpartyIban?: string;
+  /** Authorization hold status (only stored when true) */
+  hold?: boolean;
+  /** Cashback earned in major units */
+  cashback?: number;
+  /** Commission/fees paid in major units */
+  commission?: number;
+  /** Original MCC before bank correction */
+  originalMcc?: number;
+  /** Receipt ID for check.gov.ua */
+  receiptId?: string;
+  /** Invoice ID (FOP accounts) */
+  invoiceId?: string;
+  /** Counterparty tax ID (EDRPOU) */
+  counterEdrpou?: string;
 }
 
 /**
@@ -82,6 +104,17 @@ export class SpreadsheetTransactionMapper {
       counterparty: transaction.counterpartyName,
       tags: undefined,
       notes: transaction.comment,
+      balanceAfter: transaction.balance?.toMajorUnits(),
+      operationAmount: transaction.operationAmount?.toMajorUnits(),
+      operationCurrency: transaction.operationAmount?.currency.code,
+      counterpartyIban: transaction.counterpartyIban,
+      hold: transaction.isHold || undefined,
+      cashback: transaction.cashbackAmount?.toMajorUnits(),
+      commission: transaction.commissionRate?.toMajorUnits(),
+      originalMcc: transaction.originalMcc,
+      receiptId: transaction.receiptId,
+      invoiceId: transaction.invoiceId,
+      counterEdrpou: transaction.counterEdrpou,
     };
   }
 
@@ -113,6 +146,44 @@ export class SpreadsheetTransactionMapper {
       mcc: record.mcc,
       comment: record.notes,
       counterpartyName: record.counterparty,
+      balance: this.parseOptionalMoney(record.balanceAfter, currency),
+      operationAmount: this.parseOperationAmount(record),
+      counterpartyIban: record.counterpartyIban,
+      hold: record.hold,
+      cashbackAmount: this.parseOptionalMoney(record.cashback, currency),
+      commissionRate: this.parseOptionalMoney(record.commission, currency),
+      originalMcc: record.originalMcc,
+      receiptId: record.receiptId,
+      invoiceId: record.invoiceId,
+      counterEdrpou: record.counterEdrpou,
     });
+  }
+
+  /**
+   * Parse optional money value from major units to Money object.
+   */
+  private parseOptionalMoney(
+    majorUnits: number | undefined,
+    currency: Currency,
+  ): Money | undefined {
+    if (majorUnits === undefined) {
+      return undefined;
+    }
+    const minorUnits = Math.round(majorUnits * 100);
+    return Money.create(minorUnits, currency);
+  }
+
+  /**
+   * Parse operation amount with its own currency.
+   */
+  private parseOperationAmount(record: TransactionRecord): Money | undefined {
+    if (record.operationAmount === undefined) {
+      return undefined;
+    }
+    const operationCurrency = record.operationCurrency
+      ? Currency.fromCode(record.operationCurrency)
+      : Currency.fromCode(record.currency);
+    const minorUnits = Math.round(record.operationAmount * 100);
+    return Money.create(minorUnits, operationCurrency);
   }
 }

@@ -366,5 +366,230 @@ describe('MonobankMapper', () => {
       // Zero amount is treated as credit per the mapper logic
       expect(transaction.type).toBe(TransactionType.CREDIT);
     });
+
+    test('should map cashbackAmount when greater than zero', () => {
+      const raw: MonobankStatementItem = {
+        id: 'tx-cashback',
+        time: 1704067200,
+        description: 'Purchase with cashback',
+        mcc: 5411,
+        originalMcc: 5411,
+        hold: false,
+        amount: -15000,
+        operationAmount: -15000,
+        currencyCode: 980,
+        commissionRate: 0,
+        cashbackAmount: 150, // 1.50 UAH cashback
+        balance: 985000,
+      };
+
+      const transaction = mapper.toTransaction(raw, 'account-123');
+
+      expect(transaction.cashbackAmount).toBeDefined();
+      expect(transaction.cashbackAmount?.amount).toBe(150);
+      expect(transaction.cashbackAmount?.currency.code).toBe('UAH');
+    });
+
+    test('should not map cashbackAmount when zero', () => {
+      const raw: MonobankStatementItem = {
+        id: 'tx-no-cashback',
+        time: 1704067200,
+        description: 'Purchase without cashback',
+        mcc: 5411,
+        originalMcc: 5411,
+        hold: false,
+        amount: -15000,
+        operationAmount: -15000,
+        currencyCode: 980,
+        commissionRate: 0,
+        cashbackAmount: 0,
+        balance: 985000,
+      };
+
+      const transaction = mapper.toTransaction(raw, 'account-123');
+
+      expect(transaction.cashbackAmount).toBeUndefined();
+    });
+
+    test('should map commissionRate when greater than zero', () => {
+      const raw: MonobankStatementItem = {
+        id: 'tx-commission',
+        time: 1704067200,
+        description: 'Transfer with commission',
+        mcc: 0,
+        originalMcc: 0,
+        hold: false,
+        amount: -100000,
+        operationAmount: -100000,
+        currencyCode: 980,
+        commissionRate: 500, // 5.00 UAH commission
+        cashbackAmount: 0,
+        balance: 900000,
+      };
+
+      const transaction = mapper.toTransaction(raw, 'account-123');
+
+      expect(transaction.commissionRate).toBeDefined();
+      expect(transaction.commissionRate?.amount).toBe(500);
+      expect(transaction.commissionRate?.currency.code).toBe('UAH');
+    });
+
+    test('should not map commissionRate when zero', () => {
+      const raw: MonobankStatementItem = {
+        id: 'tx-no-commission',
+        time: 1704067200,
+        description: 'Transfer without commission',
+        mcc: 0,
+        originalMcc: 0,
+        hold: false,
+        amount: -100000,
+        operationAmount: -100000,
+        currencyCode: 980,
+        commissionRate: 0,
+        cashbackAmount: 0,
+        balance: 900000,
+      };
+
+      const transaction = mapper.toTransaction(raw, 'account-123');
+
+      expect(transaction.commissionRate).toBeUndefined();
+    });
+
+    test('should map originalMcc when different from mcc', () => {
+      const raw: MonobankStatementItem = {
+        id: 'tx-original-mcc',
+        time: 1704067200,
+        description: 'Purchase with corrected MCC',
+        mcc: 5411, // Corrected by bank
+        originalMcc: 5999, // Original MCC
+        hold: false,
+        amount: -15000,
+        operationAmount: -15000,
+        currencyCode: 980,
+        commissionRate: 0,
+        cashbackAmount: 0,
+        balance: 985000,
+      };
+
+      const transaction = mapper.toTransaction(raw, 'account-123');
+
+      expect(transaction.originalMcc).toBe(5999);
+    });
+
+    test('should not map originalMcc when same as mcc', () => {
+      const raw: MonobankStatementItem = {
+        id: 'tx-same-mcc',
+        time: 1704067200,
+        description: 'Purchase with same MCC',
+        mcc: 5411,
+        originalMcc: 5411, // Same as mcc
+        hold: false,
+        amount: -15000,
+        operationAmount: -15000,
+        currencyCode: 980,
+        commissionRate: 0,
+        cashbackAmount: 0,
+        balance: 985000,
+      };
+
+      const transaction = mapper.toTransaction(raw, 'account-123');
+
+      expect(transaction.originalMcc).toBeUndefined();
+    });
+
+    test('should map receiptId when present', () => {
+      const raw: MonobankStatementItem = {
+        id: 'tx-receipt',
+        time: 1704067200,
+        description: 'Purchase with receipt',
+        mcc: 5411,
+        originalMcc: 5411,
+        hold: false,
+        amount: -15000,
+        operationAmount: -15000,
+        currencyCode: 980,
+        commissionRate: 0,
+        cashbackAmount: 0,
+        balance: 985000,
+        receiptId: 'XXXX-XXXX-XXXX-XXXX',
+      };
+
+      const transaction = mapper.toTransaction(raw, 'account-123');
+
+      expect(transaction.receiptId).toBe('XXXX-XXXX-XXXX-XXXX');
+    });
+
+    test('should map invoiceId when present (FOP accounts)', () => {
+      const raw: MonobankStatementItem = {
+        id: 'tx-invoice',
+        time: 1704067200,
+        description: 'FOP payment',
+        mcc: 0,
+        originalMcc: 0,
+        hold: false,
+        amount: 50000,
+        operationAmount: 50000,
+        currencyCode: 980,
+        commissionRate: 0,
+        cashbackAmount: 0,
+        balance: 1050000,
+        invoiceId: 'invoice-12345',
+      };
+
+      const transaction = mapper.toTransaction(raw, 'fop-account');
+
+      expect(transaction.invoiceId).toBe('invoice-12345');
+    });
+
+    test('should map counterEdrpou when present', () => {
+      const raw: MonobankStatementItem = {
+        id: 'tx-edrpou',
+        time: 1704067200,
+        description: 'Payment to company',
+        mcc: 0,
+        originalMcc: 0,
+        hold: false,
+        amount: -100000,
+        operationAmount: -100000,
+        currencyCode: 980,
+        commissionRate: 0,
+        cashbackAmount: 0,
+        balance: 900000,
+        counterEdrpou: '12345678',
+      };
+
+      const transaction = mapper.toTransaction(raw, 'account-123');
+
+      expect(transaction.counterEdrpou).toBe('12345678');
+    });
+
+    test('should map all Group B fields together', () => {
+      const raw: MonobankStatementItem = {
+        id: 'tx-all-group-b',
+        time: 1704067200,
+        description: 'Full transaction with all Group B fields',
+        mcc: 5411,
+        originalMcc: 5999,
+        hold: false,
+        amount: -15000,
+        operationAmount: -15000,
+        currencyCode: 980,
+        commissionRate: 100,
+        cashbackAmount: 150,
+        balance: 985000,
+        receiptId: 'XXXX-XXXX-XXXX-XXXX',
+        invoiceId: 'invoice-123',
+        counterEdrpou: '12345678',
+      };
+
+      const transaction = mapper.toTransaction(raw, 'account-123');
+
+      expect(transaction.cashbackAmount?.amount).toBe(150);
+      expect(transaction.commissionRate?.amount).toBe(100);
+      expect(transaction.originalMcc).toBe(5999);
+      expect(transaction.receiptId).toBe('XXXX-XXXX-XXXX-XXXX');
+      expect(transaction.invoiceId).toBe('invoice-123');
+      expect(transaction.counterEdrpou).toBe('12345678');
+    });
   });
 });
