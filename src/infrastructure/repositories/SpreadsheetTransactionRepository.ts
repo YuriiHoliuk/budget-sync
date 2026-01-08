@@ -73,8 +73,7 @@ export class SpreadsheetTransactionRepository
   }
 
   protected toEntity(record: TransactionRecord): Transaction {
-    // accountId will be resolved later when needed
-    return this.mapper.toEntity(record, '');
+    return this.mapper.toEntity(record, record.accountExternalId ?? '');
   }
 
   protected toRecord(entity: Transaction): TransactionRecord {

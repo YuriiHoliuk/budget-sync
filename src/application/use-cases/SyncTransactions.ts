@@ -379,10 +379,21 @@ export class SyncTransactionsUseCase {
     incoming: Transaction,
   ): boolean {
     return (
+      this.hasMissingAccountId(existing, incoming) ||
       this.hasNewGroupAFields(existing, incoming) ||
       this.hasNewGroupBFields(existing, incoming) ||
       this.hasNewOtherBankFields(existing, incoming)
     );
+  }
+
+  /**
+   * Check if existing transaction is missing accountId (legacy bug fix).
+   */
+  private hasMissingAccountId(
+    existing: Transaction,
+    incoming: Transaction,
+  ): boolean {
+    return !existing.accountId && !!incoming.accountId;
   }
 
   /**
@@ -448,9 +459,10 @@ export class SyncTransactionsUseCase {
     incoming: Transaction,
   ): Transaction {
     const mergedProps: TransactionProps = {
-      // Identity (from existing)
+      // Identity
       externalId: existing.externalId,
-      accountId: existing.accountId,
+      // Use incoming accountId (from bank API) if existing is empty (legacy bug)
+      accountId: existing.accountId || incoming.accountId,
       // Core bank data (from incoming - latest from API)
       date: incoming.date,
       amount: incoming.amount,
