@@ -5,6 +5,7 @@
  * Example: bun scripts/add-spreadsheet-columns.ts "Рахунки" "ID (зовнішній)" "IBAN"
  */
 
+import { google } from 'googleapis';
 import { SpreadsheetsClient } from '../src/modules/spreadsheet/index.ts';
 
 function getRequiredEnvVar(name: string): string {
@@ -35,6 +36,64 @@ function columnIndexToLetter(columnIndex: number): string {
   }
 
   return result;
+}
+
+/**
+ * Expand sheet columns if needed to accommodate new columns
+ */
+async function expandSheetColumnsIfNeeded(
+  spreadsheetId: string,
+  sheetName: string,
+  requiredColumns: number,
+  serviceAccountFile: string,
+): Promise<void> {
+  const auth = new google.auth.GoogleAuth({
+    keyFile: serviceAccountFile,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+  const sheets = google.sheets({ version: 'v4', auth });
+
+  // Get current sheet info
+  const response = await sheets.spreadsheets.get({
+    spreadsheetId,
+  });
+
+  const sheet = response.data.sheets?.find(
+    (sheetData) => sheetData.properties?.title === sheetName,
+  );
+
+  if (!sheet) {
+    throw new Error(`Sheet "${sheetName}" not found`);
+  }
+
+  const currentColumns = sheet.properties?.gridProperties?.columnCount ?? 0;
+  const sheetId = sheet.properties?.sheetId;
+
+  if (currentColumns >= requiredColumns) {
+    return; // No expansion needed
+  }
+
+  // Expand the sheet
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          updateSheetProperties: {
+            properties: {
+              sheetId,
+              gridProperties: {
+                columnCount: requiredColumns,
+              },
+            },
+            fields: 'gridProperties.columnCount',
+          },
+        },
+      ],
+    },
+  });
+
+  console.log(`Expanded sheet columns from ${currentColumns} to ${requiredColumns}`);
 }
 
 async function main(): Promise<void> {
@@ -82,6 +141,16 @@ async function main(): Promise<void> {
 
     // Calculate the starting column for new headers
     const startColumnIndex = existingHeaders.length;
+    const requiredColumns = startColumnIndex + newColumns.length;
+
+    // Expand the sheet if needed
+    await expandSheetColumnsIfNeeded(
+      spreadsheetId,
+      sheetName,
+      requiredColumns,
+      serviceAccountFile,
+    );
+
     const startColumn = columnIndexToLetter(startColumnIndex);
     const endColumn = columnIndexToLetter(startColumnIndex + newColumns.length - 1);
 

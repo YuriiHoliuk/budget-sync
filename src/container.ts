@@ -8,9 +8,16 @@
 import 'reflect-metadata';
 
 import { BANK_GATEWAY_TOKEN } from '@domain/gateways/BankGateway.ts';
+import { LLM_GATEWAY_TOKEN } from '@domain/gateways/LLMGateway.ts';
 import { MESSAGE_QUEUE_GATEWAY_TOKEN } from '@domain/gateways/MessageQueueGateway.ts';
 import { ACCOUNT_REPOSITORY_TOKEN } from '@domain/repositories/AccountRepository.ts';
+import { BUDGET_REPOSITORY_TOKEN } from '@domain/repositories/BudgetRepository.ts';
+import { CATEGORY_REPOSITORY_TOKEN } from '@domain/repositories/CategoryRepository.ts';
 import { TRANSACTION_REPOSITORY_TOKEN } from '@domain/repositories/TransactionRepository.ts';
+import {
+  GEMINI_CLIENT_TOKEN,
+  GeminiLLMGateway,
+} from '@infrastructure/gateways/llm/index.ts';
 import {
   MONOBANK_CONFIG_TOKEN,
   MonobankGateway,
@@ -25,11 +32,14 @@ import {
   SPREADSHEETS_CLIENT_TOKEN,
   SpreadsheetAccountRepository,
 } from '@infrastructure/repositories/SpreadsheetAccountRepository.ts';
+import { SpreadsheetBudgetRepository } from '@infrastructure/repositories/SpreadsheetBudgetRepository.ts';
+import { SpreadsheetCategoryRepository } from '@infrastructure/repositories/SpreadsheetCategoryRepository.ts';
 import {
   ACCOUNT_NAME_RESOLVER_TOKEN,
   SpreadsheetTransactionRepository,
 } from '@infrastructure/repositories/SpreadsheetTransactionRepository.ts';
 import { SpreadsheetAccountNameResolver } from '@infrastructure/services/AccountNameResolver.ts';
+import { GeminiClient } from '@modules/llm/index.ts';
 import { PubSubClient } from '@modules/pubsub/index.ts';
 import { SpreadsheetsClient } from '@modules/spreadsheet/SpreadsheetsClient.ts';
 import { container } from 'tsyringe';
@@ -95,6 +105,12 @@ export function setupContainer(): typeof container {
     serviceAccountFile,
   });
 
+  // LLM configuration (Gemini API)
+  const geminiApiKey = getOptionalEnv('GEMINI_API_KEY');
+  const geminiClient = geminiApiKey
+    ? new GeminiClient({ apiKey: geminiApiKey })
+    : null;
+
   // Register infrastructure dependencies (config tokens and clients)
   container.register(SPREADSHEETS_CLIENT_TOKEN, {
     useValue: spreadsheetsClient,
@@ -105,6 +121,11 @@ export function setupContainer(): typeof container {
   container.register(PUBSUB_QUEUE_CONFIG_TOKEN, {
     useValue: pubSubQueueConfig,
   });
+
+  // LLM Client (optional - categorization disabled if not configured)
+  if (geminiClient) {
+    container.register(GEMINI_CLIENT_TOKEN, { useValue: geminiClient });
+  }
 
   // Register domain abstractions with their infrastructure implementations
   // Uses Symbol tokens defined in domain layer for type-safe injection
@@ -125,6 +146,19 @@ export function setupContainer(): typeof container {
   container.register(TRANSACTION_REPOSITORY_TOKEN, {
     useClass: SpreadsheetTransactionRepository,
   });
+
+  // Category and Budget repositories
+  container.register(CATEGORY_REPOSITORY_TOKEN, {
+    useClass: SpreadsheetCategoryRepository,
+  });
+  container.register(BUDGET_REPOSITORY_TOKEN, {
+    useClass: SpreadsheetBudgetRepository,
+  });
+
+  // LLM Gateway (only registered if Gemini client is available)
+  if (geminiClient) {
+    container.register(LLM_GATEWAY_TOKEN, { useClass: GeminiLLMGateway });
+  }
 
   return container;
 }

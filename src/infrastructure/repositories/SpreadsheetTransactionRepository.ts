@@ -6,7 +6,10 @@
  */
 
 import type { Transaction } from '@domain/entities/Transaction.ts';
-import type { TransactionRepository } from '@domain/repositories/TransactionRepository.ts';
+import type {
+  CategorizationUpdate,
+  TransactionRepository,
+} from '@domain/repositories/TransactionRepository.ts';
 import type { SpreadsheetsClient } from '@modules/spreadsheet/SpreadsheetsClient.ts';
 import type { SchemaToRecord } from '@modules/spreadsheet/types.ts';
 import { inject, injectable } from 'tsyringe';
@@ -300,5 +303,35 @@ export class SpreadsheetTransactionRepository
     if (!deleted) {
       throw new Error(`Transaction not found for deletion: ${id}`);
     }
+  }
+
+  /**
+   * Update categorization fields for a transaction.
+   * Finds the transaction by externalId and updates only categorization-related fields.
+   */
+  async updateCategorization(
+    externalId: string,
+    data: CategorizationUpdate,
+  ): Promise<void> {
+    const predicate = (record: SchemaToRecord<TransactionSchema>) =>
+      record.externalId === externalId;
+
+    const result = await this.table.findRow(predicate, {
+      skipInvalidRows: true,
+    });
+
+    if (!result) {
+      throw new Error(
+        `Transaction not found for categorization update: ${externalId}`,
+      );
+    }
+
+    const categorizationRecord = this.mapper.categorizationToRecord(data);
+    const updatedRecord = {
+      ...result.record,
+      ...categorizationRecord,
+    };
+
+    await this.table.updateRowAt(result.rowIndex, updatedRecord);
   }
 }

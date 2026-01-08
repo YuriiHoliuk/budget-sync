@@ -1,13 +1,30 @@
 import { mock } from 'bun:test';
+import type {
+  CategorizeTransactionRequestDTO,
+  CategorizeTransactionResultDTO,
+  CategorizeTransactionUseCase,
+} from '@application/use-cases/CategorizeTransaction.ts';
 import type { Account } from '@domain/entities/Account.ts';
+import type { Budget } from '@domain/entities/Budget.ts';
+import type { Category } from '@domain/entities/Category.ts';
 import type { Transaction } from '@domain/entities/Transaction.ts';
 import type { BankGateway } from '@domain/gateways/BankGateway.ts';
+import type {
+  CategorizationRequest,
+  CategorizationResult,
+  LLMGateway,
+} from '@domain/gateways/LLMGateway.ts';
 import type {
   MessageQueueGateway,
   QueueMessage,
 } from '@domain/gateways/MessageQueueGateway.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
-import type { TransactionRepository } from '@domain/repositories/TransactionRepository.ts';
+import type { BudgetRepository } from '@domain/repositories/BudgetRepository.ts';
+import type { CategoryRepository } from '@domain/repositories/CategoryRepository.ts';
+import type {
+  CategorizationUpdate,
+  TransactionRepository,
+} from '@domain/repositories/TransactionRepository.ts';
 import type { Money } from '@domain/value-objects/Money.ts';
 import type { Logger } from '@modules/logging';
 
@@ -71,6 +88,25 @@ export function createMockAccountRepository(
   } as unknown as AccountRepository;
 }
 
+/** Default mock implementations for TransactionRepository */
+function getDefaultTransactionRepositoryMocks() {
+  return {
+    findById: mock(() => Promise.resolve(null)),
+    findByExternalId: mock(() => Promise.resolve(null)),
+    findByExternalIds: mock(() =>
+      Promise.resolve(new Map<string, Transaction>()),
+    ),
+    findByAccountId: mock(() => Promise.resolve([])),
+    findAll: mock(() => Promise.resolve([])),
+    save: mock(() => Promise.resolve()),
+    update: mock(() => Promise.resolve()),
+    delete: mock(() => Promise.resolve()),
+    saveMany: mock(() => Promise.resolve()),
+    updateMany: mock(() => Promise.resolve()),
+    updateCategorization: mock(() => Promise.resolve()),
+  };
+}
+
 /**
  * Creates a mock TransactionRepository with default implementations.
  * All find methods return null/empty, all mutation methods resolve successfully.
@@ -89,24 +125,14 @@ export function createMockTransactionRepository(
     delete: (id: string) => Promise<void>;
     saveMany: (transactions: Transaction[]) => Promise<void>;
     updateMany: (transactions: Transaction[]) => Promise<void>;
+    updateCategorization: (
+      externalId: string,
+      data: CategorizationUpdate,
+    ) => Promise<void>;
   }> = {},
 ): TransactionRepository {
-  return {
-    findById: overrides.findById ?? mock(() => Promise.resolve(null)),
-    findByExternalId:
-      overrides.findByExternalId ?? mock(() => Promise.resolve(null)),
-    findByExternalIds:
-      overrides.findByExternalIds ??
-      mock(() => Promise.resolve(new Map<string, Transaction>())),
-    findByAccountId:
-      overrides.findByAccountId ?? mock(() => Promise.resolve([])),
-    findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
-    save: overrides.save ?? mock(() => Promise.resolve()),
-    update: overrides.update ?? mock(() => Promise.resolve()),
-    delete: overrides.delete ?? mock(() => Promise.resolve()),
-    saveMany: overrides.saveMany ?? mock(() => Promise.resolve()),
-    updateMany: overrides.updateMany ?? mock(() => Promise.resolve()),
-  } as unknown as TransactionRepository;
+  const defaults = getDefaultTransactionRepositoryMocks();
+  return { ...defaults, ...overrides } as unknown as TransactionRepository;
 }
 
 /**
@@ -137,4 +163,91 @@ export function createMockMessageQueueGateway(
     pull: overrides.pull ?? mock(() => Promise.resolve([])),
     acknowledge: overrides.acknowledge ?? mock(() => Promise.resolve()),
   } as unknown as MessageQueueGateway;
+}
+
+/**
+ * Creates a mock CategorizeTransactionUseCase with default implementation.
+ * Execute returns a successful categorization result.
+ */
+export function createMockCategorizeTransactionUseCase(
+  overrides: Partial<{
+    execute: (
+      request: CategorizeTransactionRequestDTO,
+    ) => Promise<CategorizeTransactionResultDTO>;
+  }> = {},
+): CategorizeTransactionUseCase {
+  return {
+    execute:
+      overrides.execute ??
+      mock(() =>
+        Promise.resolve({
+          success: true,
+          category: 'Test Category',
+          budget: null,
+          isNewCategory: false,
+        }),
+      ),
+  } as unknown as CategorizeTransactionUseCase;
+}
+
+/**
+ * Creates a mock CategoryRepository with default implementations.
+ * All find methods return null/empty, mutation methods resolve successfully.
+ */
+export function createMockCategoryRepository(
+  overrides: Partial<{
+    findAll: () => Promise<Category[]>;
+    findByName: (name: string) => Promise<Category | null>;
+    findActive: () => Promise<Category[]>;
+    save: (category: Category) => Promise<void>;
+  }> = {},
+): CategoryRepository {
+  return {
+    findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
+    findByName: overrides.findByName ?? mock(() => Promise.resolve(null)),
+    findActive: overrides.findActive ?? mock(() => Promise.resolve([])),
+    save: overrides.save ?? mock(() => Promise.resolve()),
+  } as unknown as CategoryRepository;
+}
+
+/**
+ * Creates a mock BudgetRepository with default implementations.
+ * All find methods return null/empty arrays.
+ */
+export function createMockBudgetRepository(
+  overrides: Partial<{
+    findAll: () => Promise<Budget[]>;
+    findByName: (name: string) => Promise<Budget | null>;
+    findActive: (date: Date) => Promise<Budget[]>;
+  }> = {},
+): BudgetRepository {
+  return {
+    findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
+    findByName: overrides.findByName ?? mock(() => Promise.resolve(null)),
+    findActive: overrides.findActive ?? mock(() => Promise.resolve([])),
+  } as unknown as BudgetRepository;
+}
+
+/**
+ * Creates a mock LLMGateway with default implementations.
+ * Returns an empty categorization result by default.
+ */
+export function createMockLLMGateway(
+  overrides: Partial<{
+    categorize: (
+      request: CategorizationRequest,
+    ) => Promise<CategorizationResult>;
+  }> = {},
+): LLMGateway {
+  const defaultResult: CategorizationResult = {
+    category: null,
+    categoryReason: null,
+    budget: null,
+    budgetReason: null,
+    isNewCategory: false,
+  };
+  return {
+    categorize:
+      overrides.categorize ?? mock(() => Promise.resolve(defaultResult)),
+  } as unknown as LLMGateway;
 }

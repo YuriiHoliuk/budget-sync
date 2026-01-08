@@ -1,4 +1,5 @@
 import type { QueuedWebhookTransactionDTO } from '@application/dtos/QueuedWebhookTransactionDTO.ts';
+import type { CategorizeTransactionUseCase } from '@application/use-cases/CategorizeTransaction.ts';
 import { Transaction } from '@domain/entities/Transaction.ts';
 import { AccountNotFoundError } from '@domain/errors/DomainErrors.ts';
 import {
@@ -14,6 +15,7 @@ import {
   Money,
   TransactionType,
 } from '@domain/value-objects/index.ts';
+import { LOGGER_TOKEN, type Logger } from '@modules/logging/index.ts';
 import { inject, injectable } from 'tsyringe';
 
 /**
@@ -45,6 +47,9 @@ export class ProcessIncomingTransactionUseCase {
     private accountRepository: AccountRepository,
     @inject(TRANSACTION_REPOSITORY_TOKEN)
     private transactionRepository: TransactionRepository,
+    private categorizeTransaction: CategorizeTransactionUseCase,
+    @inject(LOGGER_TOKEN)
+    private logger: Logger,
   ) {}
 
   async execute(
@@ -62,6 +67,8 @@ export class ProcessIncomingTransactionUseCase {
 
     const transaction = this.reconstructTransaction(input);
     await this.transactionRepository.save(transaction);
+
+    await this.categorizeTransactionSafely(transactionExternalId);
 
     const newBalance = this.reconstructBalance(input);
     await this.accountRepository.updateBalance(account.externalId, newBalance);
@@ -150,5 +157,21 @@ export class ProcessIncomingTransactionUseCase {
       saved: true,
       transactionExternalId,
     };
+  }
+
+  private async categorizeTransactionSafely(externalId: string): Promise<void> {
+    try {
+      await this.categorizeTransaction.execute({
+        transactionExternalId: externalId,
+      });
+      this.logger.info('Transaction categorized', { externalId });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.warn('Failed to categorize transaction', {
+        externalId,
+        error: errorMessage,
+      });
+    }
   }
 }

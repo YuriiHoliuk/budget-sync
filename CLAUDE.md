@@ -23,6 +23,7 @@ Environment variables in `.env`:
 - `MONOBANK_TOKEN` - Personal Monobank API token
 - `SPREADSHEET_ID` - Google Spreadsheet document ID
 - `GOOGLE_SERVICE_ACCOUNT_FILE` - Path to Google service account JSON (optional on GCP, uses ADC)
+- `GEMINI_API_KEY` - Google Gemini API key for LLM-based transaction categorization
 
 ## Deployment
 

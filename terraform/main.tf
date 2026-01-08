@@ -150,6 +150,19 @@ resource "google_secret_manager_secret" "spreadsheet_id" {
   }
 }
 
+resource "google_secret_manager_secret" "gemini_api_key" {
+  secret_id = "gemini-api-key"
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+
+  labels = {
+    app = "budget-sync"
+  }
+}
+
 # =============================================================================
 # Cloud Run Job
 # =============================================================================
@@ -184,6 +197,16 @@ resource "google_cloud_run_v2_job" "sync_accounts" {
           value_source {
             secret_key_ref {
               secret  = google_secret_manager_secret.spreadsheet_id.secret_id
+              version = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "GEMINI_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.gemini_api_key.secret_id
               version = "latest"
             }
           }
@@ -400,6 +423,16 @@ resource "google_cloud_run_v2_service" "webhook" {
         }
       }
 
+      env {
+        name = "GEMINI_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.gemini_api_key.secret_id
+            version = "latest"
+          }
+        }
+      }
+
       resources {
         limits = {
           cpu    = "1"
@@ -496,6 +529,16 @@ resource "google_cloud_run_v2_job" "process_webhooks" {
           value_source {
             secret_key_ref {
               secret  = google_secret_manager_secret.spreadsheet_id.secret_id
+              version = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "GEMINI_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.gemini_api_key.secret_id
               version = "latest"
             }
           }

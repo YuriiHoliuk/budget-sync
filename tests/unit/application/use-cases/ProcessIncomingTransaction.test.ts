@@ -1,12 +1,16 @@
 import 'reflect-metadata';
 import { beforeEach, describe, expect, type mock, test } from 'bun:test';
 import type { QueuedWebhookTransactionDTO } from '@application/dtos/QueuedWebhookTransactionDTO.ts';
+import type { CategorizeTransactionUseCase } from '@application/use-cases/CategorizeTransaction.ts';
 import { ProcessIncomingTransactionUseCase } from '@application/use-cases/ProcessIncomingTransaction.ts';
 import { AccountNotFoundError } from '@domain/errors/DomainErrors.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
 import type { TransactionRepository } from '@domain/repositories/TransactionRepository.ts';
+import type { Logger } from '@modules/logging';
 import {
   createMockAccountRepository,
+  createMockCategorizeTransactionUseCase,
+  createMockLogger,
   createMockTransactionRepository,
   createTestAccount,
   createTestQueuedTransaction,
@@ -16,14 +20,20 @@ import {
 describe('ProcessIncomingTransactionUseCase', () => {
   let accountRepository: AccountRepository;
   let transactionRepository: TransactionRepository;
+  let categorizeTransaction: CategorizeTransactionUseCase;
+  let logger: Logger;
   let useCase: ProcessIncomingTransactionUseCase;
 
   beforeEach(() => {
     accountRepository = createMockAccountRepository();
     transactionRepository = createMockTransactionRepository();
+    categorizeTransaction = createMockCategorizeTransactionUseCase();
+    logger = createMockLogger();
     useCase = new ProcessIncomingTransactionUseCase(
       accountRepository,
       transactionRepository,
+      categorizeTransaction,
+      logger,
     );
   });
 

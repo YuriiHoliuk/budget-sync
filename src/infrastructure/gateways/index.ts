@@ -1,4 +1,11 @@
 // Monobank Gateway
+
+// LLM Gateway
+export {
+  CATEGORIZATION_PROMPT_TEMPLATE,
+  GEMINI_CLIENT_TOKEN,
+  GeminiLLMGateway,
+} from './llm/index.ts';
 export {
   MonobankApiError,
   MonobankAuthError,
@@ -17,7 +24,6 @@ export type {
   MonobankJar,
   MonobankStatementItem,
 } from './monobank/types.ts';
-
 // Pub/Sub Message Queue Gateway
 export {
   PUBSUB_CLIENT_TOKEN,

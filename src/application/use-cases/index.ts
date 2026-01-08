@@ -1,3 +1,11 @@
+export type {
+  CategorizeTransactionRequestDTO,
+  CategorizeTransactionResultDTO,
+} from './CategorizeTransaction.ts';
+export {
+  CategorizeTransactionUseCase,
+  TransactionNotFoundError,
+} from './CategorizeTransaction.ts';
 export type { EnqueueWebhookTransactionResultDTO } from './EnqueueWebhookTransaction.ts';
 export { EnqueueWebhookTransactionUseCase } from './EnqueueWebhookTransaction.ts';
 export type { ProcessIncomingTransactionResultDTO } from './ProcessIncomingTransaction.ts';

@@ -144,6 +144,21 @@ export const transactionSchema = {
     type: 'string',
     required: false,
   } as ColumnDefinition,
+  status: {
+    name: 'Статус',
+    type: 'string',
+    required: false,
+  } as ColumnDefinition,
+  categoryReason: {
+    name: 'Причина категорії',
+    type: 'string',
+    required: false,
+  } as ColumnDefinition,
+  budgetReason: {
+    name: 'Причина бюджету',
+    type: 'string',
+    required: false,
+  } as ColumnDefinition,
 } as const;
 
 /**

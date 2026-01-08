@@ -6,7 +6,9 @@
  */
 
 import { Transaction } from '@domain/entities/Transaction.ts';
+import type { CategorizationUpdate } from '@domain/repositories/TransactionRepository.ts';
 import {
+  type CategorizationStatus,
   Currency,
   Money,
   TransactionType,
@@ -69,6 +71,12 @@ export interface TransactionRecord {
   invoiceId?: string;
   /** Counterparty tax ID (EDRPOU) */
   counterEdrpou?: string;
+  /** Categorization status (pending, categorized, verified) */
+  status?: CategorizationStatus;
+  /** Reason for category assignment from LLM */
+  categoryReason?: string;
+  /** Reason for budget assignment from LLM */
+  budgetReason?: string;
 }
 
 /**
@@ -185,5 +193,23 @@ export class SpreadsheetTransactionMapper {
       : Currency.fromCode(record.currency);
     const minorUnits = Math.round(record.operationAmount * 100);
     return Money.create(minorUnits, operationCurrency);
+  }
+
+  /**
+   * Convert categorization update to a partial record for updating spreadsheet.
+   *
+   * @param update - The categorization update data from domain layer
+   * @returns A partial record with categorization fields
+   */
+  categorizationToRecord(
+    update: CategorizationUpdate,
+  ): Partial<TransactionRecord> {
+    return {
+      category: update.category ?? undefined,
+      budget: update.budget ?? undefined,
+      categoryReason: update.categoryReason ?? undefined,
+      budgetReason: update.budgetReason ?? undefined,
+      status: update.status,
+    };
   }
 }
