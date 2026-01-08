@@ -22,6 +22,17 @@ import type {
   WriteOptions,
   WriteResult,
 } from './types.ts';
+import { columnIndexToLetter } from './utils.ts';
+
+/**
+ * Represents a cell update with column index and value
+ */
+export interface CellUpdate {
+  /** 0-based column index */
+  columnIndex: number;
+  /** Value to write */
+  value: CellValue;
+}
 
 type SheetsApi = sheets_v4.Sheets;
 
@@ -389,5 +400,231 @@ export class SpreadsheetsClient {
    */
   async clearSheet(spreadsheetId: string, sheetName: string): Promise<void> {
     await this.clearRange(spreadsheetId, `'${sheetName}'`);
+  }
+
+  /**
+   * Add a new sheet to the spreadsheet
+   *
+   * @returns The new sheet's ID
+   */
+  async addSheet(
+    spreadsheetId: string,
+    sheetName: string,
+  ): Promise<{ sheetId: number }> {
+    const client = this.getClient();
+
+    return await this.withErrorHandling(async () => {
+      const response = await client.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title: sheetName,
+                },
+              },
+            },
+          ],
+        },
+      });
+
+      const sheetId =
+        response.data.replies?.[0]?.addSheet?.properties?.sheetId ?? 0;
+      return { sheetId };
+    });
+  }
+
+  /**
+   * Delete a sheet from the spreadsheet
+   */
+  async deleteSheet(spreadsheetId: string, sheetId: number): Promise<void> {
+    const client = this.getClient();
+
+    await this.withErrorHandling(async () => {
+      await client.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              deleteSheet: {
+                sheetId,
+              },
+            },
+          ],
+        },
+      });
+    });
+  }
+
+  /**
+   * Get the index of the last row with data in a sheet
+   *
+   * @returns 1-based row index of the last row with data, or 0 if sheet is empty
+   */
+  async getLastDataRowIndex(
+    spreadsheetId: string,
+    sheetName: string,
+  ): Promise<number> {
+    const rows = await this.readAllRows(spreadsheetId, sheetName);
+    return rows.length;
+  }
+
+  /**
+   * Append rows with sparse cell updates (only writes to specified columns)
+   *
+   * This preserves any custom columns that are not part of the data being written.
+   *
+   * @param spreadsheetId - The spreadsheet ID
+   * @param sheetName - The sheet name
+   * @param rowsCellUpdates - Array of cell updates for each row to append
+   * @param options - Write options
+   */
+  async appendRowsCells(
+    spreadsheetId: string,
+    sheetName: string,
+    rowsCellUpdates: CellUpdate[][],
+    options: WriteOptions = {},
+  ): Promise<{ totalUpdatedCells: number; appendedRows: number }> {
+    if (rowsCellUpdates.length === 0) {
+      return { totalUpdatedCells: 0, appendedRows: 0 };
+    }
+
+    const lastRowIndex = await this.getLastDataRowIndex(
+      spreadsheetId,
+      sheetName,
+    );
+    const startRowIndex = lastRowIndex + 1;
+
+    // Build all range-value pairs for batch write
+    const allRangeData: Array<{ range: string; values: Row[] }> = [];
+
+    for (let rowOffset = 0; rowOffset < rowsCellUpdates.length; rowOffset++) {
+      const cellUpdates = rowsCellUpdates[rowOffset];
+      if (!cellUpdates || cellUpdates.length === 0) {
+        continue;
+      }
+
+      const rowIndex = startRowIndex + rowOffset;
+      const groups = this.groupContiguousCells(cellUpdates);
+
+      for (const group of groups) {
+        allRangeData.push({
+          range: this.buildRangeForGroup(sheetName, rowIndex, group),
+          values: [group.map((cell) => cell.value)],
+        });
+      }
+    }
+
+    if (allRangeData.length === 0) {
+      return { totalUpdatedCells: 0, appendedRows: 0 };
+    }
+
+    const result = await this.writeRanges(spreadsheetId, allRangeData, options);
+    return {
+      totalUpdatedCells: result.totalUpdatedCells,
+      appendedRows: rowsCellUpdates.length,
+    };
+  }
+
+  /**
+   * Update specific cells in a row (sparse update)
+   *
+   * Only updates the specified columns, leaving other columns untouched.
+   * This preserves any custom columns that are not part of the schema.
+   *
+   * @param spreadsheetId - The spreadsheet ID
+   * @param sheetName - The sheet name
+   * @param rowIndex - 1-based row index
+   * @param cellUpdates - Array of cell updates with column index and value
+   * @param options - Write options
+   */
+  async updateRowCells(
+    spreadsheetId: string,
+    sheetName: string,
+    rowIndex: number,
+    cellUpdates: CellUpdate[],
+    options: WriteOptions = {},
+  ): Promise<{ totalUpdatedCells: number }> {
+    if (cellUpdates.length === 0) {
+      return { totalUpdatedCells: 0 };
+    }
+
+    // Group contiguous columns to minimize API calls
+    const groups = this.groupContiguousCells(cellUpdates);
+
+    const data = groups.map((group) => ({
+      range: this.buildRangeForGroup(sheetName, rowIndex, group),
+      values: [group.map((cell) => cell.value)],
+    }));
+
+    return await this.writeRanges(spreadsheetId, data, options);
+  }
+
+  /**
+   * Group contiguous cells together for efficient batch writes
+   */
+  private groupContiguousCells(cellUpdates: CellUpdate[]): CellUpdate[][] {
+    if (cellUpdates.length === 0) {
+      return [];
+    }
+
+    // Sort by column index
+    const sorted = [...cellUpdates].sort(
+      (cellA, cellB) => cellA.columnIndex - cellB.columnIndex,
+    );
+
+    const firstCell = sorted[0];
+    if (!firstCell) {
+      return [];
+    }
+
+    const groups: CellUpdate[][] = [];
+    let currentGroup: CellUpdate[] = [firstCell];
+    let lastColumnIndex = firstCell.columnIndex;
+
+    for (let updateIndex = 1; updateIndex < sorted.length; updateIndex++) {
+      const currentCell = sorted[updateIndex];
+      if (!currentCell) {
+        continue;
+      }
+
+      // Check if this cell is contiguous with the previous one
+      if (currentCell.columnIndex === lastColumnIndex + 1) {
+        currentGroup.push(currentCell);
+      } else {
+        groups.push(currentGroup);
+        currentGroup = [currentCell];
+      }
+      lastColumnIndex = currentCell.columnIndex;
+    }
+
+    groups.push(currentGroup);
+    return groups;
+  }
+
+  /**
+   * Build A1 notation range for a group of contiguous cells
+   */
+  private buildRangeForGroup(
+    sheetName: string,
+    rowIndex: number,
+    group: CellUpdate[],
+  ): string {
+    const firstCell = group[0];
+    const lastCell = group[group.length - 1];
+
+    if (!firstCell || !lastCell) {
+      throw new Error('Cannot build range for empty group');
+    }
+
+    const startCol = columnIndexToLetter(firstCell.columnIndex);
+
+    if (group.length === 1) {
+      return `'${sheetName}'!${startCol}${rowIndex}`;
+    }
+
+    const endCol = columnIndexToLetter(lastCell.columnIndex);
+    return `'${sheetName}'!${startCol}${rowIndex}:${endCol}${rowIndex}`;
   }
 }

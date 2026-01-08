@@ -54,6 +54,7 @@ export {
 } from './errors.ts';
 // Client
 export {
+  type CellUpdate,
   SpreadsheetsClient,
   type SpreadsheetsClientConfig,
 } from './SpreadsheetsClient.ts';
@@ -80,3 +81,5 @@ export type {
   WriteOptions,
   WriteResult,
 } from './types.ts';
+// Utils
+export { columnIndexToLetter, letterToColumnIndex } from './utils.ts';

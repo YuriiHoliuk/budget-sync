@@ -9,7 +9,7 @@
  * Run with: bun test tests/integration/modules/spreadsheet/SpreadsheetTable.test.ts
  */
 
-import { beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import {
   type ColumnDefinition,
   SchemaValidationError,
@@ -305,6 +305,249 @@ describe('SpreadsheetTable Integration', () => {
       await table.validateSchema();
 
       expect(table.isValidated()).toBe(true);
+    });
+  });
+});
+
+/**
+ * Tests for sparse write functionality (updateRowAt, appendRows)
+ *
+ * These tests verify that custom columns (not part of schema) are preserved
+ * during write operations. Uses a temporary test sheet that is created at
+ * the start and deleted at the end.
+ */
+describe('SpreadsheetTable Sparse Writes Integration', () => {
+  let client: SpreadsheetsClient;
+  let testSheetId: number;
+  const TEST_SHEET_NAME = `SparseWriteTest_${Date.now()}`;
+
+  /**
+   * Test sheet structure with custom columns BETWEEN schema columns:
+   *
+   * | Назва | Custom1 | Сума | Custom2 | Дата |
+   * |   A   |    B    |  C   |    D    |   E  |
+   *
+   * Schema only knows about: Назва (A), Сума (C), Дата (E)
+   * Custom columns: Custom1 (B), Custom2 (D)
+   */
+  const sparseSchema = {
+    name: { name: 'Назва', type: 'string', required: true },
+    amount: { name: 'Сума', type: 'number', required: true },
+    date: { name: 'Дата', type: 'string', required: true },
+  } as const satisfies Record<string, ColumnDefinition>;
+
+  beforeAll(async () => {
+    const serviceAccountFile = process.env['GOOGLE_SERVICE_ACCOUNT_FILE'];
+
+    if (!serviceAccountFile) {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_FILE env variable is required');
+    }
+
+    client = new SpreadsheetsClient({ serviceAccountFile });
+
+    // Create temporary test sheet
+    const result = await client.addSheet(TEST_SPREADSHEET.id, TEST_SHEET_NAME);
+    testSheetId = result.sheetId;
+
+    // Set up headers with custom columns between schema columns
+    // Structure: Назва | Custom1 | Сума | Custom2 | Дата
+    await client.writeRange(TEST_SPREADSHEET.id, `'${TEST_SHEET_NAME}'!A1:E1`, [
+      ['Назва', 'Custom1', 'Сума', 'Custom2', 'Дата'],
+    ]);
+
+    // Add initial test data with custom column values
+    await client.writeRange(TEST_SPREADSHEET.id, `'${TEST_SHEET_NAME}'!A2:E3`, [
+      ['Item1', 'CustomVal1-1', '100', 'CustomVal2-1', '01.01.2026'],
+      ['Item2', 'CustomVal1-2', '200', 'CustomVal2-2', '02.01.2026'],
+    ]);
+  });
+
+  afterAll(async () => {
+    // Clean up: delete the temporary test sheet
+    if (testSheetId) {
+      await client.deleteSheet(TEST_SPREADSHEET.id, testSheetId);
+    }
+  });
+
+  describe('updateRowAt', () => {
+    test('should preserve custom columns when updating a row', async () => {
+      const table = new SpreadsheetTable(
+        client,
+        TEST_SPREADSHEET.id,
+        TEST_SHEET_NAME,
+        sparseSchema,
+      );
+      await table.validateSchema();
+
+      // Verify custom columns exist before update
+      const rowBefore = await client.readRow(
+        TEST_SPREADSHEET.id,
+        TEST_SHEET_NAME,
+        2,
+      );
+      expect(rowBefore?.[1]).toBe('CustomVal1-1'); // Custom1
+      expect(rowBefore?.[3]).toBe('CustomVal2-1'); // Custom2
+
+      // Update the row using schema columns only
+      await table.updateRowAt(2, {
+        name: 'UpdatedItem1',
+        amount: 150,
+        date: '15.01.2026',
+      });
+
+      // Verify custom columns are preserved after update
+      const rowAfter = await client.readRow(
+        TEST_SPREADSHEET.id,
+        TEST_SHEET_NAME,
+        2,
+      );
+
+      // Schema columns should be updated
+      expect(rowAfter?.[0]).toBe('UpdatedItem1'); // Назва
+      expect(rowAfter?.[2]).toBe('150'); // Сума (formatted as string)
+      expect(rowAfter?.[4]).toBe('15.01.2026'); // Дата
+
+      // Custom columns should be preserved
+      expect(rowAfter?.[1]).toBe('CustomVal1-1'); // Custom1 - PRESERVED
+      expect(rowAfter?.[3]).toBe('CustomVal2-1'); // Custom2 - PRESERVED
+    });
+
+    test('should handle multiple updates preserving custom columns', async () => {
+      const table = new SpreadsheetTable(
+        client,
+        TEST_SPREADSHEET.id,
+        TEST_SHEET_NAME,
+        sparseSchema,
+      );
+      await table.validateSchema();
+
+      // Update row 3
+      await table.updateRowAt(3, {
+        name: 'UpdatedItem2',
+        amount: 250,
+        date: '25.01.2026',
+      });
+
+      const row = await client.readRow(TEST_SPREADSHEET.id, TEST_SHEET_NAME, 3);
+
+      // Schema columns updated
+      expect(row?.[0]).toBe('UpdatedItem2');
+      expect(row?.[2]).toBe('250');
+      expect(row?.[4]).toBe('25.01.2026');
+
+      // Custom columns preserved
+      expect(row?.[1]).toBe('CustomVal1-2');
+      expect(row?.[3]).toBe('CustomVal2-2');
+    });
+  });
+
+  describe('appendRows', () => {
+    test('should append rows without affecting custom column positions', async () => {
+      const table = new SpreadsheetTable(
+        client,
+        TEST_SPREADSHEET.id,
+        TEST_SHEET_NAME,
+        sparseSchema,
+      );
+      await table.validateSchema();
+
+      // Get current row count
+      const rowsBefore = await client.readAllRows(
+        TEST_SPREADSHEET.id,
+        TEST_SHEET_NAME,
+      );
+      const rowCountBefore = rowsBefore.length;
+
+      // Append a new row
+      await table.appendRows([
+        {
+          name: 'NewItem',
+          amount: 300,
+          date: '30.01.2026',
+        },
+      ]);
+
+      // Verify new row was added
+      const rowsAfter = await client.readAllRows(
+        TEST_SPREADSHEET.id,
+        TEST_SHEET_NAME,
+      );
+      expect(rowsAfter.length).toBe(rowCountBefore + 1);
+
+      // Verify new row has correct schema values
+      const newRow = rowsAfter[rowsAfter.length - 1];
+      expect(newRow?.[0]).toBe('NewItem'); // Назва at index 0
+      expect(newRow?.[2]).toBe('300'); // Сума at index 2
+      expect(newRow?.[4]).toBe('30.01.2026'); // Дата at index 4
+
+      // Custom columns should be empty (not null-overwritten)
+      expect(newRow?.[1]).toBeFalsy(); // Custom1 - empty
+      expect(newRow?.[3]).toBeFalsy(); // Custom2 - empty
+    });
+
+    test('should append multiple rows correctly', async () => {
+      const table = new SpreadsheetTable(
+        client,
+        TEST_SPREADSHEET.id,
+        TEST_SHEET_NAME,
+        sparseSchema,
+      );
+      await table.validateSchema();
+
+      const rowsBefore = await client.readAllRows(
+        TEST_SPREADSHEET.id,
+        TEST_SHEET_NAME,
+      );
+      const rowCountBefore = rowsBefore.length;
+
+      // Append multiple rows
+      await table.appendRows([
+        { name: 'BatchItem1', amount: 400, date: '01.02.2026' },
+        { name: 'BatchItem2', amount: 500, date: '02.02.2026' },
+      ]);
+
+      const rowsAfter = await client.readAllRows(
+        TEST_SPREADSHEET.id,
+        TEST_SHEET_NAME,
+      );
+      expect(rowsAfter.length).toBe(rowCountBefore + 2);
+
+      // Verify both rows
+      const newRow1 = rowsAfter[rowsAfter.length - 2];
+      const newRow2 = rowsAfter[rowsAfter.length - 1];
+
+      expect(newRow1?.[0]).toBe('BatchItem1');
+      expect(newRow1?.[2]).toBe('400');
+
+      expect(newRow2?.[0]).toBe('BatchItem2');
+      expect(newRow2?.[2]).toBe('500');
+    });
+  });
+
+  describe('column order independence', () => {
+    test('should work correctly when custom columns are at different positions', async () => {
+      const table = new SpreadsheetTable(
+        client,
+        TEST_SPREADSHEET.id,
+        TEST_SHEET_NAME,
+        sparseSchema,
+      );
+
+      const validatedSchema = await table.validateSchema();
+
+      // Verify schema found columns at correct positions
+      // With headers: Назва | Custom1 | Сума | Custom2 | Дата
+      //   Indices:      0   |    1    |   2  |    3    |   4
+      expect(validatedSchema.columnIndices.name).toBe(0);
+      expect(validatedSchema.columnIndices.amount).toBe(2);
+      expect(validatedSchema.columnIndices.date).toBe(4);
+
+      // The schema should NOT know about custom columns (indices 1 and 3)
+      expect(Object.keys(validatedSchema.columnIndices)).toEqual([
+        'name',
+        'amount',
+        'date',
+      ]);
     });
   });
 });

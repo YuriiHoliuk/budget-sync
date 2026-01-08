@@ -186,6 +186,10 @@ export class SpreadsheetTable<T extends Record<string, ColumnDefinition>> {
   /**
    * Append rows to the table
    *
+   * Only writes to columns defined in the schema, leaving custom columns
+   * untouched. This allows formulas and default values in custom columns
+   * to work correctly for new rows.
+   *
    * @param records - Array of records to append
    */
   async appendRows(records: Array<SchemaToRecord<T>>): Promise<void> {
@@ -193,8 +197,18 @@ export class SpreadsheetTable<T extends Record<string, ColumnDefinition>> {
       await this.validateSchema();
     }
 
-    const rows = records.map((record) => this.recordToRow(record));
-    await this.client.appendRows(this.spreadsheetId, this.sheetName, rows);
+    if (records.length === 0) {
+      return;
+    }
+
+    const rowsCellUpdates = records.map((record) =>
+      this.recordToCellUpdates(record),
+    );
+    await this.client.appendRowsCells(
+      this.spreadsheetId,
+      this.sheetName,
+      rowsCellUpdates,
+    );
   }
 
   /**
@@ -206,6 +220,9 @@ export class SpreadsheetTable<T extends Record<string, ColumnDefinition>> {
 
   /**
    * Update a specific row (1-based index, row 1 is header)
+   *
+   * Only updates columns defined in the schema, preserving any custom
+   * columns that exist in the spreadsheet but are not part of the schema.
    */
   async updateRowAt(
     rowIndex: number,
@@ -219,10 +236,39 @@ export class SpreadsheetTable<T extends Record<string, ColumnDefinition>> {
       throw new Error('Row index must be >= 2 (row 1 is the header)');
     }
 
-    const row = this.recordToRow(record);
-    const range = `'${this.sheetName}'!A${rowIndex}`;
+    const cellUpdates = this.recordToCellUpdates(record);
+    await this.client.updateRowCells(
+      this.spreadsheetId,
+      this.sheetName,
+      rowIndex,
+      cellUpdates,
+    );
+  }
 
-    await this.client.writeRange(this.spreadsheetId, range, [row]);
+  /**
+   * Convert a record to an array of cell updates for sparse writing
+   */
+  private recordToCellUpdates(
+    record: SchemaToRecord<T>,
+  ): Array<{ columnIndex: number; value: CellValue }> {
+    const cellUpdates: Array<{ columnIndex: number; value: CellValue }> = [];
+
+    const schemaEntries = this.getSchemaEntries();
+    for (const { propertyName, column } of schemaEntries) {
+      const columnIndex = this.getColumnIndex(propertyName);
+
+      if (columnIndex === undefined) {
+        continue;
+      }
+
+      const propertyValue = this.getRecordProperty(record, propertyName);
+      cellUpdates.push({
+        columnIndex,
+        value: this.valueToCell(propertyValue, column.type),
+      });
+    }
+
+    return cellUpdates;
   }
 
   /**
@@ -321,21 +367,6 @@ export class SpreadsheetTable<T extends Record<string, ColumnDefinition>> {
       }
     }
     return entries;
-  }
-
-  /**
-   * Get all column indices as an array of numbers
-   */
-  private getColumnIndicesValues(): number[] {
-    const validatedSchema = this.getValidatedSchema();
-    const values: number[] = [];
-    for (const key of Object.keys(validatedSchema.columnIndices)) {
-      const index = this.getColumnIndex(key);
-      if (index !== undefined) {
-        values.push(index);
-      }
-    }
-    return values;
   }
 
   /**
@@ -469,30 +500,6 @@ export class SpreadsheetTable<T extends Record<string, ColumnDefinition>> {
       throw new RowParseError(rowIndex, columnName, 'date', value);
     }
     return parsedDate;
-  }
-
-  /**
-   * Convert a record back to a row array
-   */
-  private recordToRow(record: SchemaToRecord<T>): Row {
-    // Create a row with enough cells for all columns
-    const columnIndicesValues = this.getColumnIndicesValues();
-    const maxColumnIndex = Math.max(...columnIndicesValues);
-    const row: Row = new Array(maxColumnIndex + 1).fill(null);
-
-    const schemaEntries = this.getSchemaEntries();
-    for (const { propertyName, column } of schemaEntries) {
-      const columnIndex = this.getColumnIndex(propertyName);
-
-      if (columnIndex === undefined) {
-        continue;
-      }
-
-      const propertyValue = this.getRecordProperty(record, propertyName);
-      row[columnIndex] = this.valueToCell(propertyValue, column.type);
-    }
-
-    return row;
   }
 
   /**
