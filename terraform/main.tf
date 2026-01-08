@@ -150,6 +150,11 @@ resource "google_secret_manager_secret" "spreadsheet_id" {
   }
 }
 
+import {
+  to = google_secret_manager_secret.gemini_api_key
+  id = "projects/budget-sync-483105/secrets/gemini-api-key"
+}
+
 resource "google_secret_manager_secret" "gemini_api_key" {
   secret_id = "gemini-api-key"
   project   = var.project_id
