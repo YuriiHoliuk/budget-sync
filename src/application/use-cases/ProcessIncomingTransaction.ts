@@ -1,5 +1,6 @@
 import type { QueuedWebhookTransactionDTO } from '@application/dtos/QueuedWebhookTransactionDTO.ts';
-import type { CategorizeTransactionUseCase } from '@application/use-cases/CategorizeTransaction.ts';
+// biome-ignore lint/style/useImportType: Runtime import required for tsyringe DI reflection
+import { CategorizeTransactionUseCase } from '@application/use-cases/CategorizeTransaction.ts';
 import { Transaction } from '@domain/entities/Transaction.ts';
 import { AccountNotFoundError } from '@domain/errors/DomainErrors.ts';
 import {
