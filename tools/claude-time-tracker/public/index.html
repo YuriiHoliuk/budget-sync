@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Time Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #f1f5f9;
+    }
+
+    .project-path {
+      color: #64748b;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #334155;
+    }
+
+    .card-label {
+      font-size: 13px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .card-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    .card-sub {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    .config-panel {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      border: 1px solid #334155;
+    }
+
+    .config-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .config-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .config-field {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .config-field label {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+
+    .config-field input {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: #e2e8f0;
+      font-size: 14px;
+    }
+
+    .config-field input:focus {
+      outline: none;
+      border-color: #38bdf8;
+    }
+
+    .btn {
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background: #7dd3fc;
+    }
+
+    .btn:disabled {
+      background: #475569;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: #e2e8f0;
+    }
+
+    .btn-secondary:hover {
+      background: #475569;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: #1e293b;
+      padding: 4px;
+      border-radius: 10px;
+      margin-bottom: 24px;
+      border: 1px solid #334155;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 12px 20px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: #94a3b8;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      color: #e2e8f0;
+    }
+
+    .tab.active {
+      background: #38bdf8;
+      color: #0f172a;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .chart-container {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 24px;
+      border: 1px solid #334155;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      height: 400px;
+    }
+
+    .timeline-container {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 24px;
+      border: 1px solid #334155;
+    }
+
+    .timeline-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .timeline-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .day-selector {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 10px 14px;
+      color: #e2e8f0;
+      font-size: 14px;
+    }
+
+    .day-selector:focus {
+      outline: none;
+      border-color: #38bdf8;
+    }
+
+    .timeline-events-track {
+      position: relative;
+      height: 30px;
+      margin-bottom: 4px;
+    }
+
+    .timeline-dot {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .timeline-dot:hover {
+      transform: scale(1.5);
+    }
+
+    .timeline-dot.user {
+      background: #4ade80;
+      top: 0;
+    }
+
+    .timeline-dot.assistant {
+      background: #fb923c;
+      top: 14px;
+    }
+
+    .timeline-track {
+      position: relative;
+      height: 60px;
+      background: #0f172a;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .timeline-segment {
+      position: absolute;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 500;
+      color: #0f172a;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .timeline-segment:hover {
+      opacity: 0.8;
+    }
+
+    .timeline-segment.prep {
+      background: #fbbf24;
+    }
+
+    .timeline-segment.work {
+      background: #38bdf8;
+    }
+
+    .timeline-segment.analysis {
+      background: #a78bfa;
+    }
+
+    .timeline-segment.gap {
+      background: #475569;
+    }
+
+    .dot-legend {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .dot-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .dot-legend-color {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .sessions-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #1e293b;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #334155;
+    }
+
+    .sessions-table th,
+    .sessions-table td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid #334155;
+    }
+
+    .sessions-table th {
+      background: #0f172a;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .sessions-table td {
+      font-size: 14px;
+    }
+
+    .sessions-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .sessions-table tr:hover td {
+      background: rgba(56, 189, 248, 0.05);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .badge-blue {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+    }
+
+    .badge-purple {
+      background: rgba(167, 139, 250, 0.2);
+      color: #a78bfa;
+    }
+
+    .actions-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      color: #64748b;
+    }
+
+    .loading::after {
+      content: '';
+      width: 24px;
+      height: 24px;
+      border: 3px solid #334155;
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-left: 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .tooltip {
+      position: absolute;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 12px;
+      z-index: 1000;
+      pointer-events: none;
+      max-width: 300px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .tooltip-title {
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #f1f5f9;
+    }
+
+    .tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 4px;
+      color: #94a3b8;
+    }
+
+    .tooltip-value {
+      color: #e2e8f0;
+    }
+
+    .timeline-sessions {
+      margin-top: 20px;
+    }
+
+    .session-summary {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .session-time {
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .session-task {
+      font-size: 14px;
+      color: #e2e8f0;
+      flex: 1;
+      margin-left: 16px;
+    }
+
+    .session-duration {
+      font-size: 14px;
+      font-weight: 600;
+      color: #38bdf8;
+    }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Claude Time Tracker</h1>
+    <p class="project-path" id="projectPath">Loading...</p>
+
+    <div class="summary-cards">
+      <div class="card">
+        <div class="card-label">Total Hours</div>
+        <div class="card-value" id="totalHours">-</div>
+        <div class="card-sub" id="totalMinutes">0 minutes</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Sessions</div>
+        <div class="card-value" id="totalSessions">-</div>
+        <div class="card-sub" id="dateRange">-</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Messages</div>
+        <div class="card-value" id="totalMessages">-</div>
+        <div class="card-sub">Total interactions</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Days Active</div>
+        <div class="card-value" id="daysActive">-</div>
+        <div class="card-sub" id="avgPerDay">0 hrs/day avg</div>
+      </div>
+    </div>
+
+    <div class="config-panel">
+      <div class="config-header">
+        <span class="config-title">Configuration</span>
+        <button class="btn" onclick="updateConfig()">Apply</button>
+      </div>
+      <div class="config-grid">
+        <div class="config-field">
+          <label>Session Gap Threshold (min)</label>
+          <input type="number" id="configSessionGap" value="30">
+        </div>
+        <div class="config-field">
+          <label>Prep Time (min)</label>
+          <input type="number" id="configPrepTime" value="5">
+        </div>
+        <div class="config-field">
+          <label>Complex Analysis Time (min)</label>
+          <input type="number" id="configComplexAnalysis" value="15">
+        </div>
+        <div class="config-field">
+          <label>Simple Analysis Time (min)</label>
+          <input type="number" id="configSimpleAnalysis" value="5">
+        </div>
+        <div class="config-field">
+          <label>Complex File Edit Threshold</label>
+          <input type="number" id="configFileThreshold" value="5">
+        </div>
+        <div class="config-field">
+          <label>Complex Subagent Threshold</label>
+          <input type="number" id="configSubagentThreshold" value="2">
+        </div>
+      </div>
+    </div>
+
+    <div class="actions-bar">
+      <button class="btn btn-secondary" onclick="summarizeTasks()">Summarize Tasks</button>
+      <button class="btn btn-secondary" onclick="loadData()">Refresh</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="daily">Daily Hours</button>
+      <button class="tab" data-tab="timeline">Timeline</button>
+      <button class="tab" data-tab="sessions">Sessions</button>
+      <button class="tab" data-tab="activity">Activity</button>
+    </div>
+
+    <div id="tab-daily" class="tab-content active">
+      <div class="chart-container">
+        <div class="chart-wrapper">
+          <canvas id="dailyChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-timeline" class="tab-content">
+      <div class="timeline-container">
+        <div class="timeline-header">
+          <span class="timeline-title">Day Timeline</span>
+          <select class="day-selector" id="daySelector" onchange="loadTimeline()">
+            <option value="">Select a day...</option>
+          </select>
+        </div>
+        <div class="dot-legend">
+          <div class="dot-legend-item"><div class="dot-legend-color" style="background: #4ade80"></div>User message</div>
+          <div class="dot-legend-item"><div class="dot-legend-color" style="background: #fb923c"></div>Assistant response</div>
+        </div>
+        <div class="timeline-events-track" id="timelineEventsTrack"></div>
+        <div class="timeline-track" id="timelineTrack"></div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-color" style="background: #fbbf24"></div>Prep</div>
+          <div class="legend-item"><div class="legend-color" style="background: #38bdf8"></div>Work</div>
+          <div class="legend-item"><div class="legend-color" style="background: #a78bfa"></div>Analysis</div>
+          <div class="legend-item"><div class="legend-color" style="background: #475569"></div>Gap</div>
+        </div>
+        <div class="timeline-sessions" id="timelineSessions"></div>
+      </div>
+    </div>
+
+    <div id="tab-sessions" class="tab-content">
+      <table class="sessions-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Duration</th>
+            <th>Task Summary</th>
+            <th>Files</th>
+            <th>Subagents</th>
+          </tr>
+        </thead>
+        <tbody id="sessionsTableBody">
+        </tbody>
+      </table>
+    </div>
+
+    <div id="tab-activity" class="tab-content">
+      <div class="chart-container">
+        <div class="chart-wrapper">
+          <canvas id="activityChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tooltip" id="tooltip" style="display: none;"></div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const projectPath = urlParams.get('project') || '/Users/yuriiholiuk/projects/budget-sync';
+
+    let analysisData = null;
+    let dailyChart = null;
+    let activityChart = null;
+
+    document.getElementById('projectPath').textContent = projectPath;
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    async function loadData() {
+      try {
+        const response = await fetch(`/api/analyze?project=${encodeURIComponent(projectPath)}`);
+        if (!response.ok) throw new Error('Failed to load data');
+
+        analysisData = await response.json();
+        updateUI();
+      } catch (error) {
+        console.error('Error loading data:', error);
+        alert('Failed to load data: ' + error.message);
+      }
+    }
+
+    function updateUI() {
+      if (!analysisData) return;
+
+      // Update summary cards
+      document.getElementById('totalHours').textContent = analysisData.totalHours.toFixed(1);
+      document.getElementById('totalMinutes').textContent = `${analysisData.totalMinutes} minutes`;
+      document.getElementById('totalSessions').textContent = analysisData.totalSessions;
+      document.getElementById('totalMessages').textContent = analysisData.totalMessages;
+
+      const daysActive = analysisData.dailySummaries.length;
+      document.getElementById('daysActive').textContent = daysActive;
+
+      if (daysActive > 0) {
+        const avgPerDay = (analysisData.totalHours / daysActive).toFixed(1);
+        document.getElementById('avgPerDay').textContent = `${avgPerDay} hrs/day avg`;
+
+        const startDate = new Date(analysisData.dateRange.start).toLocaleDateString();
+        const endDate = new Date(analysisData.dateRange.end).toLocaleDateString();
+        document.getElementById('dateRange').textContent = `${startDate} - ${endDate}`;
+      }
+
+      // Update config fields
+      document.getElementById('configSessionGap').value = analysisData.config.sessionGapThreshold;
+      document.getElementById('configPrepTime').value = analysisData.config.prepTimeMinutes;
+      document.getElementById('configComplexAnalysis').value = analysisData.config.complexAnalysisMinutes;
+      document.getElementById('configSimpleAnalysis').value = analysisData.config.simpleAnalysisMinutes;
+      document.getElementById('configFileThreshold').value = analysisData.config.complexFileEditThreshold;
+      document.getElementById('configSubagentThreshold').value = analysisData.config.complexSubagentThreshold;
+
+      // Update day selector
+      const daySelector = document.getElementById('daySelector');
+      daySelector.innerHTML = '<option value="">Select a day...</option>';
+      analysisData.dailySummaries.forEach(day => {
+        const option = document.createElement('option');
+        option.value = day.date;
+        option.textContent = `${day.date} (${(day.totalMinutes / 60).toFixed(1)}h)`;
+        daySelector.appendChild(option);
+      });
+
+      // Update charts
+      updateDailyChart();
+      updateActivityChart();
+      updateSessionsTable();
+    }
+
+    function updateDailyChart() {
+      const ctx = document.getElementById('dailyChart').getContext('2d');
+
+      if (dailyChart) {
+        dailyChart.destroy();
+      }
+
+      const labels = analysisData.dailySummaries.map(d => d.date);
+      const data = analysisData.dailySummaries.map(d => d.totalMinutes / 60);
+
+      dailyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Hours',
+            data: data,
+            backgroundColor: '#38bdf8',
+            borderRadius: 6,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1e293b',
+              titleColor: '#f1f5f9',
+              bodyColor: '#e2e8f0',
+              borderColor: '#334155',
+              borderWidth: 1,
+              callbacks: {
+                label: (context) => `${context.raw.toFixed(2)} hours`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: '#334155' },
+              ticks: { color: '#94a3b8' }
+            },
+            y: {
+              grid: { color: '#334155' },
+              ticks: { color: '#94a3b8' },
+              title: {
+                display: true,
+                text: 'Hours',
+                color: '#94a3b8'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function updateActivityChart() {
+      const ctx = document.getElementById('activityChart').getContext('2d');
+
+      if (activityChart) {
+        activityChart.destroy();
+      }
+
+      // Aggregate activity data per day
+      const activityByDay = {};
+      analysisData.sessions.forEach(session => {
+        const date = new Date(session.startTime).toISOString().split('T')[0];
+        if (!activityByDay[date]) {
+          activityByDay[date] = { messages: 0, files: 0, subagents: 0 };
+        }
+        session.segments.forEach(seg => {
+          activityByDay[date].files += seg.filesEdited || 0;
+          activityByDay[date].subagents += seg.subagentsCount || 0;
+        });
+      });
+
+      // Calculate messages per day from daily summaries
+      analysisData.dailySummaries.forEach(day => {
+        if (!activityByDay[day.date]) {
+          activityByDay[day.date] = { messages: 0, files: 0, subagents: 0 };
+        }
+        activityByDay[day.date].sessions = day.sessionsCount;
+      });
+
+      const sortedDates = Object.keys(activityByDay).sort();
+
+      activityChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: sortedDates,
+          datasets: [
+            {
+              label: 'Sessions',
+              data: sortedDates.map(d => activityByDay[d].sessions || 0),
+              borderColor: '#4ade80',
+              backgroundColor: 'rgba(74, 222, 128, 0.1)',
+              tension: 0.3,
+              fill: true,
+            },
+            {
+              label: 'Files Edited',
+              data: sortedDates.map(d => activityByDay[d].files),
+              borderColor: '#38bdf8',
+              backgroundColor: 'rgba(56, 189, 248, 0.1)',
+              tension: 0.3,
+              fill: true,
+            },
+            {
+              label: 'Subagents',
+              data: sortedDates.map(d => activityByDay[d].subagents),
+              borderColor: '#a78bfa',
+              backgroundColor: 'rgba(167, 139, 250, 0.1)',
+              tension: 0.3,
+              fill: true,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: { color: '#94a3b8' }
+            },
+            tooltip: {
+              backgroundColor: '#1e293b',
+              titleColor: '#f1f5f9',
+              bodyColor: '#e2e8f0',
+              borderColor: '#334155',
+              borderWidth: 1,
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: '#334155' },
+              ticks: { color: '#94a3b8' }
+            },
+            y: {
+              grid: { color: '#334155' },
+              ticks: { color: '#94a3b8' }
+            }
+          }
+        }
+      });
+    }
+
+    function updateSessionsTable() {
+      const tbody = document.getElementById('sessionsTableBody');
+      tbody.innerHTML = '';
+
+      const sortedSessions = [...analysisData.sessions].sort((a, b) =>
+        new Date(b.startTime) - new Date(a.startTime)
+      );
+
+      sortedSessions.forEach(session => {
+        const row = document.createElement('tr');
+        const date = new Date(session.startTime);
+        const duration = session.segments.reduce((sum, s) => sum + s.durationMinutes, 0);
+        const filesEdited = session.segments.reduce((sum, s) => sum + (s.filesEdited || 0), 0);
+        const subagents = session.segments.reduce((sum, s) => sum + (s.subagentsCount || 0), 0);
+
+        row.innerHTML = `
+          <td>${date.toLocaleDateString()} ${date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+          <td><span class="badge badge-blue">${(duration / 60).toFixed(1)}h</span></td>
+          <td>${session.taskSummary || session.sessionId.slice(0, 8) + '...'}</td>
+          <td>${filesEdited}</td>
+          <td>${subagents}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    async function loadTimeline() {
+      const date = document.getElementById('daySelector').value;
+      if (!date) return;
+
+      try {
+        const response = await fetch(`/api/timeline?project=${encodeURIComponent(projectPath)}&date=${date}`);
+        if (!response.ok) throw new Error('Failed to load timeline');
+
+        const timeline = await response.json();
+        renderTimeline(timeline);
+      } catch (error) {
+        console.error('Error loading timeline:', error);
+      }
+    }
+
+    function renderTimeline(timeline) {
+      const eventsTrack = document.getElementById('timelineEventsTrack');
+      const track = document.getElementById('timelineTrack');
+      const sessionsContainer = document.getElementById('timelineSessions');
+
+      eventsTrack.innerHTML = '';
+      track.innerHTML = '';
+      sessionsContainer.innerHTML = '';
+
+      if (timeline.segments.length === 0) {
+        track.innerHTML = '<div class="loading">No data for this day</div>';
+        return;
+      }
+
+      // Find the day's time range from segments AND events
+      const segmentTimes = timeline.segments.flatMap(s => [new Date(s.startTime), new Date(s.endTime)]);
+      const eventTimes = timeline.events.map(e => new Date(e.time));
+      const allTimes = [...segmentTimes, ...eventTimes];
+      const minTime = Math.min(...allTimes.map(t => t.getTime()));
+      const maxTime = Math.max(...allTimes.map(t => t.getTime()));
+      const totalDuration = maxTime - minTime;
+
+      // Get session data for tooltips
+      const daySessions = analysisData.sessions.filter(s =>
+        new Date(s.startTime).toISOString().split('T')[0] === timeline.date
+      );
+
+      // Helper to find session for a segment
+      function findSessionForSegment(segment) {
+        const segmentStart = new Date(segment.startTime).getTime();
+        const segmentEnd = new Date(segment.endTime).getTime();
+        return daySessions.find(session => {
+          const sessionStart = new Date(session.startTime).getTime();
+          const sessionEnd = new Date(session.endTime).getTime();
+          return segmentStart >= sessionStart && segmentEnd <= sessionEnd;
+        });
+      }
+
+      // Render message dots above the track
+      timeline.events.forEach(event => {
+        const eventTime = new Date(event.time).getTime();
+        const left = ((eventTime - minTime) / totalDuration) * 100;
+        const isUser = event.type.includes('start') || event.type === 'user';
+
+        const dotEl = document.createElement('div');
+        dotEl.className = `timeline-dot ${isUser ? 'user' : 'assistant'}`;
+        dotEl.style.left = `${left}%`;
+
+        const time = new Date(event.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        dotEl.title = `${time} - ${event.description}`;
+
+        eventsTrack.appendChild(dotEl);
+      });
+
+      // Render segments
+      timeline.segments.forEach((segment) => {
+        const startTime = new Date(segment.startTime);
+        const endTime = new Date(segment.endTime);
+        const left = ((startTime.getTime() - minTime) / totalDuration) * 100;
+        const width = Math.max(2, ((endTime.getTime() - startTime.getTime()) / totalDuration) * 100);
+
+        const segmentEl = document.createElement('div');
+        segmentEl.className = `timeline-segment ${segment.type}`;
+        segmentEl.style.left = `${left}%`;
+        segmentEl.style.width = `${width}%`;
+        segmentEl.textContent = segment.durationMinutes >= 10 ? `${Math.round(segment.durationMinutes)}m` : '';
+
+        // Find session for this segment to include task summary in tooltip
+        const session = findSessionForSegment(segment);
+        segmentEl.addEventListener('mouseenter', (e) => showTooltip(e, segment, session));
+        segmentEl.addEventListener('mouseleave', hideTooltip);
+
+        track.appendChild(segmentEl);
+      });
+
+      // Render session summaries (backup info)
+      daySessions.forEach(session => {
+        const sessionEl = document.createElement('div');
+        sessionEl.className = 'session-summary';
+        const startTime = new Date(session.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const endTime = new Date(session.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const duration = session.segments.reduce((sum, s) => sum + s.durationMinutes, 0);
+
+        sessionEl.innerHTML = `
+          <span class="session-time">${startTime} - ${endTime}</span>
+          <span class="session-task">${session.taskSummary || 'No summary'}</span>
+          <span class="session-duration">${(duration / 60).toFixed(1)}h</span>
+        `;
+        sessionsContainer.appendChild(sessionEl);
+      });
+    }
+
+    function showTooltip(event, segment, session) {
+      const tooltip = document.getElementById('tooltip');
+      const startTime = new Date(segment.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      const endTime = new Date(segment.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+      let taskSummaryHtml = '';
+      if (session && session.taskSummary) {
+        taskSummaryHtml = `<div class="tooltip-row" style="margin-top: 8px; border-top: 1px solid #334155; padding-top: 8px;"><span>Task:</span></div>
+        <div style="color: #e2e8f0; font-size: 11px; margin-top: 4px;">${session.taskSummary}</div>`;
+      }
+
+      tooltip.innerHTML = `
+        <div class="tooltip-title">${segment.type.charAt(0).toUpperCase() + segment.type.slice(1)} Segment</div>
+        <div class="tooltip-row"><span>Time:</span><span class="tooltip-value">${startTime} - ${endTime}</span></div>
+        <div class="tooltip-row"><span>Duration:</span><span class="tooltip-value">${segment.durationMinutes.toFixed(0)} min</span></div>
+        <div class="tooltip-row"><span>Files Edited:</span><span class="tooltip-value">${segment.filesEdited || 0}</span></div>
+        <div class="tooltip-row"><span>Subagents:</span><span class="tooltip-value">${segment.subagentsCount || 0}</span></div>
+        ${taskSummaryHtml}
+      `;
+
+      tooltip.style.display = 'block';
+      tooltip.style.left = `${event.pageX + 10}px`;
+      tooltip.style.top = `${event.pageY + 10}px`;
+    }
+
+    function hideTooltip() {
+      document.getElementById('tooltip').style.display = 'none';
+    }
+
+    async function updateConfig() {
+      const config = {
+        sessionGapThreshold: parseInt(document.getElementById('configSessionGap').value),
+        prepTimeMinutes: parseInt(document.getElementById('configPrepTime').value),
+        complexAnalysisMinutes: parseInt(document.getElementById('configComplexAnalysis').value),
+        simpleAnalysisMinutes: parseInt(document.getElementById('configSimpleAnalysis').value),
+        complexFileEditThreshold: parseInt(document.getElementById('configFileThreshold').value),
+        complexSubagentThreshold: parseInt(document.getElementById('configSubagentThreshold').value),
+      };
+
+      try {
+        await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config)
+        });
+        await loadData();
+      } catch (error) {
+        console.error('Error updating config:', error);
+        alert('Failed to update config: ' + error.message);
+      }
+    }
+
+    async function summarizeTasks() {
+      try {
+        const response = await fetch(`/api/summarize?project=${encodeURIComponent(projectPath)}`, {
+          method: 'POST'
+        });
+        if (!response.ok) throw new Error('Failed to summarize');
+
+        const result = await response.json();
+        alert(`Summarized ${result.summarized} sessions`);
+        await loadData();
+      } catch (error) {
+        console.error('Error summarizing:', error);
+        alert('Failed to summarize: ' + error.message);
+      }
+    }
+
+    // Initialize
+    loadData();
+  </script>
+</body>
+</html>

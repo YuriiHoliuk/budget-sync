@@ -1,0 +1,15 @@
+{
+  "name": "claude-time-tracker",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts --project /Users/yuriiholiuk/projects/budget-sync",
+    "serve": "bun run src/index.ts --serve --project /Users/yuriiholiuk/projects/budget-sync",
+    "parse": "bun run src/index.ts --parse --project /Users/yuriiholiuk/projects/budget-sync",
+    "analyze": "bun run src/index.ts --analyze --project /Users/yuriiholiuk/projects/budget-sync",
+    "summarize": "bun run src/index.ts --summarize --project /Users/yuriiholiuk/projects/budget-sync",
+    "refresh": "bun run src/index.ts --parse --analyze --project /Users/yuriiholiuk/projects/budget-sync",
+    "reset": "rm -f data/timetracker.db && bun run start",
+    "dev": "bun run --watch src/index.ts --project /Users/yuriiholiuk/projects/budget-sync"
+  }
+}
