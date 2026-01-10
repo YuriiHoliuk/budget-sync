@@ -85,6 +85,12 @@ export class EnqueueWebhookTransactionUseCase {
         comment: transaction.comment,
         counterpartyName: transaction.counterpartyName,
         counterpartyIban: transaction.counterpartyIban,
+        cashbackAmount: transaction.cashbackAmount?.amount,
+        commissionRate: transaction.commissionRate?.amount,
+        originalMcc: transaction.originalMcc,
+        receiptId: transaction.receiptId,
+        invoiceId: transaction.invoiceId,
+        counterEdrpou: transaction.counterEdrpou,
       },
     };
   }

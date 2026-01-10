@@ -131,7 +131,26 @@ export class ProcessIncomingTransactionUseCase {
       counterpartyName: txData.counterpartyName,
       counterpartyIban: txData.counterpartyIban,
       hold: txData.hold,
+      cashbackAmount: this.parseOptionalMoney(txData.cashbackAmount, currency),
+      commissionRate: this.parseOptionalMoney(txData.commissionRate, currency),
+      originalMcc: txData.originalMcc,
+      receiptId: txData.receiptId,
+      invoiceId: txData.invoiceId,
+      counterEdrpou: txData.counterEdrpou,
     });
+  }
+
+  /**
+   * Parse optional money amount from minor units.
+   */
+  private parseOptionalMoney(
+    minorUnits: number | undefined,
+    currency: Currency,
+  ): Money | undefined {
+    if (minorUnits === undefined || minorUnits === 0) {
+      return undefined;
+    }
+    return Money.create(minorUnits, currency);
   }
 
   /**

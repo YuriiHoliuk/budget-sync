@@ -176,6 +176,12 @@ export interface TestQueuedWebhookTransactionDTO {
     comment?: string;
     counterpartyName?: string;
     counterpartyIban?: string;
+    cashbackAmount?: number;
+    commissionRate?: number;
+    originalMcc?: number;
+    receiptId?: string;
+    invoiceId?: string;
+    counterEdrpou?: string;
   };
 }
 

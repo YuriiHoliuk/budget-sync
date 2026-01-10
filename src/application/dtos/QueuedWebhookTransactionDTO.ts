@@ -38,5 +38,17 @@ export interface QueuedWebhookTransactionDTO {
     comment?: string;
     counterpartyName?: string;
     counterpartyIban?: string;
+    /** Cashback amount in minor units */
+    cashbackAmount?: number;
+    /** Commission/fee amount in minor units */
+    commissionRate?: number;
+    /** Original MCC before bank correction */
+    originalMcc?: number;
+    /** Receipt ID for check.gov.ua */
+    receiptId?: string;
+    /** Invoice ID (FOP accounts) */
+    invoiceId?: string;
+    /** Counterparty tax ID (EDRPOU) */
+    counterEdrpou?: string;
   };
 }

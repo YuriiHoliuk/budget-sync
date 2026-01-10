@@ -19,7 +19,10 @@ import { CATEGORIZATION_PROMPT_TEMPLATE } from './prompts/categorization.ts';
  * Used to generate JSON schema for Gemini structured output.
  */
 const CategorizationResponseSchema = z.object({
-  category: z.string().nullable().describe('Selected category full path'),
+  category: z
+    .string()
+    .nullable()
+    .describe('Selected category name only (not full hierarchical path)'),
   categoryReason: z
     .string()
     .nullable()
