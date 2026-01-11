@@ -22,3 +22,4 @@ export type {
   SyncTransactionsResultDTO,
 } from './SyncTransactions.ts';
 export { SyncTransactionsUseCase } from './SyncTransactions.ts';
+export { UseCase } from './UseCase.ts';

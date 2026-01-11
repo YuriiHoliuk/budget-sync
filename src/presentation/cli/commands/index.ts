@@ -1,2 +1,2 @@
-export { createSetWebhookCommand } from './set-webhook.ts';
-export { createSyncCommand } from './sync.ts';
+export { SetWebhookCommand } from './SetWebhookCommand.ts';
+export { SyncCommand } from './SyncCommand.ts';

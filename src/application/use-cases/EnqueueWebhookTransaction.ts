@@ -9,6 +9,7 @@ import {
   type MessageQueueGateway,
 } from '@domain/gateways/MessageQueueGateway.ts';
 import { inject, injectable } from 'tsyringe';
+import { UseCase } from './UseCase.ts';
 
 /**
  * Result DTO for the EnqueueWebhookTransaction use case.
@@ -31,13 +32,18 @@ export interface EnqueueWebhookTransactionResultDTO {
  * in a separate queue processor job.
  */
 @injectable()
-export class EnqueueWebhookTransactionUseCase {
+export class EnqueueWebhookTransactionUseCase extends UseCase<
+  unknown,
+  EnqueueWebhookTransactionResultDTO
+> {
   constructor(
     @inject(BANK_GATEWAY_TOKEN)
     private bankGateway: BankGateway,
     @inject(MESSAGE_QUEUE_GATEWAY_TOKEN)
     private messageQueueGateway: MessageQueueGateway,
-  ) {}
+  ) {
+    super();
+  }
 
   /**
    * Execute the use case.

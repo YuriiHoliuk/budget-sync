@@ -8,6 +8,7 @@ import {
   type AccountRepository,
 } from '@domain/repositories/AccountRepository.ts';
 import { inject, injectable } from 'tsyringe';
+import { UseCase } from './UseCase.ts';
 
 export interface SyncAccountsResultDTO {
   created: number;
@@ -17,12 +18,14 @@ export interface SyncAccountsResultDTO {
 }
 
 @injectable()
-export class SyncAccountsUseCase {
+export class SyncAccountsUseCase extends UseCase<void, SyncAccountsResultDTO> {
   constructor(
     @inject(BANK_GATEWAY_TOKEN) private bankGateway: BankGateway,
     @inject(ACCOUNT_REPOSITORY_TOKEN)
     private accountRepository: AccountRepository,
-  ) {}
+  ) {
+    super();
+  }
 
   async execute(): Promise<SyncAccountsResultDTO> {
     const result: SyncAccountsResultDTO = {

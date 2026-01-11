@@ -18,6 +18,7 @@ import {
 } from '@domain/repositories/TransactionRepository.ts';
 import { inject, injectable } from 'tsyringe';
 import { chunkDateRange, delay } from '../utils/index.ts';
+import { UseCase } from './UseCase.ts';
 
 export interface SyncTransactionsResultDTO {
   totalAccounts: number;
@@ -43,14 +44,19 @@ const DEFAULT_EARLIEST_SYNC_DATE = new Date('2026-01-01');
 const DEFAULT_SYNC_OVERLAP_MS = 600000; // 10 minutes
 
 @injectable()
-export class SyncTransactionsUseCase {
+export class SyncTransactionsUseCase extends UseCase<
+  SyncTransactionsOptions,
+  SyncTransactionsResultDTO
+> {
   constructor(
     @inject(BANK_GATEWAY_TOKEN) private bankGateway: BankGateway,
     @inject(ACCOUNT_REPOSITORY_TOKEN)
     private accountRepository: AccountRepository,
     @inject(TRANSACTION_REPOSITORY_TOKEN)
     private transactionRepository: TransactionRepository,
-  ) {}
+  ) {
+    super();
+  }
 
   async execute(
     options: SyncTransactionsOptions = {},

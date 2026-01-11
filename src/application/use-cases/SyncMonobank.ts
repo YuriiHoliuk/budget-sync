@@ -19,6 +19,7 @@ import { MonobankRateLimitError } from '@infrastructure/gateways/monobank/errors
 import { LOGGER_TOKEN, type Logger } from '@modules/logging';
 import { inject, injectable } from 'tsyringe';
 import { chunkDateRange, delay } from '../utils/index.ts';
+import { UseCase } from './UseCase.ts';
 
 export interface SyncMonobankResultDTO {
   accounts: {
@@ -53,7 +54,10 @@ const DEFAULT_EARLIEST_SYNC_DATE = new Date('2026-01-01');
 const DEFAULT_SYNC_OVERLAP_MS = 600000; // 10 minutes
 
 @injectable()
-export class SyncMonobankUseCase {
+export class SyncMonobankUseCase extends UseCase<
+  SyncMonobankOptions,
+  SyncMonobankResultDTO
+> {
   constructor(
     @inject(BANK_GATEWAY_TOKEN) private bankGateway: BankGateway,
     @inject(ACCOUNT_REPOSITORY_TOKEN)
@@ -61,7 +65,9 @@ export class SyncMonobankUseCase {
     @inject(TRANSACTION_REPOSITORY_TOKEN)
     private transactionRepository: TransactionRepository,
     @inject(LOGGER_TOKEN) private logger: Logger,
-  ) {}
+  ) {
+    super();
+  }
 
   async execute(
     options: SyncMonobankOptions = {},

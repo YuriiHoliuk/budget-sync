@@ -35,7 +35,7 @@ function main() {
   const port = getPort();
 
   try {
-    webhookServer.start(port);
+    webhookServer.start(port, container);
 
     setupGracefulShutdown(webhookServer, logger);
 

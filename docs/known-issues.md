@@ -104,13 +104,6 @@ For very large datasets, maintain a separate index (SQLite, JSON file) with exte
 
 ---
 
-## 4. Transaction Updates Not Implemented
-
-**Problem:** If a transaction changes in Monobank (e.g., hold → completed), we don't update it - we just skip as duplicate.
-
-**Potential fix:** Compare transaction details and update if changed (would need to define what fields can change).
-
----
 
 ## 5. Improve testing coverage (Partially Done)
 

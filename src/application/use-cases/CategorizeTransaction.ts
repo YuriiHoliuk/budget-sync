@@ -25,6 +25,7 @@ import {
   CategoryStatus,
 } from '@domain/value-objects/index.ts';
 import { inject, injectable } from 'tsyringe';
+import { UseCase } from './UseCase.ts';
 
 /**
  * Thrown when a transaction cannot be found by its external ID.
@@ -63,7 +64,10 @@ export interface CategorizeTransactionResultDTO {
  * 5. Updating the transaction with categorization result
  */
 @injectable()
-export class CategorizeTransactionUseCase {
+export class CategorizeTransactionUseCase extends UseCase<
+  CategorizeTransactionRequestDTO,
+  CategorizeTransactionResultDTO
+> {
   constructor(
     @inject(TRANSACTION_REPOSITORY_TOKEN)
     private transactionRepository: TransactionRepository,
@@ -73,7 +77,9 @@ export class CategorizeTransactionUseCase {
     private budgetRepository: BudgetRepository,
     @inject(LLM_GATEWAY_TOKEN)
     private llmGateway: LLMGateway,
-  ) {}
+  ) {
+    super();
+  }
 
   async execute(
     request: CategorizeTransactionRequestDTO,

@@ -189,6 +189,7 @@ src/
 │
 ├── application/
 │   ├── use-cases/
+│   │   ├── UseCase.ts             # Base class for all use cases
 │   │   ├── SyncTransactions.ts    # Generic - no "Bank" or "Spreadsheet"
 │   │   ├── GetTransactions.ts
 │   │   └── CategorizeTransaction.ts
@@ -223,15 +224,135 @@ src/
 │
 ├── presentation/
 │   ├── cli/
+│   │   ├── Command.ts             # Base command class
+│   │   ├── createCLI.ts           # CLI factory with auto-registration
 │   │   └── commands/
-│   │       └── sync.ts
-│   └── http/                      # Future: webhooks
-│       ├── controllers/
-│       └── routes/
+│   │       └── SyncCommand.ts
+│   ├── http/
+│   │   ├── Controller.ts          # Base controller class
+│   │   ├── WebhookServer.ts
+│   │   └── controllers/
+│   │       └── WebhookController.ts
+│   └── jobs/
+│       ├── Job.ts                 # Base job class
+│       └── SyncAccountsJob.ts
 │
 ├── container.ts                   # DI container setup
 └── main.ts                        # Entry point
 ```
+
+---
+
+## Presentation Layer Patterns
+
+The presentation layer uses base class patterns for Jobs, Commands, and Controllers. This provides standardization, testability, and reduced boilerplate.
+
+### Job Pattern
+
+Jobs are scheduled tasks that run in Cloud Run. Extend the `Job` base class:
+
+```typescript
+// src/presentation/jobs/SyncAccountsJob.ts
+@injectable()
+export class SyncAccountsJob extends Job<SyncAccountsResultDTO> {
+  constructor(private syncAccountsUseCase: SyncAccountsUseCase) {
+    super();
+  }
+
+  async execute(): Promise<SyncAccountsResultDTO> {
+    return await this.syncAccountsUseCase.execute();
+  }
+
+  protected toJobResult(result: SyncAccountsResultDTO): JobResult {
+    return {
+      success: result.errors.length === 0,
+      exitCode: result.errors.length > 0 ? 1 : 0,
+      summary: { created: result.created, errors: result.errors.length },
+    };
+  }
+}
+```
+
+Entry point (thin - just DI setup):
+
+```typescript
+// src/jobs/sync-accounts.ts
+const container = setupContainer();
+container.register(LOGGER_TOKEN, { useClass: StructuredLogger });
+const job = container.resolve(SyncAccountsJob);
+job.run();
+```
+
+### Command Pattern
+
+CLI commands extend the `Command` base class with metadata and execute logic:
+
+```typescript
+// src/presentation/cli/commands/SyncCommand.ts
+interface SyncOptions {
+  delay: number;
+  from?: Date;
+}
+
+@injectable()
+export class SyncCommand extends Command<SyncOptions> {
+  meta: CommandMeta = {
+    name: 'sync',
+    description: 'Synchronize accounts from Monobank',
+    options: [
+      {
+        flags: '--delay <ms>',
+        description: 'Delay between API requests',
+        defaultValue: 5000,
+        parse: (value: string) => parseInt(value, 10),
+      },
+    ],
+  };
+
+  constructor(private syncUseCase: SyncMonobankUseCase) {
+    super();
+  }
+
+  async execute(options: SyncOptions): Promise<void> {
+    const result = await this.syncUseCase.execute({ delayMs: options.delay });
+    console.log(`Synced ${result.transactions.saved} transactions`);
+  }
+}
+```
+
+Commands are auto-registered via a registry array in `createCLI.ts`.
+
+### Controller Pattern
+
+HTTP controllers extend the `Controller` base class with route definitions:
+
+```typescript
+// src/presentation/http/controllers/WebhookController.ts
+@injectable()
+export class WebhookController extends Controller {
+  prefix = '/webhook';
+
+  routes: RouteDefinition[] = [
+    { method: 'get', path: '', handler: 'handleValidation' },
+    { method: 'post', path: '', handler: 'handleWebhook' },
+  ];
+
+  constructor(private enqueueUseCase: EnqueueWebhookTransactionUseCase) {
+    super();
+  }
+
+  async handleValidation(): Promise<HttpResponse> {
+    return ok();
+  }
+
+  async handleWebhook(request: HttpRequest): Promise<HttpResponse> {
+    await this.enqueueUseCase.execute(request.body);
+    return ok();
+  }
+}
+```
+
+Controllers are auto-registered via a registry array in `controllers/index.ts`.
 
 ---
 
@@ -444,11 +565,24 @@ export abstract class BankGateway {
 
 ### Use Case (Application)
 
-Use cases work only with **domain types** and **DTOs**:
+Use cases extend the `UseCase` base class and work only with **domain types** and **DTOs**:
+
+```typescript
+// application/use-cases/UseCase.ts
+export abstract class UseCase<TRequest = void, TResponse = void> {
+  abstract execute(request: TRequest): Promise<TResponse>;
+}
+```
+
+The base class provides:
+- Standard `execute(request): Promise<response>` interface
+- Type safety for request/response DTOs
+- Consistency across all use cases
 
 ```typescript
 // application/use-cases/SyncTransactions.ts
 import { injectable } from 'tsyringe';
+import { UseCase } from './UseCase.ts';
 
 // DTOs define input/output contracts
 export interface SyncRequestDTO {
@@ -463,11 +597,13 @@ export interface SyncResultDTO {
 }
 
 @injectable()
-export class SyncTransactionsUseCase {
+export class SyncTransactionsUseCase extends UseCase<SyncRequestDTO, SyncResultDTO> {
   constructor(
     private bankGateway: BankGateway,           // Injected by type
     private transactionRepo: TransactionRepository
-  ) {}
+  ) {
+    super();
+  }
 
   async execute(request: SyncRequestDTO): Promise<SyncResultDTO> {
     // Gateway returns domain objects - no mapping here
@@ -494,6 +630,17 @@ export class SyncTransactionsUseCase {
     }
 
     return { newTransactions: newCount, skippedTransactions: skippedCount };
+  }
+}
+```
+
+For use cases with no input, use `void` as the request type:
+
+```typescript
+@injectable()
+export class SyncAccountsUseCase extends UseCase<void, SyncAccountsResultDTO> {
+  async execute(): Promise<SyncAccountsResultDTO> {
+    // ...
   }
 }
 ```

@@ -15,11 +15,11 @@ import { EnqueueWebhookTransactionUseCase } from '@application/use-cases/Enqueue
 import {
   type HttpRequest,
   type HttpResponse,
-  type HttpServer,
   ok,
 } from '@modules/http/index.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging/index.ts';
 import { inject, injectable } from 'tsyringe';
+import { Controller, type RouteDefinition } from '../Controller.ts';
 
 /**
  * Controller for handling Monobank webhook endpoints.
@@ -30,26 +30,27 @@ import { inject, injectable } from 'tsyringe';
  * - Health checks for Cloud Run (GET /health)
  */
 @injectable()
-export class WebhookController {
+export class WebhookController extends Controller {
+  override prefix = '/webhook';
+
+  routes: RouteDefinition[] = [
+    { method: 'get', path: '', handler: 'handleValidation' },
+    { method: 'post', path: '', handler: 'handleWebhook' },
+    { method: 'get', path: '/health', handler: 'handleHealthCheck' },
+  ];
+
   constructor(
     private enqueueWebhookTransaction: EnqueueWebhookTransactionUseCase,
-    @inject(LOGGER_TOKEN) private logger: Logger,
-  ) {}
-
-  /**
-   * Register all webhook routes on the given HTTP server.
-   */
-  registerRoutes(server: HttpServer): void {
-    server.get('/webhook', () => this.handleValidation());
-    server.post('/webhook', (request) => this.handleWebhook(request));
-    server.get('/health', () => this.handleHealthCheck());
+    @inject(LOGGER_TOKEN) protected logger: Logger,
+  ) {
+    super();
   }
 
   /**
    * Handle GET /webhook - Monobank validation endpoint.
    * Returns 200 OK to confirm the webhook URL is valid.
    */
-  private handleValidation(): HttpResponse {
+  handleValidation(): HttpResponse {
     this.logger.info('Webhook validation request received');
     return ok();
   }
@@ -58,7 +59,7 @@ export class WebhookController {
    * Handle POST /webhook - Receive transaction notification.
    * Always returns 200 to prevent Monobank from disabling the webhook.
    */
-  private async handleWebhook(request: HttpRequest): Promise<HttpResponse> {
+  async handleWebhook(request: HttpRequest): Promise<HttpResponse> {
     try {
       await this.processWebhookPayload(request.body);
     } catch (error) {
@@ -120,7 +121,7 @@ export class WebhookController {
   /**
    * Handle GET /health - Health check endpoint for Cloud Run.
    */
-  private handleHealthCheck(): HttpResponse {
+  handleHealthCheck(): HttpResponse {
     return ok({ status: 'healthy' });
   }
 }

@@ -18,6 +18,7 @@ import {
 } from '@domain/value-objects/index.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging/index.ts';
 import { inject, injectable } from 'tsyringe';
+import { UseCase } from './UseCase.ts';
 
 /**
  * Result DTO indicating the outcome of processing.
@@ -42,7 +43,10 @@ export interface ProcessIncomingTransactionResultDTO {
  * Throws on failure - the caller (job/queue processor) handles retry logic.
  */
 @injectable()
-export class ProcessIncomingTransactionUseCase {
+export class ProcessIncomingTransactionUseCase extends UseCase<
+  QueuedWebhookTransactionDTO,
+  ProcessIncomingTransactionResultDTO
+> {
   constructor(
     @inject(ACCOUNT_REPOSITORY_TOKEN)
     private accountRepository: AccountRepository,
@@ -51,7 +55,9 @@ export class ProcessIncomingTransactionUseCase {
     private categorizeTransaction: CategorizeTransactionUseCase,
     @inject(LOGGER_TOKEN)
     private logger: Logger,
-  ) {}
+  ) {
+    super();
+  }
 
   async execute(
     input: QueuedWebhookTransactionDTO,

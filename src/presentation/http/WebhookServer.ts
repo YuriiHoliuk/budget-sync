@@ -7,16 +7,16 @@
 
 import { type HttpRequest, HttpServer } from '@modules/http/index.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging/index.ts';
+import type { DependencyContainer } from 'tsyringe';
 import { inject, injectable } from 'tsyringe';
-// biome-ignore lint/style/useImportType: TSyringe requires runtime class reference for DI
-import { WebhookController } from './controllers/WebhookController.ts';
+import { CONTROLLERS } from './controllers/index.ts';
 
 /**
  * HTTP server for handling Monobank webhooks.
  *
  * This server is responsible for:
  * - Creating and configuring the HTTP server
- * - Registering webhook routes via WebhookController
+ * - Resolving and registering all controllers from the registry
  * - Logging incoming requests
  * - Starting and stopping the server
  */
@@ -24,25 +24,41 @@ import { WebhookController } from './controllers/WebhookController.ts';
 export class WebhookServer {
   private server: HttpServer | null = null;
 
-  constructor(
-    private webhookController: WebhookController,
-    @inject(LOGGER_TOKEN) private logger: Logger,
-  ) {}
+  constructor(@inject(LOGGER_TOKEN) private logger: Logger) {}
 
   /**
    * Start the webhook server on the specified port.
    *
    * @param port - Port to listen on
+   * @param container - DI container to resolve controllers from
    * @returns The underlying HTTP server instance
    */
-  start(port: number): HttpServer {
+  start(port: number, container: DependencyContainer): HttpServer {
     this.server = this.createServer();
-    this.webhookController.registerRoutes(this.server);
+    this.registerControllers(container);
     this.server.start({ port });
 
     this.logger.info(`Webhook server started on port ${port}`);
 
     return this.server;
+  }
+
+  /**
+   * Resolve and register all controllers from the registry.
+   */
+  private registerControllers(container: DependencyContainer): void {
+    if (!this.server) {
+      return;
+    }
+
+    for (const ControllerClass of CONTROLLERS) {
+      const controller = container.resolve(ControllerClass);
+      controller.registerRoutes(this.server);
+      this.logger.debug(
+        'http',
+        `Registered controller: ${controller.constructor.name}`,
+      );
+    }
   }
 
   /**
