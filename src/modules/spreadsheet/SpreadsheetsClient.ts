@@ -458,6 +458,65 @@ export class SpreadsheetsClient {
   }
 
   /**
+   * Expand the sheet grid to accommodate more rows
+   *
+   * @param spreadsheetId - The spreadsheet ID
+   * @param sheetId - The sheet's numeric ID (not name)
+   * @param newRowCount - The desired total row count
+   */
+  async expandSheetRows(
+    spreadsheetId: string,
+    sheetId: number,
+    newRowCount: number,
+  ): Promise<void> {
+    const client = this.getClient();
+
+    await this.withErrorHandling(async () => {
+      await client.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              updateSheetProperties: {
+                properties: {
+                  sheetId,
+                  gridProperties: {
+                    rowCount: newRowCount,
+                  },
+                },
+                fields: 'gridProperties.rowCount',
+              },
+            },
+          ],
+        },
+      });
+    });
+  }
+
+  /**
+   * Ensure the sheet has enough rows to accommodate new data
+   * Expands the sheet if necessary, adding a buffer for future growth
+   *
+   * @param spreadsheetId - The spreadsheet ID
+   * @param sheetName - The sheet name
+   * @param requiredRowCount - The minimum row count needed
+   * @param growthBuffer - Extra rows to add when expanding (default: 100)
+   */
+  async ensureSheetCapacity(
+    spreadsheetId: string,
+    sheetName: string,
+    requiredRowCount: number,
+    growthBuffer: number = 100,
+  ): Promise<void> {
+    const sheetInfo = await this.getSheetInfo(spreadsheetId, sheetName);
+
+    if (sheetInfo.rowCount < requiredRowCount) {
+      const newRowCount = requiredRowCount + growthBuffer;
+      await this.expandSheetRows(spreadsheetId, sheetInfo.id, newRowCount);
+    }
+  }
+
+  /**
    * Get the index of the last row with data in a sheet
    *
    * @returns 1-based row index of the last row with data, or 0 if sheet is empty
@@ -495,6 +554,10 @@ export class SpreadsheetsClient {
       sheetName,
     );
     const startRowIndex = lastRowIndex + 1;
+    const requiredRowCount = startRowIndex + rowsCellUpdates.length - 1;
+
+    // Ensure the sheet has enough rows before writing
+    await this.ensureSheetCapacity(spreadsheetId, sheetName, requiredRowCount);
 
     // Build all range-value pairs for batch write
     const allRangeData: Array<{ range: string; values: Row[] }> = [];

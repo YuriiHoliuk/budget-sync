@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import type { Row, WriteOptions } from '@modules/spreadsheet';
+import type { Row, SheetInfo, WriteOptions } from '@modules/spreadsheet';
 import { SpreadsheetsClient } from '@modules/spreadsheet';
 
 type RangeData = { range: string; values: Row[] };
@@ -12,6 +12,21 @@ type GetLastDataRowIndexFn = (
   spreadsheetId: string,
   sheetName: string,
 ) => Promise<number>;
+type EnsureSheetCapacityFn = (
+  spreadsheetId: string,
+  sheetName: string,
+  requiredRowCount: number,
+  growthBuffer?: number,
+) => Promise<void>;
+type GetSheetInfoFn = (
+  spreadsheetId: string,
+  sheetName: string,
+) => Promise<SheetInfo>;
+type ExpandSheetRowsFn = (
+  spreadsheetId: string,
+  sheetId: number,
+  newRowCount: number,
+) => Promise<void>;
 
 /**
  * Unit tests for SpreadsheetsClient sparse write functionality
@@ -130,6 +145,7 @@ describe('SpreadsheetsClient', () => {
     let client: SpreadsheetsClient;
     let mockWriteRanges: ReturnType<typeof mock<WriteRangesFn>>;
     let mockGetLastDataRowIndex: ReturnType<typeof mock<GetLastDataRowIndexFn>>;
+    let mockEnsureSheetCapacity: ReturnType<typeof mock<EnsureSheetCapacityFn>>;
 
     beforeEach(() => {
       client = new SpreadsheetsClient();
@@ -139,9 +155,13 @@ describe('SpreadsheetsClient', () => {
       mockGetLastDataRowIndex = mock<GetLastDataRowIndexFn>(() =>
         Promise.resolve(10),
       );
+      mockEnsureSheetCapacity = mock<EnsureSheetCapacityFn>(() =>
+        Promise.resolve(),
+      );
       Object.assign(client, {
         writeRanges: mockWriteRanges,
         getLastDataRowIndex: mockGetLastDataRowIndex,
+        ensureSheetCapacity: mockEnsureSheetCapacity,
       });
     });
 
@@ -205,6 +225,174 @@ describe('SpreadsheetsClient', () => {
       ]);
 
       expect(result.appendedRows).toBe(3);
+    });
+
+    test('should ensure sheet capacity before appending', async () => {
+      await client.appendRowsCells('spreadsheet-id', 'Sheet1', [
+        [{ columnIndex: 0, value: 'Row1-A' }],
+        [{ columnIndex: 0, value: 'Row2-A' }],
+      ]);
+
+      // Last row was 10, appending 2 rows means we need rows 11 and 12
+      // So required row count is 12
+      expect(mockEnsureSheetCapacity).toHaveBeenCalledTimes(1);
+      expect(mockEnsureSheetCapacity).toHaveBeenCalledWith(
+        'spreadsheet-id',
+        'Sheet1',
+        12,
+      );
+    });
+
+    test('should call ensureSheetCapacity before writeRanges', async () => {
+      const callOrder: string[] = [];
+
+      mockEnsureSheetCapacity = mock<EnsureSheetCapacityFn>(() => {
+        callOrder.push('ensureSheetCapacity');
+        return Promise.resolve();
+      });
+
+      mockWriteRanges = mock<WriteRangesFn>(() => {
+        callOrder.push('writeRanges');
+        return Promise.resolve({ totalUpdatedCells: 1 });
+      });
+
+      Object.assign(client, {
+        writeRanges: mockWriteRanges,
+        ensureSheetCapacity: mockEnsureSheetCapacity,
+      });
+
+      await client.appendRowsCells('spreadsheet-id', 'Sheet1', [
+        [{ columnIndex: 0, value: 'A' }],
+      ]);
+
+      expect(callOrder).toEqual(['ensureSheetCapacity', 'writeRanges']);
+    });
+  });
+
+  describe('ensureSheetCapacity', () => {
+    let client: SpreadsheetsClient;
+    let mockGetSheetInfo: ReturnType<typeof mock<GetSheetInfoFn>>;
+    let mockExpandSheetRows: ReturnType<typeof mock<ExpandSheetRowsFn>>;
+
+    beforeEach(() => {
+      client = new SpreadsheetsClient();
+      mockExpandSheetRows = mock<ExpandSheetRowsFn>(() => Promise.resolve());
+    });
+
+    test('should expand sheet when required rows exceed current capacity', async () => {
+      mockGetSheetInfo = mock<GetSheetInfoFn>(() =>
+        Promise.resolve({
+          id: 123,
+          title: 'Sheet1',
+          rowCount: 100,
+          columnCount: 26,
+        }),
+      );
+
+      Object.assign(client, {
+        getSheetInfo: mockGetSheetInfo,
+        expandSheetRows: mockExpandSheetRows,
+      });
+
+      await client.ensureSheetCapacity('spreadsheet-id', 'Sheet1', 150);
+
+      expect(mockGetSheetInfo).toHaveBeenCalledWith('spreadsheet-id', 'Sheet1');
+      expect(mockExpandSheetRows).toHaveBeenCalledWith(
+        'spreadsheet-id',
+        123,
+        250, // 150 + 100 (default buffer)
+      );
+    });
+
+    test('should not expand sheet when capacity is sufficient', async () => {
+      mockGetSheetInfo = mock<GetSheetInfoFn>(() =>
+        Promise.resolve({
+          id: 123,
+          title: 'Sheet1',
+          rowCount: 200,
+          columnCount: 26,
+        }),
+      );
+
+      Object.assign(client, {
+        getSheetInfo: mockGetSheetInfo,
+        expandSheetRows: mockExpandSheetRows,
+      });
+
+      await client.ensureSheetCapacity('spreadsheet-id', 'Sheet1', 150);
+
+      expect(mockGetSheetInfo).toHaveBeenCalledWith('spreadsheet-id', 'Sheet1');
+      expect(mockExpandSheetRows).not.toHaveBeenCalled();
+    });
+
+    test('should use custom growth buffer when provided', async () => {
+      mockGetSheetInfo = mock<GetSheetInfoFn>(() =>
+        Promise.resolve({
+          id: 456,
+          title: 'Sheet1',
+          rowCount: 100,
+          columnCount: 26,
+        }),
+      );
+
+      Object.assign(client, {
+        getSheetInfo: mockGetSheetInfo,
+        expandSheetRows: mockExpandSheetRows,
+      });
+
+      await client.ensureSheetCapacity('spreadsheet-id', 'Sheet1', 150, 500);
+
+      expect(mockExpandSheetRows).toHaveBeenCalledWith(
+        'spreadsheet-id',
+        456,
+        650, // 150 + 500 (custom buffer)
+      );
+    });
+
+    test('should expand when required equals current (boundary case)', async () => {
+      mockGetSheetInfo = mock<GetSheetInfoFn>(() =>
+        Promise.resolve({
+          id: 789,
+          title: 'Sheet1',
+          rowCount: 100,
+          columnCount: 26,
+        }),
+      );
+
+      Object.assign(client, {
+        getSheetInfo: mockGetSheetInfo,
+        expandSheetRows: mockExpandSheetRows,
+      });
+
+      // When required equals current, we should NOT expand
+      await client.ensureSheetCapacity('spreadsheet-id', 'Sheet1', 100);
+
+      expect(mockExpandSheetRows).not.toHaveBeenCalled();
+    });
+
+    test('should expand when required is one more than current', async () => {
+      mockGetSheetInfo = mock<GetSheetInfoFn>(() =>
+        Promise.resolve({
+          id: 789,
+          title: 'Sheet1',
+          rowCount: 100,
+          columnCount: 26,
+        }),
+      );
+
+      Object.assign(client, {
+        getSheetInfo: mockGetSheetInfo,
+        expandSheetRows: mockExpandSheetRows,
+      });
+
+      // When required is one more than current, we should expand
+      await client.ensureSheetCapacity('spreadsheet-id', 'Sheet1', 101);
+
+      expect(mockExpandSheetRows).toHaveBeenCalledWith(
+        'spreadsheet-id',
+        789,
+        201, // 101 + 100 (default buffer)
+      );
     });
   });
 });
