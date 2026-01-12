@@ -86,7 +86,7 @@
       "style": {
         "useConst": "error",
         "noNonNullAssertion": "error",
-        "useImportType": "error",
+        "useImportType": "off",
         "noParameterAssign": "error",
         "useBlockStatements": "error",
         "useTemplate": "error",

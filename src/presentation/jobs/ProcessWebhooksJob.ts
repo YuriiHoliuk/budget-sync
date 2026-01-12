@@ -14,7 +14,7 @@
  */
 
 import type { QueuedWebhookTransactionDTO } from '@application/dtos/QueuedWebhookTransactionDTO.ts';
-import type { ProcessIncomingTransactionUseCase } from '@application/use-cases/ProcessIncomingTransaction.ts';
+import { ProcessIncomingTransactionUseCase } from '@application/use-cases/ProcessIncomingTransaction.ts';
 import {
   MESSAGE_QUEUE_GATEWAY_TOKEN,
   type MessageQueueGateway,

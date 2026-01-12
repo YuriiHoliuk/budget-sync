@@ -2,7 +2,6 @@ import type {
   SyncMonobankOptions,
   SyncMonobankResultDTO,
 } from '@application/use-cases/SyncMonobank.ts';
-// biome-ignore lint/style/useImportType: Required at runtime for tsyringe DI
 import { SyncMonobankUseCase } from '@application/use-cases/SyncMonobank.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging';
 import { inject, injectable } from 'tsyringe';

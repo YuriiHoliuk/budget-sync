@@ -118,11 +118,16 @@ env {
 
 **Cause**: Using `import type` for classes that TSyringe needs to resolve at runtime.
 
-**Fix**: Use regular import with biome-ignore comment:
+**Fix**: Use regular import (not `import type`) for classes injected via TSyringe:
 
 ```typescript
-// biome-ignore lint/style/useImportType: TSyringe requires runtime class reference for DI
+// Good - runtime import
 import { MyClass } from './MyClass.ts';
+
+// Bad - type is erased at compile time
+import type { MyClass } from './MyClass.ts';
 ```
 
 **Why**: `import type` is removed at compile time, so TSyringe can't see the class metadata needed for DI resolution.
+
+**Note**: The `useImportType` Biome rule is disabled in this project to prevent auto-conversion to `import type` which breaks TSyringe DI.

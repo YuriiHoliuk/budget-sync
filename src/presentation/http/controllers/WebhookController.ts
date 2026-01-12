@@ -10,7 +10,6 @@
  * from disabling the webhook, even if processing fails internally.
  */
 
-// biome-ignore lint/style/useImportType: TSyringe requires runtime class reference for DI
 import { EnqueueWebhookTransactionUseCase } from '@application/use-cases/EnqueueWebhookTransaction.ts';
 import {
   type HttpRequest,
