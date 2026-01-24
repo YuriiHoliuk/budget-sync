@@ -29,6 +29,62 @@ The "Місячний огляд" sheet is a dashboard that provides a monthly s
 | F | Доступно | Available = Allocated - Spent |
 | G | Витрачено | Total spent against this budget |
 | H | Прогрес | Progress percentage (Spent / Limit) |
+| I | Прогрес (візуал) | Visual progress bar (Unicode blocks) |
+
+### Savings Rate (D3:D4)
+
+| Cell | Content | Description |
+|------|---------|-------------|
+| D3 | Рівень заощаджень | Label |
+| D4 | Formula | (Income - Expenses) / Income |
+
+**Formula:**
+```
+=IFERROR(LET(
+  income;SUMPRODUCT(...income categories...);
+  expenses;SUMPRODUCT(...expense categories...);
+  IF(income=0;0;(income-expenses)/income)
+);0)
+```
+
+Income categories: "Дохід", "Зарплата", "Відсотки від облігацій"
+
+### Category Breakdown Table (Rows 55-75)
+
+Shows spending aggregated by category for the selected month.
+
+| Row | Content |
+|-----|---------|
+| 55 | Header: "Витрати за категоріями" |
+| 56 | Column headers: Категорія, Сума, Відсоток |
+| 57+ | QUERY results sorted by amount |
+
+**Formula (A57):**
+```
+=IFERROR(QUERY(Транзакції!B2:M;
+  "SELECT D, SUM(B)
+   WHERE D <> '' AND D <> 'Дохід' AND D <> 'Зарплата' AND D <> 'Відсотки від облігацій'
+   AND M STARTS WITH '"&TEXT($B$1;"YYYY-MM")&"'
+   GROUP BY D ORDER BY SUM(B) DESC LIMIT 18"
+);
+"Немає даних")
+```
+
+### Monthly Summary Table (Rows 80-87)
+
+Shows 6 months of aggregated financial data for trend analysis.
+
+| Row | Content |
+|-----|---------|
+| 80 | Header: "Щомісячний підсумок (6 міс)" |
+| 81 | Column headers: Місяць, Витрати, Доходи, Баланс |
+| 82-87 | Monthly data (current month + 5 previous) |
+
+**Columns:**
+- **A (Місяць)**: `=TEXT(EDATE(DATE(LEFT($B$1;4);RIGHT($B$1;2);1);offset);"YYYY-MM")`
+- **B (Витрати)**: Sum of expenses for that month
+- **C (Доходи)**: Sum of income for that month
+- **D (Баланс)**: Income - Expenses
 
 ## Key Formulas
 
@@ -111,29 +167,53 @@ Available = Allocated - Spent
 
 Percentage of limit spent (formatted as percentage).
 
+### I12+: Visual Progress Bar (Прогрес візуал)
+
+Text-based progress bar using Unicode block characters:
+
+```
+=IF(OR(A12="";H12="");"";
+  REPT("█";MIN(10;ROUND(H12*10;0)))&
+  REPT("░";MAX(0;10-ROUND(H12*10;0))))
+```
+
+- Uses filled blocks (█) for completed progress
+- Uses empty blocks (░) for remaining
+- 10-character width, capped at 100%
+- Example: `██████░░░░` = 60% spent
+
 ## Data Flow
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
-│    Бюджети      │────▶│  Місячний огляд  │◀────│     Транзакції      │
-│  (Budgets)      │     │ (Monthly View)   │     │   (Transactions)    │
-├─────────────────┤     ├──────────────────┤     ├─────────────────────┤
-│ ID              │     │ A: ID            │     │ B: Сума (Amount)    │
-│ Назва           │     │ B: Бюджет        │     │ E: Бюджет (Budget)  │
-│ Ліміт           │     │ C: Ліміт         │     │ M: Час (Timestamp)  │
-│ Дата початку    │     │ D: Переносити    │     └─────────────────────┘
-│ Дата закінчення │     │ E: Виділено      │
-│ Переносити      │     │ F: Доступно      │◀────┐
-└─────────────────┘     │ G: Витрачено     │     │
-                        │ H: Прогрес       │     │
-┌─────────────────┐     └──────────────────┘     │
-│ Виділені кошти  │                              │
-│ (Allocations)   │──────────────────────────────┘
-├─────────────────┤
-│ B: Budget ID    │
-│ C: Amount       │
-│ D: Month        │
-└─────────────────┘
+┌─────────────────┐     ┌──────────────────────────┐     ┌─────────────────────┐
+│    Бюджети      │────▶│     Місячний огляд       │◀────│     Транзакції      │
+│  (Budgets)      │     │    (Monthly View)        │     │   (Transactions)    │
+├─────────────────┤     ├──────────────────────────┤     ├─────────────────────┤
+│ ID              │     │ Rows 1-7: Header         │     │ B: Сума (Amount)    │
+│ Назва           │     │   - B1: Selected Month   │     │ D: Категорія        │
+│ Ліміт           │     │   - D3:D4: Savings Rate  │     │ E: Бюджет (Budget)  │
+│ Дата початку    │     │                          │     │ M: Час (Timestamp)  │
+│ Дата закінчення │     │ Rows 11-50: Budget Table │     └─────────────────────┘
+│ Переносити      │     │   - Columns A-I          │
+└─────────────────┘     │   - Progress bars in I   │◀────┐
+                        │                          │     │
+┌─────────────────┐     │ Rows 55-75: Categories   │     │
+│ Виділені кошти  │     │   - QUERY aggregation    │     │
+│ (Allocations)   │────▶│                          │     │
+├─────────────────┤     │ Rows 80-87: Monthly      │     │
+│ B: Budget ID    │     │   Summary (6 months)     │     │
+│ C: Amount       │     └──────────────────────────┘     │
+│ D: Month        │               │                      │
+└─────────────────┘               │                      │
+                                  ▼                      │
+                        ┌──────────────────────────┐     │
+                        │       Дашборд            │     │
+                        │     (Dashboard)          │     │
+                        ├──────────────────────────┤     │
+                        │ - 4 embedded charts      │     │
+                        │ - Summary statistics     │─────┘
+                        │ - Auto-updates           │
+                        └──────────────────────────┘
 ```
 
 ## Carry-Over Logic
@@ -166,8 +246,23 @@ bun scripts/fix-monthly-formulas.ts
 
 This updates columns F and G for rows 12-50 with the correct formulas.
 
+### Regenerating Enhancements
+
+To recreate the progress bars, savings rate, and helper tables:
+
+```bash
+bun scripts/add-monthly-view-enhancements.ts
+```
+
+This updates:
+- Column I: Visual progress bars (rows 12-50)
+- D3:D4: Savings rate indicator
+- Rows 55-75: Category breakdown table
+- Rows 80-87: Monthly summary table (6 months)
+
 ### Adding More Budget Rows
 
 The formulas in rows 12-50 are pre-configured. If you need more rows:
 1. Copy the formulas from row 50 to new rows, OR
-2. Extend the range in `fix-monthly-formulas.ts` and re-run
+2. Extend the range in `fix-monthly-formulas.ts` and `add-monthly-view-enhancements.ts`
+3. Re-run both scripts

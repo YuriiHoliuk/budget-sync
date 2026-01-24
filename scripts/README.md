@@ -125,3 +125,32 @@ bun scripts/create-spreadsheet-sheet.ts "Transactions" "ID" "Date" "Amount" "Des
 ```
 
 **Output:** Confirmation of created sheet with its ID, and headers if provided.
+
+### Fetch Exchange Rates
+
+Fetch USD and EUR exchange rates from NBU (National Bank of Ukraine) API and populate the "Курси валют" sheet.
+
+```bash
+bun scripts/fetch-exchange-rates.ts [--months <n>]
+```
+
+**Options:**
+- `--months <n>` - Number of months to fetch (default: 6)
+
+**Examples:**
+```bash
+# Fetch rates for the last 6 months (default)
+bun scripts/fetch-exchange-rates.ts
+
+# Fetch rates for the last 12 months
+bun scripts/fetch-exchange-rates.ts --months 12
+```
+
+This script:
+1. Creates "Курси валют" sheet if it doesn't exist
+2. Fetches USD and EUR rates from NBU API (one rate per month, last day of month)
+3. Clears existing data and writes fresh rates to the spreadsheet
+
+**Sheet columns:** Дата, Валюта, Курс
+
+**Output:** Progress messages and confirmation of written entries.
