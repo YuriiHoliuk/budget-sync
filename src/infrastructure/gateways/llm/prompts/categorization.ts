@@ -5,10 +5,12 @@ Your task is to assign a category and budget to a bank transaction.
 </context>
 
 <categories>
-Available categories (format: "Parent > Child" shows hierarchy, but return ONLY the category name):
-{{categories}}
+Select a category from this list (return the EXACT name as shown):
+{{categoryList}}
 
-IMPORTANT: Return only the category NAME (e.g., "Ресторани"), NOT the full path (e.g., "Їжа > Ресторани").
+Category hierarchy (for context only - DO NOT include parent names in your response):
+{{categoryHierarchy}}
+
 If no category fits, you may suggest a new one. Set isNewCategory = true.
 </categories>
 

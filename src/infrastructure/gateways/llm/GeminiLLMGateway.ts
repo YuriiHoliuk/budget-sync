@@ -86,11 +86,15 @@ export class GeminiLLMGateway extends LLMGateway {
    */
   private buildPrompt(request: CategorizationRequest): string {
     const categoryList = this.formatCategoryList(request.availableCategories);
+    const categoryHierarchy = this.formatCategoryHierarchy(
+      request.availableCategories,
+    );
     const budgetList = this.formatBudgetList(request.availableBudgets);
     const customRules = this.formatCustomRules(request.customRules);
 
     return new PromptBuilder(CATEGORIZATION_PROMPT_TEMPLATE).build({
-      categories: categoryList,
+      categoryList: categoryList,
+      categoryHierarchy: categoryHierarchy,
       budgets: budgetList,
       description: request.transaction.description,
       amount: `${request.transaction.amount} ${request.transaction.currency}`,
@@ -103,7 +107,7 @@ export class GeminiLLMGateway extends LLMGateway {
   }
 
   /**
-   * Format categories list for the prompt.
+   * Format categories as a flat list of names for selection.
    */
   private formatCategoryList(
     categories: CategorizationRequest['availableCategories'],
@@ -111,7 +115,26 @@ export class GeminiLLMGateway extends LLMGateway {
     if (categories.length === 0) {
       return '(немає доступних категорій)';
     }
-    return categories.map((category) => `- ${category.fullPath}`).join('\n');
+    return categories.map((category) => `- ${category.name}`).join('\n');
+  }
+
+  /**
+   * Format category hierarchy information for context.
+   */
+  private formatCategoryHierarchy(
+    categories: CategorizationRequest['availableCategories'],
+  ): string {
+    if (categories.length === 0) {
+      return '(немає ієрархії)';
+    }
+    return categories
+      .map((category) => {
+        if (category.parent) {
+          return `- ${category.name} → parent: ${category.parent}`;
+        }
+        return `- ${category.name} → (root category)`;
+      })
+      .join('\n');
   }
 
   /**

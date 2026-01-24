@@ -12,12 +12,12 @@ export interface TransactionContext {
 }
 
 /**
- * Category information including hierarchy path.
+ * Category information including hierarchy.
  */
 export interface CategoryInfo {
   name: string;
-  /** Full path in "Parent > Child" format for hierarchy */
-  fullPath: string;
+  /** Parent category name (if any) */
+  parent?: string;
 }
 
 /**

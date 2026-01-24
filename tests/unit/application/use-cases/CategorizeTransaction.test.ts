@@ -372,10 +372,10 @@ describe('CategorizeTransactionUseCase', () => {
         llmGateway.categorize as ReturnType<typeof bunMock>
       ).mock.calls[0]?.[0] as CategorizationRequest;
 
-      // Verify availableCategories contains fullPath for hierarchy
+      // Verify availableCategories contains parent for hierarchy
       expect(categorizeCall.availableCategories).toEqual([
-        { name: 'Їжа', fullPath: 'Їжа' },
-        { name: 'Продукти', fullPath: 'Їжа > Продукти' },
+        { name: 'Їжа', parent: undefined },
+        { name: 'Продукти', parent: 'Їжа' },
       ]);
 
       // Verify availableBudgets contains budget names

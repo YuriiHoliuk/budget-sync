@@ -130,7 +130,7 @@ export class CategorizeTransactionUseCase extends UseCase<
       transaction: this.toTransactionContext(transaction),
       availableCategories: categories.map((category) => ({
         name: category.name,
-        fullPath: Category.resolveFullPath(category, categories),
+        parent: category.parent,
       })),
       availableBudgets: budgets.map((budget) => budget.name),
     });
