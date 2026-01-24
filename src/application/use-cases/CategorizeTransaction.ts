@@ -13,6 +13,10 @@ import {
   type BudgetRepository,
 } from '@domain/repositories/BudgetRepository.ts';
 import {
+  CATEGORIZATION_RULE_REPOSITORY_TOKEN,
+  type CategorizationRuleRepository,
+} from '@domain/repositories/CategorizationRuleRepository.ts';
+import {
   CATEGORY_REPOSITORY_TOKEN,
   type CategoryRepository,
 } from '@domain/repositories/CategoryRepository.ts';
@@ -75,6 +79,8 @@ export class CategorizeTransactionUseCase extends UseCase<
     private categoryRepository: CategoryRepository,
     @inject(BUDGET_REPOSITORY_TOKEN)
     private budgetRepository: BudgetRepository,
+    @inject(CATEGORIZATION_RULE_REPOSITORY_TOKEN)
+    private categorizationRuleRepository: CategorizationRuleRepository,
     @inject(LLM_GATEWAY_TOKEN)
     private llmGateway: LLMGateway,
   ) {
@@ -87,14 +93,14 @@ export class CategorizeTransactionUseCase extends UseCase<
     const transaction = await this.findTransactionOrThrow(
       request.transactionExternalId,
     );
-    const [categories, budgets] = await this.loadCategoriesAndBudgets(
-      transaction.date,
-    );
+    const [categories, budgets, customRules] =
+      await this.loadCategorizationData(transaction.date);
 
     const result = await this.categorizeWithLLM(
       transaction,
       categories,
       budgets,
+      customRules,
     );
     await this.saveCategorizationResult(transaction, result);
 
@@ -112,12 +118,13 @@ export class CategorizeTransactionUseCase extends UseCase<
     return transaction;
   }
 
-  private loadCategoriesAndBudgets(
+  private loadCategorizationData(
     transactionDate: Date,
-  ): Promise<[Category[], Budget[]]> {
+  ): Promise<[Category[], Budget[], string[]]> {
     return Promise.all([
       this.categoryRepository.findActive(),
       this.budgetRepository.findActive(transactionDate),
+      this.categorizationRuleRepository.findAll(),
     ]);
   }
 
@@ -125,6 +132,7 @@ export class CategorizeTransactionUseCase extends UseCase<
     transaction: Transaction,
     categories: Category[],
     budgets: Budget[],
+    customRules: string[],
   ): Promise<CategorizationResult> {
     return this.llmGateway.categorize({
       transaction: this.toTransactionContext(transaction),
@@ -133,6 +141,7 @@ export class CategorizeTransactionUseCase extends UseCase<
         parent: category.parent,
       })),
       availableBudgets: budgets.map((budget) => budget.name),
+      customRules: customRules.length > 0 ? customRules : undefined,
     });
   }
 

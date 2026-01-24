@@ -20,6 +20,7 @@ import type {
 } from '@domain/gateways/MessageQueueGateway.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
 import type { BudgetRepository } from '@domain/repositories/BudgetRepository.ts';
+import type { CategorizationRuleRepository } from '@domain/repositories/CategorizationRuleRepository.ts';
 import type { CategoryRepository } from '@domain/repositories/CategoryRepository.ts';
 import type {
   CategorizationUpdate,
@@ -27,6 +28,8 @@ import type {
 } from '@domain/repositories/TransactionRepository.ts';
 import type { Money } from '@domain/value-objects/Money.ts';
 import type { Logger } from '@modules/logging';
+import type { SpreadsheetsClient } from '@modules/spreadsheet/SpreadsheetsClient.ts';
+import type { Row } from '@modules/spreadsheet/types.ts';
 
 /**
  * Creates a mock BankGateway with default implementations that return empty arrays.
@@ -250,4 +253,75 @@ export function createMockLLMGateway(
     categorize:
       overrides.categorize ?? mock(() => Promise.resolve(defaultResult)),
   } as unknown as LLMGateway;
+}
+
+/**
+ * Creates a mock CategorizationRuleRepository with default implementations.
+ * Returns an empty array of rules by default.
+ */
+export function createMockCategorizationRuleRepository(
+  overrides: Partial<{
+    findAll: () => Promise<string[]>;
+  }> = {},
+): CategorizationRuleRepository {
+  return {
+    findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
+  } as unknown as CategorizationRuleRepository;
+}
+
+/**
+ * Creates a mock SpreadsheetsClient for testing.
+ *
+ * The mock simulates the behavior of the real SpreadsheetsClient
+ * by providing methods that return test data. For table-based operations,
+ * pass the rows array which will be returned by readHeaders and readAllRows.
+ *
+ * @param rows - Array of rows where first row is headers, rest is data
+ */
+export function createMockSpreadsheetsClient(
+  rows: Row[] = [],
+): SpreadsheetsClient {
+  return {
+    readHeaders: mock(() => Promise.resolve(rows[0]?.map(String) ?? [])),
+    readAllRows: mock(() => Promise.resolve(rows)),
+    readRange: mock(() => Promise.resolve(rows)),
+    getMetadata: mock(() =>
+      Promise.resolve({
+        spreadsheetId: 'test-id',
+        title: 'Test Spreadsheet',
+        sheets: [],
+      }),
+    ),
+    getSheetInfo: mock(() =>
+      Promise.resolve({
+        id: 0,
+        title: 'Test Sheet',
+        rowCount: rows.length,
+        columnCount: rows[0]?.length ?? 0,
+      }),
+    ),
+    readRow: mock(() => Promise.resolve(null)),
+    writeRange: mock(() =>
+      Promise.resolve({
+        updatedRange: '',
+        updatedRows: 0,
+        updatedColumns: 0,
+        updatedCells: 0,
+      }),
+    ),
+    appendRows: mock(() =>
+      Promise.resolve({ updatedRange: '', updatedRows: 0, updatedCells: 0 }),
+    ),
+    appendRowsCells: mock(() =>
+      Promise.resolve({ updatedRange: '', updatedRows: 0, updatedCells: 0 }),
+    ),
+    updateCellsAt: mock(() =>
+      Promise.resolve({
+        updatedRange: '',
+        updatedRows: 0,
+        updatedColumns: 0,
+        updatedCells: 0,
+      }),
+    ),
+  } as unknown as SpreadsheetsClient;
 }

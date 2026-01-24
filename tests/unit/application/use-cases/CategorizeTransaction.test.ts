@@ -18,6 +18,7 @@ import type {
   LLMGateway,
 } from '@domain/gateways/LLMGateway.ts';
 import type { BudgetRepository } from '@domain/repositories/BudgetRepository.ts';
+import type { CategorizationRuleRepository } from '@domain/repositories/CategorizationRuleRepository.ts';
 import type { CategoryRepository } from '@domain/repositories/CategoryRepository.ts';
 import type { TransactionRepository } from '@domain/repositories/TransactionRepository.ts';
 import { Currency } from '@domain/value-objects/Currency.ts';
@@ -28,6 +29,7 @@ import {
 import { Money } from '@domain/value-objects/Money.ts';
 import {
   createMockBudgetRepository,
+  createMockCategorizationRuleRepository,
   createMockCategoryRepository,
   createMockLLMGateway,
   createMockTransactionRepository,
@@ -74,6 +76,7 @@ describe('CategorizeTransactionUseCase', () => {
   let transactionRepository: TransactionRepository;
   let categoryRepository: CategoryRepository;
   let budgetRepository: BudgetRepository;
+  let categorizationRuleRepository: CategorizationRuleRepository;
   let llmGateway: LLMGateway;
   let useCase: CategorizeTransactionUseCase;
 
@@ -81,11 +84,13 @@ describe('CategorizeTransactionUseCase', () => {
     transactionRepository = createMockTransactionRepository();
     categoryRepository = createMockCategoryRepository();
     budgetRepository = createMockBudgetRepository();
+    categorizationRuleRepository = createMockCategorizationRuleRepository();
     llmGateway = createMockLLMGateway();
     useCase = new CategorizeTransactionUseCase(
       transactionRepository,
       categoryRepository,
       budgetRepository,
+      categorizationRuleRepository,
       llmGateway,
     );
   });
@@ -455,6 +460,91 @@ describe('CategorizeTransactionUseCase', () => {
       await useCase.execute({ transactionExternalId: 'tx-edge-case' });
 
       expect(categoryRepository.save).not.toHaveBeenCalled();
+    });
+
+    test('should pass custom rules to LLM gateway when rules exist', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-with-rules',
+        description: 'ATB supermarket',
+      });
+
+      const customRules = [
+        'ATB should always be categorized as Продукти',
+        'Supermarkets belong to Щоденні витрати budget',
+      ];
+
+      const llmResult: CategorizationResult = {
+        category: 'Продукти',
+        categoryReason: 'Matched custom rule for ATB',
+        budget: 'Щоденні витрати',
+        budgetReason: 'Matched custom rule for supermarkets',
+        isNewCategory: false,
+      };
+
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+      ).mockResolvedValue(transaction);
+      (
+        categoryRepository.findActive as ReturnType<typeof bunMock>
+      ).mockResolvedValue([]);
+      (
+        budgetRepository.findActive as ReturnType<typeof bunMock>
+      ).mockResolvedValue([]);
+      (
+        categorizationRuleRepository.findAll as ReturnType<typeof bunMock>
+      ).mockResolvedValue(customRules);
+      (llmGateway.categorize as ReturnType<typeof bunMock>).mockResolvedValue(
+        llmResult,
+      );
+
+      await useCase.execute({ transactionExternalId: 'tx-with-rules' });
+
+      expect(llmGateway.categorize).toHaveBeenCalledTimes(1);
+      const categorizeCall = (
+        llmGateway.categorize as ReturnType<typeof bunMock>
+      ).mock.calls[0]?.[0] as CategorizationRequest;
+
+      expect(categorizeCall.customRules).toEqual(customRules);
+    });
+
+    test('should not pass customRules when no rules exist', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-no-rules',
+        description: 'Some merchant',
+      });
+
+      const llmResult: CategorizationResult = {
+        category: null,
+        categoryReason: null,
+        budget: null,
+        budgetReason: null,
+        isNewCategory: false,
+      };
+
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+      ).mockResolvedValue(transaction);
+      (
+        categoryRepository.findActive as ReturnType<typeof bunMock>
+      ).mockResolvedValue([]);
+      (
+        budgetRepository.findActive as ReturnType<typeof bunMock>
+      ).mockResolvedValue([]);
+      (
+        categorizationRuleRepository.findAll as ReturnType<typeof bunMock>
+      ).mockResolvedValue([]);
+      (llmGateway.categorize as ReturnType<typeof bunMock>).mockResolvedValue(
+        llmResult,
+      );
+
+      await useCase.execute({ transactionExternalId: 'tx-no-rules' });
+
+      expect(llmGateway.categorize).toHaveBeenCalledTimes(1);
+      const categorizeCall = (
+        llmGateway.categorize as ReturnType<typeof bunMock>
+      ).mock.calls[0]?.[0] as CategorizationRequest;
+
+      expect(categorizeCall.customRules).toBeUndefined();
     });
   });
 });
