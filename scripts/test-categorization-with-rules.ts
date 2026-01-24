@@ -1,7 +1,7 @@
 /**
  * Test script for LLM categorization with custom rules from spreadsheet.
  *
- * Tests that user-defined rules are loaded and applied with priority.
+ * Tests that user-defined category and budget rules are loaded and applied with priority.
  *
  * Usage: bun scripts/test-categorization-with-rules.ts
  */
@@ -12,6 +12,10 @@ import {
   CATEGORIZATION_RULE_REPOSITORY_TOKEN,
   type CategorizationRuleRepository,
 } from '../src/domain/repositories/CategorizationRuleRepository.ts';
+import {
+  BUDGETIZATION_RULE_REPOSITORY_TOKEN,
+  type BudgetizationRuleRepository,
+} from '../src/domain/repositories/BudgetizationRuleRepository.ts';
 import type { CategoryInfo } from '../src/domain/gateways/LLMGateway.ts';
 import { GeminiLLMGateway } from '../src/infrastructure/gateways/llm/index.ts';
 
@@ -19,18 +23,33 @@ async function main() {
   const container = setupContainer();
 
   // Load rules from spreadsheet
-  const rulesRepository = container.resolve<CategorizationRuleRepository>(
+  const categoryRulesRepository = container.resolve<CategorizationRuleRepository>(
     CATEGORIZATION_RULE_REPOSITORY_TOKEN,
+  );
+  const budgetRulesRepository = container.resolve<BudgetizationRuleRepository>(
+    BUDGETIZATION_RULE_REPOSITORY_TOKEN,
   );
 
   console.log('Loading categorization rules from spreadsheet...\n');
-  const rules = await rulesRepository.findAll();
+  const categoryRules = await categoryRulesRepository.findAll();
 
-  if (rules.length === 0) {
-    console.log('No rules found in the spreadsheet.');
+  if (categoryRules.length === 0) {
+    console.log('No category rules found in the spreadsheet.');
   } else {
-    console.log(`Found ${rules.length} rules:`);
-    for (const rule of rules) {
+    console.log(`Found ${categoryRules.length} category rules:`);
+    for (const rule of categoryRules) {
+      console.log(`  - ${rule}`);
+    }
+  }
+
+  console.log('\nLoading budgetization rules from spreadsheet...\n');
+  const budgetRules = await budgetRulesRepository.findAll();
+
+  if (budgetRules.length === 0) {
+    console.log('No budget rules found in the spreadsheet.');
+  } else {
+    console.log(`Found ${budgetRules.length} budget rules:`);
+    for (const rule of budgetRules) {
       console.log(`  - ${rule}`);
     }
   }
@@ -56,6 +75,8 @@ async function main() {
     { name: 'Таксі', parent: 'Транспорт' },
     { name: 'Розваги', parent: undefined },
   ];
+
+  const availableBudgets = ['Їжа', 'Транспорт', 'Розваги'];
 
   // Test transactions that should match rules
   const testCases = [
@@ -89,15 +110,26 @@ async function main() {
     console.log(`  Amount: ${testCase.transaction.amount} ${testCase.transaction.currency}`);
 
     try {
-      const result = await gateway.categorize({
+      // First call: assign category with category rules
+      const categoryResult = await gateway.assignCategory({
         transaction: testCase.transaction,
         availableCategories: categories,
-        availableBudgets: ['Їжа', 'Транспорт', 'Розваги'],
-        customRules: rules.length > 0 ? rules : undefined,
+        categoryRules: categoryRules.length > 0 ? categoryRules : undefined,
       });
 
-      console.log(`  Result: ${result.category}`);
-      console.log(`  Reason: ${result.categoryReason}`);
+      console.log(`  Category: ${categoryResult.category}`);
+      console.log(`  Category Reason: ${categoryResult.categoryReason}`);
+
+      // Second call: assign budget with budget rules
+      const budgetResult = await gateway.assignBudget({
+        transaction: testCase.transaction,
+        availableBudgets,
+        budgetRules: budgetRules.length > 0 ? budgetRules : undefined,
+        assignedCategory: categoryResult.category,
+      });
+
+      console.log(`  Budget: ${budgetResult.budget}`);
+      console.log(`  Budget Reason: ${budgetResult.budgetReason}`);
     } catch (error) {
       console.error('  Error:', error);
     }

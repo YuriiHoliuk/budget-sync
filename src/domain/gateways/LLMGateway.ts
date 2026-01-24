@@ -21,24 +21,52 @@ export interface CategoryInfo {
 }
 
 /**
- * Request payload for transaction categorization.
+ * Request payload for category assignment.
  */
-export interface CategorizationRequest {
+export interface CategoryAssignmentRequest {
   transaction: TransactionContext;
   availableCategories: CategoryInfo[];
-  availableBudgets: string[];
-  customRules?: string[];
+  categoryRules?: string[];
 }
 
 /**
- * Result of LLM categorization.
+ * Result of LLM category assignment.
+ */
+export interface CategoryAssignmentResult {
+  category: string | null;
+  categoryReason: string | null;
+  /** True if category is not in availableCategories (LLM suggested new one) */
+  isNewCategory: boolean;
+}
+
+/**
+ * Request payload for budget assignment.
+ */
+export interface BudgetAssignmentRequest {
+  transaction: TransactionContext;
+  availableBudgets: string[];
+  budgetRules?: string[];
+  /** The category already assigned to this transaction */
+  assignedCategory: string | null;
+}
+
+/**
+ * Result of LLM budget assignment.
+ */
+export interface BudgetAssignmentResult {
+  budget: string | null;
+  budgetReason: string | null;
+}
+
+/**
+ * Combined result of category and budget assignment.
+ * Used by the use case to aggregate results from both LLM calls.
  */
 export interface CategorizationResult {
   category: string | null;
   categoryReason: string | null;
   budget: string | null;
   budgetReason: string | null;
-  /** True if category is not in availableCategories (LLM suggested new one) */
   isNewCategory: boolean;
 }
 
@@ -54,12 +82,22 @@ export const LLM_GATEWAY_TOKEN = Symbol('LLMGateway');
  */
 export abstract class LLMGateway {
   /**
-   * Categorize a transaction using LLM.
+   * Assign a category to a transaction using LLM.
    *
-   * @param request - Transaction context and available categories/budgets
-   * @returns Categorization result with category, budget, and reasoning
+   * @param request - Transaction context and available categories
+   * @returns Category assignment result with category and reasoning
    */
-  abstract categorize(
-    request: CategorizationRequest,
-  ): Promise<CategorizationResult>;
+  abstract assignCategory(
+    request: CategoryAssignmentRequest,
+  ): Promise<CategoryAssignmentResult>;
+
+  /**
+   * Assign a budget to a transaction using LLM.
+   *
+   * @param request - Transaction context, available budgets, and assigned category
+   * @returns Budget assignment result with budget and reasoning
+   */
+  abstract assignBudget(
+    request: BudgetAssignmentRequest,
+  ): Promise<BudgetAssignmentResult>;
 }

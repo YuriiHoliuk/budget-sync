@@ -3,6 +3,6 @@ export {
   GEMINI_CLIENT_TOKEN,
   GeminiLLMGateway,
 } from './GeminiLLMGateway.ts';
-
+export { BUDGET_ASSIGNMENT_PROMPT_TEMPLATE } from './prompts/budgetAssignment.ts';
 // Prompts
-export { CATEGORIZATION_PROMPT_TEMPLATE } from './prompts/categorization.ts';
+export { CATEGORY_ASSIGNMENT_PROMPT_TEMPLATE } from './prompts/categoryAssignment.ts';

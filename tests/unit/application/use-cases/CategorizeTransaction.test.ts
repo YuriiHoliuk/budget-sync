@@ -13,10 +13,12 @@ import {
 import { Budget } from '@domain/entities/Budget.ts';
 import { Category } from '@domain/entities/Category.ts';
 import type {
-  CategorizationRequest,
-  CategorizationResult,
+  BudgetAssignmentResult,
+  CategoryAssignmentRequest,
+  CategoryAssignmentResult,
   LLMGateway,
 } from '@domain/gateways/LLMGateway.ts';
+import type { BudgetizationRuleRepository } from '@domain/repositories/BudgetizationRuleRepository.ts';
 import type { BudgetRepository } from '@domain/repositories/BudgetRepository.ts';
 import type { CategorizationRuleRepository } from '@domain/repositories/CategorizationRuleRepository.ts';
 import type { CategoryRepository } from '@domain/repositories/CategoryRepository.ts';
@@ -28,6 +30,7 @@ import {
 } from '@domain/value-objects/index.ts';
 import { Money } from '@domain/value-objects/Money.ts';
 import {
+  createMockBudgetizationRuleRepository,
   createMockBudgetRepository,
   createMockCategorizationRuleRepository,
   createMockCategoryRepository,
@@ -77,6 +80,7 @@ describe('CategorizeTransactionUseCase', () => {
   let categoryRepository: CategoryRepository;
   let budgetRepository: BudgetRepository;
   let categorizationRuleRepository: CategorizationRuleRepository;
+  let budgetizationRuleRepository: BudgetizationRuleRepository;
   let llmGateway: LLMGateway;
   let useCase: CategorizeTransactionUseCase;
 
@@ -85,12 +89,14 @@ describe('CategorizeTransactionUseCase', () => {
     categoryRepository = createMockCategoryRepository();
     budgetRepository = createMockBudgetRepository();
     categorizationRuleRepository = createMockCategorizationRuleRepository();
+    budgetizationRuleRepository = createMockBudgetizationRuleRepository();
     llmGateway = createMockLLMGateway();
     useCase = new CategorizeTransactionUseCase(
       transactionRepository,
       categoryRepository,
       budgetRepository,
       categorizationRuleRepository,
+      budgetizationRuleRepository,
       llmGateway,
     );
   });
@@ -114,12 +120,15 @@ describe('CategorizeTransactionUseCase', () => {
         name: 'Щоденні витрати',
       });
 
-      const llmResult: CategorizationResult = {
+      const categoryResult: CategoryAssignmentResult = {
         category: 'Продукти',
         categoryReason: 'Grocery store purchase',
+        isNewCategory: false,
+      };
+
+      const budgetResult: BudgetAssignmentResult = {
         budget: 'Щоденні витрати',
         budgetReason: 'Regular daily expense',
-        isNewCategory: false,
       };
 
       (
@@ -131,8 +140,11 @@ describe('CategorizeTransactionUseCase', () => {
       (
         budgetRepository.findActive as ReturnType<typeof bunMock>
       ).mockResolvedValue([budget]);
-      (llmGateway.categorize as ReturnType<typeof bunMock>).mockResolvedValue(
-        llmResult,
+      (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mockResolvedValue(categoryResult);
+      (llmGateway.assignBudget as ReturnType<typeof bunMock>).mockResolvedValue(
+        budgetResult,
       );
 
       const result = await useCase.execute({ transactionExternalId: 'tx-123' });
@@ -163,12 +175,15 @@ describe('CategorizeTransactionUseCase', () => {
         description: 'Some new type of merchant',
       });
 
-      const llmResult: CategorizationResult = {
+      const categoryResult: CategoryAssignmentResult = {
         category: 'Нова категорія',
         categoryReason: 'This is a new category suggestion',
+        isNewCategory: true,
+      };
+
+      const budgetResult: BudgetAssignmentResult = {
         budget: null,
         budgetReason: null,
-        isNewCategory: true,
       };
 
       (
@@ -180,8 +195,11 @@ describe('CategorizeTransactionUseCase', () => {
       (
         budgetRepository.findActive as ReturnType<typeof bunMock>
       ).mockResolvedValue([]);
-      (llmGateway.categorize as ReturnType<typeof bunMock>).mockResolvedValue(
-        llmResult,
+      (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mockResolvedValue(categoryResult);
+      (llmGateway.assignBudget as ReturnType<typeof bunMock>).mockResolvedValue(
+        budgetResult,
       );
 
       const result = await useCase.execute({ transactionExternalId: 'tx-456' });
@@ -207,12 +225,15 @@ describe('CategorizeTransactionUseCase', () => {
         description: 'Unclear transaction',
       });
 
-      const llmResult: CategorizationResult = {
+      const categoryResult: CategoryAssignmentResult = {
         category: null,
         categoryReason: 'Unable to determine category',
+        isNewCategory: false,
+      };
+
+      const budgetResult: BudgetAssignmentResult = {
         budget: null,
         budgetReason: null,
-        isNewCategory: false,
       };
 
       (
@@ -224,8 +245,11 @@ describe('CategorizeTransactionUseCase', () => {
       (
         budgetRepository.findActive as ReturnType<typeof bunMock>
       ).mockResolvedValue([]);
-      (llmGateway.categorize as ReturnType<typeof bunMock>).mockResolvedValue(
-        llmResult,
+      (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mockResolvedValue(categoryResult);
+      (llmGateway.assignBudget as ReturnType<typeof bunMock>).mockResolvedValue(
+        budgetResult,
       );
 
       const result = await useCase.execute({ transactionExternalId: 'tx-789' });
@@ -261,12 +285,15 @@ describe('CategorizeTransactionUseCase', () => {
         status: CategoryStatus.ACTIVE,
       });
 
-      const llmResult: CategorizationResult = {
+      const categoryResult: CategoryAssignmentResult = {
         category: 'Ресторани',
         categoryReason: 'Restaurant expense',
+        isNewCategory: false,
+      };
+
+      const budgetResult: BudgetAssignmentResult = {
         budget: null,
         budgetReason: 'No matching budget found',
-        isNewCategory: false,
       };
 
       (
@@ -278,8 +305,11 @@ describe('CategorizeTransactionUseCase', () => {
       (
         budgetRepository.findActive as ReturnType<typeof bunMock>
       ).mockResolvedValue([]);
-      (llmGateway.categorize as ReturnType<typeof bunMock>).mockResolvedValue(
-        llmResult,
+      (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mockResolvedValue(categoryResult);
+      (llmGateway.assignBudget as ReturnType<typeof bunMock>).mockResolvedValue(
+        budgetResult,
       );
 
       const result = await useCase.execute({ transactionExternalId: 'tx-001' });
@@ -318,7 +348,8 @@ describe('CategorizeTransactionUseCase', () => {
         'Transaction not found with externalId: non-existent-tx',
       );
 
-      expect(llmGateway.categorize).not.toHaveBeenCalled();
+      expect(llmGateway.assignCategory).not.toHaveBeenCalled();
+      expect(llmGateway.assignBudget).not.toHaveBeenCalled();
       expect(transactionRepository.updateCategorization).not.toHaveBeenCalled();
     });
 
@@ -348,12 +379,15 @@ describe('CategorizeTransactionUseCase', () => {
         endDate: new Date('2026-12-31'),
       });
 
-      const llmResult: CategorizationResult = {
+      const categoryResult: CategoryAssignmentResult = {
         category: 'Продукти',
         categoryReason: 'Grocery purchase',
+        isNewCategory: false,
+      };
+
+      const budgetResult: BudgetAssignmentResult = {
         budget: 'Харчування',
         budgetReason: 'Food related expense',
-        isNewCategory: false,
       };
 
       (
@@ -365,29 +399,29 @@ describe('CategorizeTransactionUseCase', () => {
       (
         budgetRepository.findActive as ReturnType<typeof bunMock>
       ).mockResolvedValue([budget]);
-      (llmGateway.categorize as ReturnType<typeof bunMock>).mockResolvedValue(
-        llmResult,
+      (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mockResolvedValue(categoryResult);
+      (llmGateway.assignBudget as ReturnType<typeof bunMock>).mockResolvedValue(
+        budgetResult,
       );
 
       await useCase.execute({ transactionExternalId: 'tx-hierarchy' });
 
-      expect(llmGateway.categorize).toHaveBeenCalledTimes(1);
+      expect(llmGateway.assignCategory).toHaveBeenCalledTimes(1);
 
-      const categorizeCall = (
-        llmGateway.categorize as ReturnType<typeof bunMock>
-      ).mock.calls[0]?.[0] as CategorizationRequest;
+      const assignCategoryCall = (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mock.calls[0]?.[0] as CategoryAssignmentRequest;
 
       // Verify availableCategories contains parent for hierarchy
-      expect(categorizeCall.availableCategories).toEqual([
+      expect(assignCategoryCall.availableCategories).toEqual([
         { name: 'Їжа', parent: undefined },
         { name: 'Продукти', parent: 'Їжа' },
       ]);
 
-      // Verify availableBudgets contains budget names
-      expect(categorizeCall.availableBudgets).toEqual(['Харчування']);
-
       // Verify transaction context
-      expect(categorizeCall.transaction).toEqual({
+      expect(assignCategoryCall.transaction).toEqual({
         description: 'Metro supermarket',
         amount: -150, // toMajorUnits() -> -15000 / 100
         currency: 'UAH',
@@ -396,6 +430,15 @@ describe('CategorizeTransactionUseCase', () => {
         mcc: 5411,
         bankCategory: undefined,
       });
+
+      // Verify assignBudget was called with the assigned category
+      expect(llmGateway.assignBudget).toHaveBeenCalledTimes(1);
+      const assignBudgetCall = (
+        llmGateway.assignBudget as ReturnType<typeof bunMock>
+      ).mock.calls[0]?.[0];
+
+      expect(assignBudgetCall.availableBudgets).toEqual(['Харчування']);
+      expect(assignBudgetCall.assignedCategory).toBe('Продукти');
     });
 
     test('should load budgets active on transaction date', async () => {
@@ -405,12 +448,15 @@ describe('CategorizeTransactionUseCase', () => {
         date: transactionDate,
       });
 
-      const llmResult: CategorizationResult = {
+      const categoryResult: CategoryAssignmentResult = {
         category: null,
         categoryReason: null,
+        isNewCategory: false,
+      };
+
+      const budgetResult: BudgetAssignmentResult = {
         budget: null,
         budgetReason: null,
-        isNewCategory: false,
       };
 
       (
@@ -422,8 +468,11 @@ describe('CategorizeTransactionUseCase', () => {
       (
         budgetRepository.findActive as ReturnType<typeof bunMock>
       ).mockResolvedValue([]);
-      (llmGateway.categorize as ReturnType<typeof bunMock>).mockResolvedValue(
-        llmResult,
+      (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mockResolvedValue(categoryResult);
+      (llmGateway.assignBudget as ReturnType<typeof bunMock>).mockResolvedValue(
+        budgetResult,
       );
 
       await useCase.execute({ transactionExternalId: 'tx-date' });
@@ -436,12 +485,15 @@ describe('CategorizeTransactionUseCase', () => {
         externalId: 'tx-edge-case',
       });
 
-      const llmResult: CategorizationResult = {
+      const categoryResult: CategoryAssignmentResult = {
         category: null,
         categoryReason: null,
+        isNewCategory: true, // Edge case: isNewCategory true but category null
+      };
+
+      const budgetResult: BudgetAssignmentResult = {
         budget: null,
         budgetReason: null,
-        isNewCategory: true, // Edge case: isNewCategory true but category null
       };
 
       (
@@ -453,8 +505,11 @@ describe('CategorizeTransactionUseCase', () => {
       (
         budgetRepository.findActive as ReturnType<typeof bunMock>
       ).mockResolvedValue([]);
-      (llmGateway.categorize as ReturnType<typeof bunMock>).mockResolvedValue(
-        llmResult,
+      (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mockResolvedValue(categoryResult);
+      (llmGateway.assignBudget as ReturnType<typeof bunMock>).mockResolvedValue(
+        budgetResult,
       );
 
       await useCase.execute({ transactionExternalId: 'tx-edge-case' });
@@ -462,23 +517,25 @@ describe('CategorizeTransactionUseCase', () => {
       expect(categoryRepository.save).not.toHaveBeenCalled();
     });
 
-    test('should pass custom rules to LLM gateway when rules exist', async () => {
+    test('should pass custom category rules to LLM assignCategory when rules exist', async () => {
       const transaction = createTestTransaction({
         externalId: 'tx-with-rules',
         description: 'ATB supermarket',
       });
 
-      const customRules = [
+      const customCategoryRules = [
         'ATB should always be categorized as Продукти',
-        'Supermarkets belong to Щоденні витрати budget',
       ];
 
-      const llmResult: CategorizationResult = {
+      const categoryResult: CategoryAssignmentResult = {
         category: 'Продукти',
         categoryReason: 'Matched custom rule for ATB',
+        isNewCategory: false,
+      };
+
+      const budgetResult: BudgetAssignmentResult = {
         budget: 'Щоденні витрати',
         budgetReason: 'Matched custom rule for supermarkets',
-        isNewCategory: false,
       };
 
       (
@@ -492,33 +549,89 @@ describe('CategorizeTransactionUseCase', () => {
       ).mockResolvedValue([]);
       (
         categorizationRuleRepository.findAll as ReturnType<typeof bunMock>
-      ).mockResolvedValue(customRules);
-      (llmGateway.categorize as ReturnType<typeof bunMock>).mockResolvedValue(
-        llmResult,
+      ).mockResolvedValue(customCategoryRules);
+      (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mockResolvedValue(categoryResult);
+      (llmGateway.assignBudget as ReturnType<typeof bunMock>).mockResolvedValue(
+        budgetResult,
       );
 
       await useCase.execute({ transactionExternalId: 'tx-with-rules' });
 
-      expect(llmGateway.categorize).toHaveBeenCalledTimes(1);
-      const categorizeCall = (
-        llmGateway.categorize as ReturnType<typeof bunMock>
-      ).mock.calls[0]?.[0] as CategorizationRequest;
+      expect(llmGateway.assignCategory).toHaveBeenCalledTimes(1);
+      const assignCategoryCall = (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mock.calls[0]?.[0] as CategoryAssignmentRequest;
 
-      expect(categorizeCall.customRules).toEqual(customRules);
+      expect(assignCategoryCall.categoryRules).toEqual(customCategoryRules);
     });
 
-    test('should not pass customRules when no rules exist', async () => {
+    test('should pass custom budget rules to LLM assignBudget when rules exist', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-with-budget-rules',
+        description: 'ATB supermarket',
+      });
+
+      const customBudgetRules = [
+        'Supermarkets belong to Щоденні витрати budget',
+      ];
+
+      const categoryResult: CategoryAssignmentResult = {
+        category: 'Продукти',
+        categoryReason: 'Grocery store',
+        isNewCategory: false,
+      };
+
+      const budgetResult: BudgetAssignmentResult = {
+        budget: 'Щоденні витрати',
+        budgetReason: 'Matched custom rule for supermarkets',
+      };
+
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+      ).mockResolvedValue(transaction);
+      (
+        categoryRepository.findActive as ReturnType<typeof bunMock>
+      ).mockResolvedValue([]);
+      (
+        budgetRepository.findActive as ReturnType<typeof bunMock>
+      ).mockResolvedValue([]);
+      (
+        budgetizationRuleRepository.findAll as ReturnType<typeof bunMock>
+      ).mockResolvedValue(customBudgetRules);
+      (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mockResolvedValue(categoryResult);
+      (llmGateway.assignBudget as ReturnType<typeof bunMock>).mockResolvedValue(
+        budgetResult,
+      );
+
+      await useCase.execute({ transactionExternalId: 'tx-with-budget-rules' });
+
+      expect(llmGateway.assignBudget).toHaveBeenCalledTimes(1);
+      const assignBudgetCall = (
+        llmGateway.assignBudget as ReturnType<typeof bunMock>
+      ).mock.calls[0]?.[0];
+
+      expect(assignBudgetCall.budgetRules).toEqual(customBudgetRules);
+    });
+
+    test('should not pass categoryRules when no category rules exist', async () => {
       const transaction = createTestTransaction({
         externalId: 'tx-no-rules',
         description: 'Some merchant',
       });
 
-      const llmResult: CategorizationResult = {
+      const categoryResult: CategoryAssignmentResult = {
         category: null,
         categoryReason: null,
+        isNewCategory: false,
+      };
+
+      const budgetResult: BudgetAssignmentResult = {
         budget: null,
         budgetReason: null,
-        isNewCategory: false,
       };
 
       (
@@ -533,18 +646,117 @@ describe('CategorizeTransactionUseCase', () => {
       (
         categorizationRuleRepository.findAll as ReturnType<typeof bunMock>
       ).mockResolvedValue([]);
-      (llmGateway.categorize as ReturnType<typeof bunMock>).mockResolvedValue(
-        llmResult,
+      (
+        budgetizationRuleRepository.findAll as ReturnType<typeof bunMock>
+      ).mockResolvedValue([]);
+      (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mockResolvedValue(categoryResult);
+      (llmGateway.assignBudget as ReturnType<typeof bunMock>).mockResolvedValue(
+        budgetResult,
       );
 
       await useCase.execute({ transactionExternalId: 'tx-no-rules' });
 
-      expect(llmGateway.categorize).toHaveBeenCalledTimes(1);
-      const categorizeCall = (
-        llmGateway.categorize as ReturnType<typeof bunMock>
-      ).mock.calls[0]?.[0] as CategorizationRequest;
+      expect(llmGateway.assignCategory).toHaveBeenCalledTimes(1);
+      const assignCategoryCall = (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mock.calls[0]?.[0] as CategoryAssignmentRequest;
 
-      expect(categorizeCall.customRules).toBeUndefined();
+      expect(assignCategoryCall.categoryRules).toBeUndefined();
+
+      const assignBudgetCall = (
+        llmGateway.assignBudget as ReturnType<typeof bunMock>
+      ).mock.calls[0]?.[0];
+
+      expect(assignBudgetCall.budgetRules).toBeUndefined();
+    });
+
+    test('should pass assigned category to assignBudget call', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-category-context',
+        description: 'Silpo grocery store',
+      });
+
+      const categoryResult: CategoryAssignmentResult = {
+        category: 'Продукти',
+        categoryReason: 'Grocery store',
+        isNewCategory: false,
+      };
+
+      const budgetResult: BudgetAssignmentResult = {
+        budget: 'Щоденні витрати',
+        budgetReason: 'Food expenses go to daily budget',
+      };
+
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+      ).mockResolvedValue(transaction);
+      (
+        categoryRepository.findActive as ReturnType<typeof bunMock>
+      ).mockResolvedValue([]);
+      (
+        budgetRepository.findActive as ReturnType<typeof bunMock>
+      ).mockResolvedValue([]);
+      (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mockResolvedValue(categoryResult);
+      (llmGateway.assignBudget as ReturnType<typeof bunMock>).mockResolvedValue(
+        budgetResult,
+      );
+
+      await useCase.execute({ transactionExternalId: 'tx-category-context' });
+
+      expect(llmGateway.assignBudget).toHaveBeenCalledTimes(1);
+      const assignBudgetCall = (
+        llmGateway.assignBudget as ReturnType<typeof bunMock>
+      ).mock.calls[0]?.[0];
+
+      // Verify the assigned category is passed to budget assignment
+      expect(assignBudgetCall.assignedCategory).toBe('Продукти');
+    });
+
+    test('should pass null assignedCategory to assignBudget when category is null', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-null-category',
+        description: 'Unknown merchant',
+      });
+
+      const categoryResult: CategoryAssignmentResult = {
+        category: null,
+        categoryReason: 'Unable to categorize',
+        isNewCategory: false,
+      };
+
+      const budgetResult: BudgetAssignmentResult = {
+        budget: null,
+        budgetReason: null,
+      };
+
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+      ).mockResolvedValue(transaction);
+      (
+        categoryRepository.findActive as ReturnType<typeof bunMock>
+      ).mockResolvedValue([]);
+      (
+        budgetRepository.findActive as ReturnType<typeof bunMock>
+      ).mockResolvedValue([]);
+      (
+        llmGateway.assignCategory as ReturnType<typeof bunMock>
+      ).mockResolvedValue(categoryResult);
+      (llmGateway.assignBudget as ReturnType<typeof bunMock>).mockResolvedValue(
+        budgetResult,
+      );
+
+      await useCase.execute({ transactionExternalId: 'tx-null-category' });
+
+      expect(llmGateway.assignBudget).toHaveBeenCalledTimes(1);
+      const assignBudgetCall = (
+        llmGateway.assignBudget as ReturnType<typeof bunMock>
+      ).mock.calls[0]?.[0];
+
+      expect(assignBudgetCall.assignedCategory).toBeNull();
     });
   });
 });

@@ -1,6 +1,8 @@
 import {
-  type CategorizationRequest,
-  type CategorizationResult,
+  type BudgetAssignmentRequest,
+  type BudgetAssignmentResult,
+  type CategoryAssignmentRequest,
+  type CategoryAssignmentResult,
   LLMGateway,
 } from '@domain/gateways/LLMGateway.ts';
 import {
@@ -12,13 +14,13 @@ import {
 import { inject, injectable } from 'tsyringe';
 import { z } from 'zod/v3';
 import zodToJsonSchema from 'zod-to-json-schema';
-import { CATEGORIZATION_PROMPT_TEMPLATE } from './prompts/categorization.ts';
+import { BUDGET_ASSIGNMENT_PROMPT_TEMPLATE } from './prompts/budgetAssignment.ts';
+import { CATEGORY_ASSIGNMENT_PROMPT_TEMPLATE } from './prompts/categoryAssignment.ts';
 
 /**
- * Zod schema for LLM categorization responses.
- * Used to generate JSON schema for Gemini structured output.
+ * Zod schema for LLM category assignment responses.
  */
-const CategorizationResponseSchema = z.object({
+const CategoryAssignmentResponseSchema = z.object({
   category: z
     .string()
     .nullable()
@@ -27,18 +29,33 @@ const CategorizationResponseSchema = z.object({
     .string()
     .nullable()
     .describe('Reason for category selection'),
-  budget: z.string().nullable().describe('Selected budget name'),
-  budgetReason: z.string().nullable().describe('Reason for budget selection'),
   isNewCategory: z
     .boolean()
     .describe('Whether a new category should be created'),
 });
 
-type CategorizationResponse = z.infer<typeof CategorizationResponseSchema>;
+type CategoryAssignmentResponse = z.infer<
+  typeof CategoryAssignmentResponseSchema
+>;
 
-/** JSON schema for Gemini structured output */
-const CATEGORIZATION_JSON_SCHEMA = zodToJsonSchema(
-  CategorizationResponseSchema,
+/**
+ * Zod schema for LLM budget assignment responses.
+ */
+const BudgetAssignmentResponseSchema = z.object({
+  budget: z.string().nullable().describe('Selected budget name'),
+  budgetReason: z.string().nullable().describe('Reason for budget selection'),
+});
+
+type BudgetAssignmentResponse = z.infer<typeof BudgetAssignmentResponseSchema>;
+
+/** JSON schemas for Gemini structured output */
+const CATEGORY_ASSIGNMENT_JSON_SCHEMA = zodToJsonSchema(
+  CategoryAssignmentResponseSchema,
+  { target: 'openApi3' },
+) as JsonSchema;
+
+const BUDGET_ASSIGNMENT_JSON_SCHEMA = zodToJsonSchema(
+  BudgetAssignmentResponseSchema,
   { target: 'openApi3' },
 ) as JsonSchema;
 
@@ -50,7 +67,7 @@ export const GEMINI_CLIENT_TOKEN = Symbol('GeminiClient');
 
 /**
  * Gemini-based implementation of LLMGateway.
- * Uses Google Gemini API for transaction categorization.
+ * Uses Google Gemini API for transaction categorization and budgeting.
  */
 @injectable()
 export class GeminiLLMGateway extends LLMGateway {
@@ -62,47 +79,85 @@ export class GeminiLLMGateway extends LLMGateway {
   }
 
   /**
-   * Categorize a transaction using Gemini LLM.
-   *
-   * @param request - Transaction context and available categories/budgets
-   * @returns Categorization result with category, budget, and reasoning
+   * Assign a category to a transaction using Gemini LLM.
    */
-  async categorize(
-    request: CategorizationRequest,
-  ): Promise<CategorizationResult> {
-    const prompt = this.buildPrompt(request);
-    const options = this.buildGenerateOptions();
+  async assignCategory(
+    request: CategoryAssignmentRequest,
+  ): Promise<CategoryAssignmentResult> {
+    const prompt = this.buildCategoryPrompt(request);
+    const options = this.buildGenerateOptions(
+      'You are a financial transaction categorization assistant.',
+      CATEGORY_ASSIGNMENT_JSON_SCHEMA,
+    );
 
-    const result = await this.client.generate<CategorizationResponse>(
+    const result = await this.client.generate<CategoryAssignmentResponse>(
       prompt,
       options,
     );
 
-    return this.mapToResult(result.data);
+    return this.mapToCategoryResult(result.data);
   }
 
   /**
-   * Build the categorization prompt from request data.
+   * Assign a budget to a transaction using Gemini LLM.
    */
-  private buildPrompt(request: CategorizationRequest): string {
+  async assignBudget(
+    request: BudgetAssignmentRequest,
+  ): Promise<BudgetAssignmentResult> {
+    const prompt = this.buildBudgetPrompt(request);
+    const options = this.buildGenerateOptions(
+      'You are a financial transaction budgeting assistant.',
+      BUDGET_ASSIGNMENT_JSON_SCHEMA,
+    );
+
+    const result = await this.client.generate<BudgetAssignmentResponse>(
+      prompt,
+      options,
+    );
+
+    return this.mapToBudgetResult(result.data);
+  }
+
+  /**
+   * Build the category assignment prompt from request data.
+   */
+  private buildCategoryPrompt(request: CategoryAssignmentRequest): string {
     const categoryList = this.formatCategoryList(request.availableCategories);
     const categoryHierarchy = this.formatCategoryHierarchy(
       request.availableCategories,
     );
-    const budgetList = this.formatBudgetList(request.availableBudgets);
-    const customRules = this.formatCustomRules(request.customRules);
+    const categoryRules = this.formatRules(request.categoryRules);
 
-    return new PromptBuilder(CATEGORIZATION_PROMPT_TEMPLATE).build({
+    return new PromptBuilder(CATEGORY_ASSIGNMENT_PROMPT_TEMPLATE).build({
       categoryList: categoryList,
       categoryHierarchy: categoryHierarchy,
-      budgets: budgetList,
+      categoryRules: categoryRules,
       description: request.transaction.description,
       amount: `${request.transaction.amount} ${request.transaction.currency}`,
       date: this.formatDate(request.transaction.date),
       counterparty: request.transaction.counterpartyName ?? '',
       mcc: request.transaction.mcc?.toString() ?? '',
       bankCategory: request.transaction.bankCategory ?? '',
-      customRules: customRules,
+    });
+  }
+
+  /**
+   * Build the budget assignment prompt from request data.
+   */
+  private buildBudgetPrompt(request: BudgetAssignmentRequest): string {
+    const budgetList = this.formatBudgetList(request.availableBudgets);
+    const budgetRules = this.formatRules(request.budgetRules);
+
+    return new PromptBuilder(BUDGET_ASSIGNMENT_PROMPT_TEMPLATE).build({
+      budgets: budgetList,
+      budgetRules: budgetRules,
+      description: request.transaction.description,
+      amount: `${request.transaction.amount} ${request.transaction.currency}`,
+      date: this.formatDate(request.transaction.date),
+      counterparty: request.transaction.counterpartyName ?? '',
+      mcc: request.transaction.mcc?.toString() ?? '',
+      bankCategory: request.transaction.bankCategory ?? '',
+      assignedCategory: request.assignedCategory ?? '(not assigned)',
     });
   }
 
@@ -110,7 +165,7 @@ export class GeminiLLMGateway extends LLMGateway {
    * Format categories as a flat list of names for selection.
    */
   private formatCategoryList(
-    categories: CategorizationRequest['availableCategories'],
+    categories: CategoryAssignmentRequest['availableCategories'],
   ): string {
     if (categories.length === 0) {
       return '(немає доступних категорій)';
@@ -122,7 +177,7 @@ export class GeminiLLMGateway extends LLMGateway {
    * Format category hierarchy information for context.
    */
   private formatCategoryHierarchy(
-    categories: CategorizationRequest['availableCategories'],
+    categories: CategoryAssignmentRequest['availableCategories'],
   ): string {
     if (categories.length === 0) {
       return '(немає ієрархії)';
@@ -148,9 +203,9 @@ export class GeminiLLMGateway extends LLMGateway {
   }
 
   /**
-   * Format custom rules for the prompt.
+   * Format rules for the prompt.
    */
-  private formatCustomRules(rules?: string[]): string {
+  private formatRules(rules?: string[]): string {
     if (!rules || rules.length === 0) {
       return '';
     }
@@ -167,26 +222,40 @@ export class GeminiLLMGateway extends LLMGateway {
   /**
    * Build generation options for Gemini.
    */
-  private buildGenerateOptions(): GenerateOptions {
+  private buildGenerateOptions(
+    systemInstruction: string,
+    responseSchema: JsonSchema,
+  ): GenerateOptions {
     return {
       temperature: 0.1,
       maxOutputTokens: 1024,
-      systemInstruction:
-        'You are a financial transaction categorization assistant.',
-      responseSchema: CATEGORIZATION_JSON_SCHEMA,
+      systemInstruction,
+      responseSchema,
     };
   }
 
   /**
-   * Map response to CategorizationResult.
+   * Map response to CategoryAssignmentResult.
    */
-  private mapToResult(response: CategorizationResponse): CategorizationResult {
+  private mapToCategoryResult(
+    response: CategoryAssignmentResponse,
+  ): CategoryAssignmentResult {
     return {
       category: response.category,
       categoryReason: response.categoryReason,
+      isNewCategory: response.isNewCategory,
+    };
+  }
+
+  /**
+   * Map response to BudgetAssignmentResult.
+   */
+  private mapToBudgetResult(
+    response: BudgetAssignmentResponse,
+  ): BudgetAssignmentResult {
+    return {
       budget: response.budget,
       budgetReason: response.budgetReason,
-      isNewCategory: response.isNewCategory,
     };
   }
 }

@@ -1,7 +1,10 @@
 export { BANK_GATEWAY_TOKEN, BankGateway } from './BankGateway.ts';
 export {
-  type CategorizationRequest,
+  type BudgetAssignmentRequest,
+  type BudgetAssignmentResult,
   type CategorizationResult,
+  type CategoryAssignmentRequest,
+  type CategoryAssignmentResult,
   type CategoryInfo,
   LLM_GATEWAY_TOKEN,
   LLMGateway,

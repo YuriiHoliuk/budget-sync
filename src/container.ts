@@ -11,6 +11,7 @@ import { BANK_GATEWAY_TOKEN } from '@domain/gateways/BankGateway.ts';
 import { LLM_GATEWAY_TOKEN } from '@domain/gateways/LLMGateway.ts';
 import { MESSAGE_QUEUE_GATEWAY_TOKEN } from '@domain/gateways/MessageQueueGateway.ts';
 import { ACCOUNT_REPOSITORY_TOKEN } from '@domain/repositories/AccountRepository.ts';
+import { BUDGETIZATION_RULE_REPOSITORY_TOKEN } from '@domain/repositories/BudgetizationRuleRepository.ts';
 import { BUDGET_REPOSITORY_TOKEN } from '@domain/repositories/BudgetRepository.ts';
 import { CATEGORIZATION_RULE_REPOSITORY_TOKEN } from '@domain/repositories/CategorizationRuleRepository.ts';
 import { CATEGORY_REPOSITORY_TOKEN } from '@domain/repositories/CategoryRepository.ts';
@@ -33,6 +34,7 @@ import {
   SPREADSHEETS_CLIENT_TOKEN,
   SpreadsheetAccountRepository,
 } from '@infrastructure/repositories/SpreadsheetAccountRepository.ts';
+import { SpreadsheetBudgetizationRuleRepository } from '@infrastructure/repositories/SpreadsheetBudgetizationRuleRepository.ts';
 import { SpreadsheetBudgetRepository } from '@infrastructure/repositories/SpreadsheetBudgetRepository.ts';
 import { SpreadsheetCategorizationRuleRepository } from '@infrastructure/repositories/SpreadsheetCategorizationRuleRepository.ts';
 import { SpreadsheetCategoryRepository } from '@infrastructure/repositories/SpreadsheetCategoryRepository.ts';
@@ -158,6 +160,9 @@ export function setupContainer(): typeof container {
   });
   container.register(CATEGORIZATION_RULE_REPOSITORY_TOKEN, {
     useClass: SpreadsheetCategorizationRuleRepository,
+  });
+  container.register(BUDGETIZATION_RULE_REPOSITORY_TOKEN, {
+    useClass: SpreadsheetBudgetizationRuleRepository,
   });
 
   // LLM Gateway (only registered if Gemini client is available)

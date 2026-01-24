@@ -10,8 +10,10 @@ import type { Category } from '@domain/entities/Category.ts';
 import type { Transaction } from '@domain/entities/Transaction.ts';
 import type { BankGateway } from '@domain/gateways/BankGateway.ts';
 import type {
-  CategorizationRequest,
-  CategorizationResult,
+  BudgetAssignmentRequest,
+  BudgetAssignmentResult,
+  CategoryAssignmentRequest,
+  CategoryAssignmentResult,
   LLMGateway,
 } from '@domain/gateways/LLMGateway.ts';
 import type {
@@ -19,6 +21,7 @@ import type {
   QueueMessage,
 } from '@domain/gateways/MessageQueueGateway.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
+import type { BudgetizationRuleRepository } from '@domain/repositories/BudgetizationRuleRepository.ts';
 import type { BudgetRepository } from '@domain/repositories/BudgetRepository.ts';
 import type { CategorizationRuleRepository } from '@domain/repositories/CategorizationRuleRepository.ts';
 import type { CategoryRepository } from '@domain/repositories/CategoryRepository.ts';
@@ -233,25 +236,34 @@ export function createMockBudgetRepository(
 
 /**
  * Creates a mock LLMGateway with default implementations.
- * Returns an empty categorization result by default.
+ * Returns empty assignment results by default.
  */
 export function createMockLLMGateway(
   overrides: Partial<{
-    categorize: (
-      request: CategorizationRequest,
-    ) => Promise<CategorizationResult>;
+    assignCategory: (
+      request: CategoryAssignmentRequest,
+    ) => Promise<CategoryAssignmentResult>;
+    assignBudget: (
+      request: BudgetAssignmentRequest,
+    ) => Promise<BudgetAssignmentResult>;
   }> = {},
 ): LLMGateway {
-  const defaultResult: CategorizationResult = {
+  const defaultCategoryResult: CategoryAssignmentResult = {
     category: null,
     categoryReason: null,
-    budget: null,
-    budgetReason: null,
     isNewCategory: false,
   };
+  const defaultBudgetResult: BudgetAssignmentResult = {
+    budget: null,
+    budgetReason: null,
+  };
   return {
-    categorize:
-      overrides.categorize ?? mock(() => Promise.resolve(defaultResult)),
+    assignCategory:
+      overrides.assignCategory ??
+      mock(() => Promise.resolve(defaultCategoryResult)),
+    assignBudget:
+      overrides.assignBudget ??
+      mock(() => Promise.resolve(defaultBudgetResult)),
   } as unknown as LLMGateway;
 }
 
@@ -267,6 +279,20 @@ export function createMockCategorizationRuleRepository(
   return {
     findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
   } as unknown as CategorizationRuleRepository;
+}
+
+/**
+ * Creates a mock BudgetizationRuleRepository with default implementations.
+ * Returns an empty array of rules by default.
+ */
+export function createMockBudgetizationRuleRepository(
+  overrides: Partial<{
+    findAll: () => Promise<string[]>;
+  }> = {},
+): BudgetizationRuleRepository {
+  return {
+    findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
+  } as unknown as BudgetizationRuleRepository;
 }
 
 /**

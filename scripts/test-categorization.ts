@@ -82,22 +82,32 @@ async function main() {
     console.log('Transaction:', testCase.transaction.description);
 
     try {
-      const result = await gateway.categorize({
+      // First call: assign category
+      const categoryResult = await gateway.assignCategory({
         transaction: testCase.transaction,
         availableCategories: categories,
-        availableBudgets: ['Їжа', 'Транспорт', 'Розваги'],
       });
 
-      console.log('  Category:', result.category);
-      console.log('  Reason:', result.categoryReason);
+      console.log('  Category:', categoryResult.category);
+      console.log('  Reason:', categoryResult.categoryReason);
+
+      // Second call: assign budget
+      const budgetResult = await gateway.assignBudget({
+        transaction: testCase.transaction,
+        availableBudgets: ['Їжа', 'Транспорт', 'Розваги'],
+        assignedCategory: categoryResult.category,
+      });
+
+      console.log('  Budget:', budgetResult.budget);
+      console.log('  Budget Reason:', budgetResult.budgetReason);
 
       // Check if it returned full path (the bug we fixed)
-      if (result.category?.includes(' > ')) {
+      if (categoryResult.category?.includes(' > ')) {
         console.error('  ❌ BUG: Category contains full path!');
-      } else if (result.category === testCase.expected) {
+      } else if (categoryResult.category === testCase.expected) {
         console.log('  ✅ Correct');
       } else {
-        console.log(`  ⚠️  Expected "${testCase.expected}", got "${result.category}"`);
+        console.log(`  ⚠️  Expected "${testCase.expected}", got "${categoryResult.category}"`);
       }
     } catch (error) {
       console.error('  Error:', error);
