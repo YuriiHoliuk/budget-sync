@@ -13,6 +13,7 @@ When encountering errors during development or deployment, check `docs/TROUBLESH
 - **Runtime**: Bun
 - **Language**: TypeScript (strict mode)
 - **Linter/Formatter**: Biome
+- **Validation**: Zod (runtime schema validation)
 - **Dependency Injection**: TSyringe (injection by type, no string tokens)
 - **Testing**: Bun's built-in test runner
 - **Architecture**: Clean Architecture (Layered / Hexagonal)
@@ -435,7 +436,13 @@ DTOs decouple layers and define contracts at boundaries:
    - Use `unknown` as an intermediate type only when absolutely necessary, and document why
    - Exceptions: `as const` for literal types and `satisfies` for type checking are acceptable
 
-2. **No one-letter variables** - Use descriptive names:
+2. **Use Zod for validation** - Always use Zod schemas for runtime validation instead of manual type guards:
+   - Define schemas alongside DTOs and infer types from them: `type MyDTO = z.infer<typeof myDTOSchema>`
+   - Use `schema.safeParse(data)` for validation that returns success/error
+   - Use `schema.parse(data)` when invalid data should throw
+   - See `src/application/dtos/QueuedWebhookTransactionDTO.ts` and `src/infrastructure/gateways/monobank/webhookPayloadSchema.ts` for examples
+
+3. **No one-letter variables** - Use descriptive names:
    - Bad: `(s) => s.title`, `(d) => d.values`, `for (let i = 0; ...)`
    - Good: `(sheet) => sheet.title`, `(rangeData) => rangeData.values`, `for (let rowIndex = 0; ...)`
    - Exception: Well-known conventions in very short scopes (e.g., `x, y` for coordinates)

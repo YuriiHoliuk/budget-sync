@@ -38,11 +38,6 @@ output "webhook_url" {
   value       = google_cloud_run_v2_service.webhook.uri
 }
 
-output "webhook_job_name" {
-  description = "Name of the process-webhooks Cloud Run Job"
-  value       = google_cloud_run_v2_job.process_webhooks.name
-}
-
 output "pubsub_topic" {
   description = "Pub/Sub topic for webhook messages"
   value       = google_pubsub_topic.webhook_transactions.name

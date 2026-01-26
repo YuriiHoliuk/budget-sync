@@ -4,21 +4,30 @@
  * Endpoints:
  * - GET /webhook - Validation endpoint (Monobank sends this to verify the URL)
  * - POST /webhook - Receives transaction notifications
+ * - POST /webhook/process - Processes Pub/Sub push messages
  * - GET /health - Health check for Cloud Run
  *
  * Critical: POST /webhook always returns 200 to prevent Monobank
  * from disabling the webhook, even if processing fails internally.
  */
 
-import { EnqueueWebhookTransactionUseCase } from '@application/use-cases/EnqueueWebhookTransaction.ts';
 import {
+  type QueuedWebhookTransactionDTO,
+  queuedWebhookTransactionSchema,
+} from '@application/dtos/QueuedWebhookTransactionDTO.ts';
+import { EnqueueWebhookTransactionUseCase } from '@application/use-cases/EnqueueWebhookTransaction.ts';
+import { ProcessIncomingTransactionUseCase } from '@application/use-cases/ProcessIncomingTransaction.ts';
+import {
+  badRequest,
   type HttpRequest,
   type HttpResponse,
   ok,
+  serverError,
 } from '@modules/http/index.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging/index.ts';
 import { inject, injectable } from 'tsyringe';
 import { Controller, type RouteDefinition } from '../Controller.ts';
+import { PubSubPushParser } from '../pubsub/index.ts';
 
 /**
  * Controller for handling Monobank webhook endpoints.
@@ -26,6 +35,7 @@ import { Controller, type RouteDefinition } from '../Controller.ts';
  * This controller is responsible for:
  * - Validating webhook URLs (GET /webhook)
  * - Receiving and enqueuing transaction notifications (POST /webhook)
+ * - Processing Pub/Sub push messages (POST /webhook/process)
  * - Health checks for Cloud Run (GET /health)
  */
 @injectable()
@@ -35,11 +45,15 @@ export class WebhookController extends Controller {
   routes: RouteDefinition[] = [
     { method: 'get', path: '', handler: 'handleValidation' },
     { method: 'post', path: '', handler: 'handleWebhook' },
+    { method: 'post', path: '/process', handler: 'handlePubSubPush' },
     { method: 'get', path: '/health', handler: 'handleHealthCheck' },
   ];
 
+  private readonly pubSubParser = new PubSubPushParser();
+
   constructor(
     private enqueueWebhookTransaction: EnqueueWebhookTransactionUseCase,
+    private processIncomingTransaction: ProcessIncomingTransactionUseCase,
     @inject(LOGGER_TOKEN) protected logger: Logger,
   ) {
     super();
@@ -122,5 +136,82 @@ export class WebhookController extends Controller {
    */
   handleHealthCheck(): HttpResponse {
     return ok({ status: 'healthy' });
+  }
+
+  /**
+   * Handle POST /webhook/process - Process Pub/Sub push message.
+   *
+   * Response contract (controls Pub/Sub retry behavior):
+   * - 200: Success or duplicate - acknowledge message (no retry)
+   * - 400: Invalid format - acknowledge message (permanent error, no retry)
+   * - 500: Transient error - Pub/Sub will retry with exponential backoff
+   */
+  async handlePubSubPush(request: HttpRequest): Promise<HttpResponse> {
+    const parseResult = this.pubSubParser.parse(
+      request.body,
+      queuedWebhookTransactionSchema,
+    );
+
+    if (!parseResult.success) {
+      return this.handlePubSubParseError(parseResult, request.body);
+    }
+
+    return await this.processTransaction(
+      parseResult.data,
+      parseResult.messageId,
+    );
+  }
+
+  /**
+   * Handle Pub/Sub parse errors with appropriate logging and response.
+   */
+  private handlePubSubParseError(
+    result:
+      | { error: 'invalid_envelope' }
+      | { error: 'invalid_data'; messageId: string },
+    body: unknown,
+  ): HttpResponse {
+    if (result.error === 'invalid_envelope') {
+      this.logger.warn('Invalid Pub/Sub push message format', {
+        body: this.truncatePayloadForLogging(body),
+      });
+      return badRequest('Invalid Pub/Sub push message format');
+    }
+
+    this.logger.warn('Failed to decode Pub/Sub message data', {
+      messageId: result.messageId,
+    });
+    return badRequest('Invalid message data');
+  }
+
+  /**
+   * Process the transaction and return appropriate HTTP response.
+   */
+  private async processTransaction(
+    transactionData: QueuedWebhookTransactionDTO,
+    messageId: string,
+  ): Promise<HttpResponse> {
+    try {
+      const result =
+        await this.processIncomingTransaction.execute(transactionData);
+
+      this.logger.info('Pub/Sub message processed', {
+        messageId,
+        transactionExternalId: result.transactionExternalId,
+        saved: result.saved,
+      });
+
+      return ok({ processed: true, saved: result.saved });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error('Failed to process Pub/Sub message', {
+        messageId,
+        error: errorMessage,
+      });
+
+      // Return 500 to trigger Pub/Sub retry
+      return serverError(errorMessage);
+    }
   }
 }

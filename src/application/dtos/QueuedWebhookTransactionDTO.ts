@@ -1,54 +1,66 @@
+import { z } from 'zod';
+
 /**
- * Serializable DTO for webhook transactions stored in the message queue.
+ * Zod schema for transaction data within the queued webhook message.
+ */
+const queuedTransactionSchema = z.object({
+  externalId: z.string(),
+  /** ISO 8601 date string */
+  date: z.string(),
+  /** Amount in minor units (kopecks, cents) */
+  amount: z.number(),
+  /** Currency code (ISO 4217 numeric) */
+  currencyCode: z.number(),
+  /** Operation amount in minor units */
+  operationAmount: z.number(),
+  /** Operation currency code */
+  operationCurrencyCode: z.number(),
+  description: z.string(),
+  /** Transaction type: 'CREDIT' or 'DEBIT' */
+  type: z.enum(['CREDIT', 'DEBIT']),
+  mcc: z.number(),
+  hold: z.boolean(),
+  /** Balance after transaction in minor units */
+  balanceAmount: z.number(),
+  comment: z.string().optional(),
+  counterpartyName: z.string().optional(),
+  counterpartyIban: z.string().optional(),
+  /** Cashback amount in minor units */
+  cashbackAmount: z.number().optional(),
+  /** Commission/fee amount in minor units */
+  commissionRate: z.number().optional(),
+  /** Original MCC before bank correction */
+  originalMcc: z.number().optional(),
+  /** Receipt ID for check.gov.ua */
+  receiptId: z.string().optional(),
+  /** Invoice ID (FOP accounts) */
+  invoiceId: z.string().optional(),
+  /** Counterparty tax ID (EDRPOU) */
+  counterEdrpou: z.string().optional(),
+});
+
+/**
+ * Zod schema for webhook transactions stored in the message queue.
  *
  * This DTO uses only primitive types so it can be safely serialized to JSON
  * and deserialized without losing data. Domain entities like Transaction
  * and Money are reconstructed from these primitives when processing.
  */
-export interface QueuedWebhookTransactionDTO {
+export const queuedWebhookTransactionSchema = z.object({
   /** Account external ID (from the bank) */
-  accountExternalId: string;
-
+  accountExternalId: z.string(),
   /** New account balance after this transaction (in minor units), as reported by the bank */
-  newBalanceAmount: number;
-
+  newBalanceAmount: z.number(),
   /** Currency code for the new balance (ISO 4217 numeric) */
-  newBalanceCurrencyCode: number;
-
+  newBalanceCurrencyCode: z.number(),
   /** Transaction data with primitive types */
-  transaction: {
-    externalId: string;
-    /** ISO 8601 date string */
-    date: string;
-    /** Amount in minor units (kopecks, cents) */
-    amount: number;
-    /** Currency code (ISO 4217 numeric) */
-    currencyCode: number;
-    /** Operation amount in minor units */
-    operationAmount: number;
-    /** Operation currency code */
-    operationCurrencyCode: number;
-    description: string;
-    /** Transaction type: 'CREDIT' or 'DEBIT' */
-    type: 'CREDIT' | 'DEBIT';
-    mcc: number;
-    hold: boolean;
-    /** Balance after transaction in minor units */
-    balanceAmount: number;
-    comment?: string;
-    counterpartyName?: string;
-    counterpartyIban?: string;
-    /** Cashback amount in minor units */
-    cashbackAmount?: number;
-    /** Commission/fee amount in minor units */
-    commissionRate?: number;
-    /** Original MCC before bank correction */
-    originalMcc?: number;
-    /** Receipt ID for check.gov.ua */
-    receiptId?: string;
-    /** Invoice ID (FOP accounts) */
-    invoiceId?: string;
-    /** Counterparty tax ID (EDRPOU) */
-    counterEdrpou?: string;
-  };
-}
+  transaction: queuedTransactionSchema,
+});
+
+/**
+ * Serializable DTO for webhook transactions stored in the message queue.
+ * Type inferred from the Zod schema.
+ */
+export type QueuedWebhookTransactionDTO = z.infer<
+  typeof queuedWebhookTransactionSchema
+>;

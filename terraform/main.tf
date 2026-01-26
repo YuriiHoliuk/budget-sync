@@ -298,13 +298,22 @@ resource "google_pubsub_topic" "webhook_transactions_dlq" {
   }
 }
 
-# Main subscription with dead letter policy
+# Main subscription with push delivery to Cloud Run
 resource "google_pubsub_subscription" "webhook_transactions" {
   name    = "webhook-transactions-sub"
   topic   = google_pubsub_topic.webhook_transactions.id
   project = var.project_id
 
   ack_deadline_seconds = 60
+
+  push_config {
+    push_endpoint = "${google_cloud_run_v2_service.webhook.uri}/webhook/process"
+
+    oidc_token {
+      service_account_email = google_service_account.runner.email
+      audience              = google_cloud_run_v2_service.webhook.uri
+    }
+  }
 
   retry_policy {
     minimum_backoff = "10s"
@@ -321,7 +330,8 @@ resource "google_pubsub_subscription" "webhook_transactions" {
   }
 
   depends_on = [
-    google_pubsub_topic_iam_member.dlq_publisher
+    google_pubsub_topic_iam_member.dlq_publisher,
+    google_cloud_run_v2_service.webhook
   ]
 }
 
@@ -490,119 +500,11 @@ resource "google_cloud_run_v2_service_iam_member" "webhook_public" {
   member   = "allUsers"
 }
 
-# =============================================================================
-# Cloud Run Job - Process Webhooks
-# =============================================================================
-
-resource "google_cloud_run_v2_job" "process_webhooks" {
-  name     = "process-webhooks"
-  location = var.region
+# Allow Pub/Sub to invoke Cloud Run for push subscriptions
+resource "google_cloud_run_service_iam_member" "pubsub_invoker" {
   project  = var.project_id
-
-  template {
-    template {
-      timeout         = "300s" # 5 minutes
-      max_retries     = 1
-      service_account = google_service_account.runner.email
-
-      containers {
-        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker.repository_id}/budget-sync:${var.image_tag}"
-        args  = ["src/jobs/process-webhooks.ts"]
-
-        env {
-          name  = "PUBSUB_SUBSCRIPTION"
-          value = google_pubsub_subscription.webhook_transactions.name
-        }
-
-        env {
-          name  = "GCP_PROJECT_ID"
-          value = var.project_id
-        }
-
-        env {
-          name = "MONOBANK_TOKEN"
-          value_source {
-            secret_key_ref {
-              secret  = google_secret_manager_secret.monobank_token.secret_id
-              version = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "SPREADSHEET_ID"
-          value_source {
-            secret_key_ref {
-              secret  = google_secret_manager_secret.spreadsheet_id.secret_id
-              version = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "GEMINI_API_KEY"
-          value_source {
-            secret_key_ref {
-              secret  = google_secret_manager_secret.gemini_api_key.secret_id
-              version = "latest"
-            }
-          }
-        }
-
-        resources {
-          limits = {
-            cpu    = "1"
-            memory = "512Mi"
-          }
-        }
-      }
-    }
-  }
-
-  depends_on = [
-    google_project_iam_member.runner_secret_accessor,
-    google_pubsub_subscription_iam_member.runner_subscriber
-  ]
-
-  lifecycle {
-    ignore_changes = [
-      # Image tag is managed by CI/CD, not Terraform
-      template[0].template[0].containers[0].image
-    ]
-  }
-}
-
-# =============================================================================
-# Cloud Scheduler - Process Webhooks Trigger
-# =============================================================================
-
-resource "google_cloud_scheduler_job" "process_webhooks" {
-  name             = "process-webhooks-scheduler"
-  description      = "Trigger process-webhooks job every 15 minutes"
-  schedule         = "*/15 * * * *"
-  time_zone        = "Etc/UTC"
-  region           = var.region
-  project          = var.project_id
-  attempt_deadline = "600s"
-
-  retry_config {
-    retry_count          = 3
-    min_backoff_duration = "5s"
-    max_backoff_duration = "300s"
-    max_doublings        = 3
-  }
-
-  http_target {
-    http_method = "POST"
-    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${data.google_project.current.number}/jobs/${google_cloud_run_v2_job.process_webhooks.name}:run"
-
-    oauth_token {
-      service_account_email = google_service_account.scheduler.email
-    }
-  }
-
-  depends_on = [
-    google_cloud_run_v2_job.process_webhooks,
-    google_project_iam_member.scheduler_run_invoker
-  ]
+  location = var.region
+  service  = google_cloud_run_v2_service.webhook.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
 }
