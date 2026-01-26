@@ -106,13 +106,6 @@ jobs:
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }}
 
-      - name: Deploy process-webhooks job
-        run: |
-          gcloud run jobs update process-webhooks \
-            --image=${{ needs.build.outputs.image }} \
-            --region=${{ env.REGION }} \
-            --project=${{ env.PROJECT_ID }}
-
       - name: Cleanup old images
         run: |
           # Keep only the 2 most recent images
@@ -140,5 +133,4 @@ jobs:
           echo "### Deployed Resources" >> $GITHUB_STEP_SUMMARY
           echo "- **Job:** sync-accounts" >> $GITHUB_STEP_SUMMARY
           echo "- **Service:** webhook" >> $GITHUB_STEP_SUMMARY
-          echo "- **Job:** process-webhooks" >> $GITHUB_STEP_SUMMARY
           echo "- **Region:** ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
