@@ -578,8 +578,8 @@ resource "google_cloud_run_v2_job" "process_webhooks" {
 
 resource "google_cloud_scheduler_job" "process_webhooks" {
   name             = "process-webhooks-scheduler"
-  description      = "Trigger process-webhooks job every 5 minutes"
-  schedule         = "*/5 * * * *"
+  description      = "Trigger process-webhooks job every 15 minutes"
+  schedule         = "*/15 * * * *"
   time_zone        = "Etc/UTC"
   region           = var.region
   project          = var.project_id

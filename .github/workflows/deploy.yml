@@ -113,6 +113,23 @@ jobs:
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }}
 
+      - name: Cleanup old images
+        run: |
+          # Keep only the 2 most recent images
+          REPO="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/budget-sync"
+
+          # List all images sorted by creation time (oldest first), skip the 2 newest
+          gcloud artifacts docker images list "$REPO" \
+            --sort-by=CREATE_TIME \
+            --format="value(version)" | \
+          head -n -2 | \
+          while read -r digest; do
+            if [ -n "$digest" ]; then
+              echo "Deleting old image: $digest"
+              gcloud artifacts docker images delete "${REPO}@${digest}" --delete-tags --quiet || true
+            fi
+          done
+
       - name: Deployment Summary
         run: |
           echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY

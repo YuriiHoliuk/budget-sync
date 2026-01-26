@@ -6,8 +6,8 @@
  */
 
 import { inject, injectable } from 'tsyringe';
-import type {
-  SyncAccountsResultDTO,
+import {
+  type SyncAccountsResultDTO,
   SyncAccountsUseCase,
 } from '../../application/use-cases/SyncAccounts.ts';
 import { LOGGER_TOKEN, type Logger } from '../../modules/logging/Logger.ts';
