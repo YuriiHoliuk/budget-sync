@@ -44,4 +44,8 @@ export abstract class TransactionRepository extends Repository<
     externalId: string,
     data: CategorizationUpdate,
   ): Promise<void>;
+  abstract findByCategorizationStatus(
+    status: CategorizationStatus,
+  ): Promise<Transaction[]>;
+  abstract findUncategorized(): Promise<Transaction[]>;
 }

@@ -10,6 +10,7 @@ import type {
   CategorizationUpdate,
   TransactionRepository,
 } from '@domain/repositories/TransactionRepository.ts';
+import type { CategorizationStatus } from '@domain/value-objects/index.ts';
 import type { SpreadsheetsClient } from '@modules/spreadsheet/SpreadsheetsClient.ts';
 import type { SchemaToRecord } from '@modules/spreadsheet/types.ts';
 import { inject, injectable } from 'tsyringe';
@@ -303,6 +304,25 @@ export class SpreadsheetTransactionRepository
     if (!deleted) {
       throw new Error(`Transaction not found for deletion: ${id}`);
     }
+  }
+
+  /**
+   * Find all transactions with a specific categorization status.
+   */
+  findByCategorizationStatus(
+    status: CategorizationStatus,
+  ): Promise<Transaction[]> {
+    return this.findAllBy(
+      (record) =>
+        record.status === status || (status === 'pending' && !record.status),
+    );
+  }
+
+  /**
+   * Find all transactions without category and budget assigned.
+   */
+  findUncategorized(): Promise<Transaction[]> {
+    return this.findAllBy((record) => !record.category && !record.budget);
   }
 
   /**

@@ -1,6 +1,7 @@
 import { Command as CommanderCommand } from 'commander';
 import type { DependencyContainer, InjectionToken } from 'tsyringe';
 import type { Command, CommandMeta, CommandOption } from './Command.ts';
+import { CategorizeCommand } from './commands/CategorizeCommand.ts';
 import { SetWebhookCommand } from './commands/SetWebhookCommand.ts';
 import { SyncCommand } from './commands/SyncCommand.ts';
 
@@ -8,6 +9,7 @@ import { SyncCommand } from './commands/SyncCommand.ts';
 const COMMANDS: InjectionToken<Command<any, any>>[] = [
   SyncCommand,
   SetWebhookCommand,
+  CategorizeCommand,
 ];
 
 export function createCLI(container: DependencyContainer): CommanderCommand {
