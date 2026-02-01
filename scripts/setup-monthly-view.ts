@@ -29,12 +29,12 @@ async function main(): Promise<void> {
   const headerFormulas: Array<{ range: string; values: string[][] }> = [
     // Row 1
     { range: `'${sheetName}'!A1:B1`, values: [['Обраний місяць', '2025-01']] },
-    // Row 3 - Available funds (operational accounts)
-    { range: `'${sheetName}'!A3:B3`, values: [['Доступні кошти', '=SUMIF(Рахунки!E:E;"Операційний";Рахунки!D:D)']] },
-    // Row 4 - Capital (savings accounts)
-    { range: `'${sheetName}'!A4:B4`, values: [['Капітал (заощадження)', '=SUMIF(Рахунки!E:E;"Накопичувальний";Рахунки!D:D)']] },
+    // Row 3 - Capital (savings accounts)
+    { range: `'${sheetName}'!A3:B3`, values: [['Капітал (заощадження)', '=SUMIF(Рахунки!E:E;"Накопичувальний";Рахунки!D:D)']] },
+    // Row 4 - Available funds (operational accounts)
+    { range: `'${sheetName}'!A4:B4`, values: [['Доступні кошти', '=SUMIF(Рахунки!E:E;"Операційний";Рахунки!D:D)']] },
     // Row 5 - Total allocated
-    { range: `'${sheetName}'!A5:B5`, values: [['Всього виділено', `=SUMIF('Виділені кошти'!D:D;"<="&B1;'Виділені кошти'!C:C)`]] },
+    { range: `'${sheetName}'!A5:B5`, values: [['Всього виділено', '=SUM(E12:E100)']] },
     // Row 6 - Ready to assign
     { range: `'${sheetName}'!A6:B6`, values: [['Готівка до розподілу', '=B3-B5']] },
   ];
@@ -63,23 +63,23 @@ async function main(): Promise<void> {
 
     // Write budget table headers
     console.log('Writing budget table headers...');
-    const tableHeaders = ['ID', 'Бюджет', 'Ліміт', 'Переносити', 'Виділено', 'Витрачено', 'Доступно', 'Прогрес'];
-    await client.writeRange(spreadsheetId, `'${sheetName}'!A8:H8`, [tableHeaders]);
+    const tableHeaders = ['Бюджет', 'Бюджет', 'Ліміт', 'Переносити', 'Виділено', 'Витрачено', 'Доступно', 'Прогрес'];
+    await client.writeRange(spreadsheetId, `'${sheetName}'!A11:H11`, [tableHeaders]);
 
     // Write budget table formulas (rows 9-30)
     // Using semicolons for European/Ukrainian locale
     console.log('Writing budget table formulas...');
-    const startRow = 9;
-    const endRow = 30;
+    const startRow = 12;
+    const endRow = 50;
     const rows: string[][] = [];
 
     for (let row = startRow; row <= endRow; row++) {
-      const budgetRow = row - 7; // row 9 -> Бюджети row 2
+      const budgetRow = row - 10; // row 12 -> Бюджети row 2
 
       const colA = `=Бюджети!A${budgetRow}`;
-      const colB = `=IFERROR(VLOOKUP(A${row};Бюджети!A:B;2;FALSE);"")`;
-      const colC = `=IFERROR(VLOOKUP(A${row};Бюджети!A:D;4;FALSE);"")`;
-      const colD = `=IFERROR(VLOOKUP(A${row};Бюджети!A:H;8;FALSE);"")`;
+      const colB = `=A${row}`;
+      const colC = `=IFERROR(VLOOKUP(A${row};Бюджети!A:C;3;FALSE);"")`;
+      const colD = `=IFERROR(VLOOKUP(A${row};Бюджети!A:G;7;FALSE);"")`;
 
       // Allocated with rollover logic
       const colE = `=IF(A${row}="";"";IF(D${row}="Так";SUMIFS('Виділені кошти'!C:C;'Виділені кошти'!B:B;A${row};'Виділені кошти'!D:D;"<="&$B$1);SUMIFS('Виділені кошти'!C:C;'Виділені кошти'!B:B;A${row};'Виділені кошти'!D:D;$B$1)))`;

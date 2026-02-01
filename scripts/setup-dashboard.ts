@@ -213,13 +213,13 @@ async function writeHelperTables(
       values: [['Бюджет', 'Ліміт', 'Витрачено']],
     },
     // Budget utilization - direct reference to budget table rows
-    // Місячний огляд columns: A=ID, B=Бюджет, C=Ліміт, D=Переносити, E=Виділено, F=Витрачено
+    // Місячний огляд columns: A=Бюджет (Name), B=Бюджет, C=Ліміт, D=Переносити, E=Виділено, F=Витрачено
     {
       range: `'${DASHBOARD_SHEET_NAME}'!A38:C67`,
       values: Array.from({ length: 30 }, (_, rowIndex) => {
         const sourceRow = 12 + rowIndex; // Budget data starts at row 12 in Місячний огляд
         return [
-          `=IF('${MONTHLY_OVERVIEW_SHEET_NAME}'!A${sourceRow}="";"";'${MONTHLY_OVERVIEW_SHEET_NAME}'!B${sourceRow})`, // Budget name (blank if no ID)
+          `=IF('${MONTHLY_OVERVIEW_SHEET_NAME}'!A${sourceRow}="";"";'${MONTHLY_OVERVIEW_SHEET_NAME}'!B${sourceRow})`, // Budget name (blank if no name)
           `=IF('${MONTHLY_OVERVIEW_SHEET_NAME}'!A${sourceRow}="";"";'${MONTHLY_OVERVIEW_SHEET_NAME}'!C${sourceRow})`, // Limit
           `=IF('${MONTHLY_OVERVIEW_SHEET_NAME}'!A${sourceRow}="";"";'${MONTHLY_OVERVIEW_SHEET_NAME}'!F${sourceRow})`, // Spent
         ];

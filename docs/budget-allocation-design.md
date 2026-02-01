@@ -20,7 +20,7 @@ Records each allocation of funds to a budget.
 | Column (UA) | Type | Description |
 |-------------|------|-------------|
 | **ID** | Text | Unique identifier (auto-increment or UUID) |
-| **Бюджет** | Text | Budget ID (reference to "Бюджети"!A:A) |
+| **Бюджет** | Text | Budget name (reference to "Бюджети"!A:A) |
 | **Сума** | Number | Allocation amount (positive = add, negative = remove) |
 | **Період** | Text | Month in YYYY-MM format (e.g., "2024-01") |
 | **Дата** | Date | Date when allocation was made |
@@ -30,25 +30,22 @@ Records each allocation of funds to a budget.
 
 | ID | Бюджет | Сума | Період | Дата | Примітки |
 |----|--------|------|--------|------|----------|
-| 1 | budget-001 | 8000 | 2024-01 | 2024-01-01 | Initial allocation |
-| 2 | budget-002 | 2000 | 2024-01 | 2024-01-01 | |
-| 3 | budget-001 | 1500 | 2024-01 | 2024-01-15 | Additional funds |
-| 4 | budget-003 | -500 | 2024-01 | 2024-01-20 | Moved to budget-001 |
-| 5 | budget-001 | 500 | 2024-01 | 2024-01-20 | From budget-003 |
-
-*Where budget-001=Продукти, budget-002=Транспорт, budget-003=Розваги*
+| 1 | Продукти | 8000 | 2024-01 | 2024-01-01 | Initial allocation |
+| 2 | Транспорт | 2000 | 2024-01 | 2024-01-01 | |
+| 3 | Продукти | 1500 | 2024-01 | 2024-01-15 | Additional funds |
+| 4 | Розваги | -500 | 2024-01 | 2024-01-20 | Moved to Продукти |
+| 5 | Продукти | 500 | 2024-01 | 2024-01-20 | From Розваги |
 
 ---
 
 ## 2. Update Sheet "Бюджети" (Budgets)
 
-Add columns for ID and rollover configuration.
+Add column for rollover configuration.
 
 ### New Columns
 
 | Column (UA) | Type | Description |
 |-------------|------|-------------|
-| **ID** | Text | Unique budget identifier (used for referencing from transactions) |
 | **Переносити залишок** | Boolean | Whether unspent funds roll over to next month |
 
 ### Possible Values
@@ -62,7 +59,6 @@ Add columns for ID and rollover configuration.
 
 | Column (UA) | Type | Note |
 |-------------|------|------|
-| **ID** | Text | **NEW** (first column) |
 | Назва | Text | Exists |
 | Тип | Text | Exists |
 | Сума | Number | Exists (planned/target amount) |
@@ -153,10 +149,10 @@ Below the header — table showing each budget's status for selected month.
 
 | Column (UA) | Type | Formula / Description |
 |-------------|------|----------------------|
-| **ID** | Text | Budget ID from "Бюджети"!A:A |
-| **Бюджет** | Text | `=VLOOKUP(A2;Бюджети!A:B;2;FALSE)` — budget name for display |
-| **Ліміт** | Number | `=VLOOKUP(A2;Бюджети!A:D;4;FALSE)` — target amount |
-| **Переносити** | Boolean | `=VLOOKUP(A2;Бюджети!A:H;8;FALSE)` — rollover setting |
+| **Бюджет** | Text | Budget name from "Бюджети"!A:A |
+| **Бюджет** | Text | Budget name (same as column A) |
+| **Ліміт** | Number | `=VLOOKUP(A2;Бюджети!A:C;3;FALSE)` — target amount |
+| **Переносити** | Boolean | `=VLOOKUP(A2;Бюджети!A:G;7;FALSE)` — rollover setting |
 | **Виділено** | Number | Allocated amount (cumulative or monthly, based on rollover) |
 | **Витрачено** | Number | Spent amount from transactions |
 | **Доступно** | Number | `= Виділено - Витрачено` (+ previous balance if rollover) |
@@ -171,7 +167,7 @@ Below the header — table showing each budget's status for selected month.
 )
 ```
 
-- A2 = Budget ID
+- A2 = Budget name
 - D2 = Переносити (rollover setting)
 - If rollover=Так: sum all allocations up to selected month
 - If rollover=Ні: sum only current month allocations
@@ -235,22 +231,22 @@ Use FILTER function:
 
 ## 7. Transaction to Budget Relationship
 
-Transactions have "Бюджет" column that stores budget ID (references "Бюджети"!A:A).
+Transactions have "Бюджет" column that stores budget name (references "Бюджети"!A:A).
 
-### Matching by ID
+### Matching by Name
 
-| Table | ID Column | Description |
-|-------|-----------|-------------|
+| Table | Column | Description |
+|-------|--------|-------------|
 | Транзакції | ID (зовнішній) | Transaction's own external ID from bank |
-| Транзакції | Бюджет | **References budget by ID** (from Бюджети!A:A) |
-| Бюджети | ID | Budget's unique identifier |
+| Транзакції | Бюджет | **References budget by name** (from Бюджети!A:A) |
+| Бюджети | Назва | Budget name |
 
-**Important:** Match transactions to budgets by ID, not by name. This ensures consistency if budget names change.
+**Note:** Transactions are matched to budgets by name.
 
 ### Expense Filtering Rules
 
 - Only transactions with **negative amount** (expenses)
-- Only transactions where **Бюджет** is filled (has budget ID)
+- Only transactions where **Бюджет** is filled (has budget name)
 - Only from **Операційний** accounts
 - For selected **period** (month)
 - **Ignore transfers** between accounts (not counted as budget expenses)
@@ -259,27 +255,26 @@ Transactions have "Бюджет" column that stores budget ID (references "Бю�
 
 ```
 =SUMPRODUCT(
-  (Транзакції!E:E=A2)*                           // Budget ID matches
+  (Транзакції!E:E=A2)*                           // Budget name matches
   (Транзакції!B:B<0)*                            // Negative amount (expense)
   (TEXT(Транзакції!M:M;"YYYY-MM")=$B$1)*         // Month matches
   (Транзакції!B:B)                               // Amount
 )*-1                                             // Invert to show as positive
 ```
 
-Where A2 is the budget ID from the monthly view table.
+Where A2 is the budget name from the monthly view table.
 
 ---
 
 ## 8. Implementation Steps
 
-1. **Add "ID" column to "Бюджети"** (first column) and generate IDs for existing budgets
-2. **Add "Переносити залишок" column to "Бюджети"** and set for each budget
-3. **Add "Роль" column to "Рахунки"** and fill for existing accounts
-4. **Update "Бюджет" column in "Транзакції"** to use budget IDs instead of names
-5. **Create "Виділені кошти" structure** with columns: ID, Бюджет, Сума, Період, Дата, Примітки
-6. **Create new sheet "Місячний огляд"** with header metrics and budget table
-7. **Add warning section** for transactions without budget
-8. **"Дешборд" remains unchanged** (existing functionality)
+1. **Add "Переносити залишок" column to "Бюджети"** and set for each budget
+2. **Add "Роль" column to "Рахунки"** and fill for existing accounts
+3. **Update "Бюджет" column in "Транзакції"** to use budget names
+4. **Create "Виділені кошти" structure** with columns: ID, Бюджет, Сума, Період, Дата, Примітки
+5. **Create new sheet "Місячний огляд"** with header metrics and budget table
+6. **Add warning section** for transactions without budget
+7. **"Дешборд" remains unchanged** (existing functionality)
 
 ---
 
@@ -336,8 +331,8 @@ After implementation:
 
 | Sheet | Status |
 |-------|--------|
-| Бюджети | Updated (+2 columns: ID, Переносити залишок) |
-| Транзакції | Updated (Бюджет column now uses budget IDs) |
+| Бюджети | Updated (+1 column: Переносити залишок) |
+| Транзакції | Updated (Бюджет column now uses budget names) |
 | Категорії | Unchanged |
 | Рахунки | Updated (+1 column: Роль) |
 | Дешборд | Unchanged |

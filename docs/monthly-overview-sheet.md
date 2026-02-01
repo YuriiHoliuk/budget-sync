@@ -21,7 +21,7 @@ The "Місячний огляд" sheet is a dashboard that provides a monthly s
 
 | Column | Header | Description |
 |--------|--------|-------------|
-| A | ID | Budget ID from Бюджети sheet |
+| A | Бюджет | Budget name from Бюджети sheet |
 | B | Бюджет | Budget name |
 | C | Ліміт | Monthly limit amount |
 | D | Переносити | Carry-over flag ("Так"/"Ні") |
@@ -94,7 +94,7 @@ Filters active budgets from the "Бюджети" sheet based on the selected mon
 
 ```
 =IFERROR(FILTER(
-  {'Бюджети'!A2:A\'Бюджети'!B2:B\'Бюджети'!D2:D\'Бюджети'!H2:H};
+  {'Бюджети'!A2:A\'Бюджети'!A2:A\'Бюджети'!C2:C\'Бюджети'!G2:G};
   ('Бюджети'!A2:A<>"") *
   (StartDate <= EndOfSelectedMonth) *
   (EndDate="" OR EndDate >= StartOfSelectedMonth)
@@ -115,6 +115,8 @@ Sums allocations from "Виділені кошти" sheet:
   )
 )
 ```
+
+- A12 = Budget name (matches against budget names in Виділені кошти!B:B)
 
 - **Carry-over ("Так")**: Sum all allocations up to and including selected month
 - **No carry-over ("Ні")**: Sum only allocations for the selected month
@@ -189,7 +191,7 @@ Text-based progress bar using Unicode block characters:
 │    Бюджети      │────▶│     Місячний огляд       │◀────│     Транзакції      │
 │  (Budgets)      │     │    (Monthly View)        │     │   (Transactions)    │
 ├─────────────────┤     ├──────────────────────────┤     ├─────────────────────┤
-│ ID              │     │ Rows 1-7: Header         │     │ B: Сума (Amount)    │
+│ Бюджет (Name)   │     │ Rows 1-7: Header         │     │ B: Сума (Amount)    │
 │ Назва           │     │   - B1: Selected Month   │     │ D: Категорія        │
 │ Ліміт           │     │   - D3:D4: Savings Rate  │     │ E: Бюджет (Budget)  │
 │ Дата початку    │     │                          │     │ M: Час (Timestamp)  │
@@ -201,7 +203,7 @@ Text-based progress bar using Unicode block characters:
 │ Виділені кошти  │     │   - QUERY aggregation    │     │
 │ (Allocations)   │────▶│                          │     │
 ├─────────────────┤     │ Rows 80-87: Monthly      │     │
-│ B: Budget ID    │     │   Summary (6 months)     │     │
+│ B: Budget Name  │     │   Summary (6 months)     │     │
 │ C: Amount       │     └──────────────────────────┘     │
 │ D: Month        │               │                      │
 └─────────────────┘               │                      │

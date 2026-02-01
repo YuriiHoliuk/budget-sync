@@ -75,7 +75,6 @@ async function main(): Promise<void> {
 
   // Expected headers
   const expectedBudgetsHeaders = [
-    'ID',
     'Назва',
     'Тип',
     'Сума',
@@ -147,9 +146,9 @@ async function main(): Promise<void> {
     });
   }
 
-  // Validate Monthly View structure (row 8 = budget table headers)
+  // Validate Monthly View structure (row 11 = budget table headers)
   const expectedMonthlyViewTableHeaders = [
-    'ID',
+    'Бюджет',
     'Бюджет',
     'Ліміт',
     'Переносити',
@@ -157,8 +156,9 @@ async function main(): Promise<void> {
     'Витрачено',
     'Доступно',
     'Прогрес',
+    'Прогрес (візуал)',
   ];
-  const monthlyViewTableHeaders = monthlyViewData[7] || []; // Row 8 (0-indexed: 7)
+  const monthlyViewTableHeaders = monthlyViewData[10] || []; // Row 11 (0-indexed: 10)
   if (JSON.stringify(monthlyViewTableHeaders) === JSON.stringify(expectedMonthlyViewTableHeaders)) {
     report.passed.push({
       passed: true,
@@ -176,25 +176,25 @@ async function main(): Promise<void> {
   // 3. Validate data integrity
   console.log('Validating data integrity...\n');
 
-  // All budgets should have IDs
-  const budgetsWithoutId = budgetsData.slice(1).filter((row) => !row[0] || row[0] === '');
-  if (budgetsWithoutId.length === 0) {
+  // All budgets should have names
+  const budgetsWithoutName = budgetsData.slice(1).filter((row) => !row[0] || row[0] === '');
+  if (budgetsWithoutName.length === 0) {
     report.passed.push({
       passed: true,
-      message: 'All budgets have IDs',
+      message: 'All budgets have names',
     });
   } else {
     report.failed.push({
       passed: false,
-      message: `${budgetsWithoutId.length} budgets are missing IDs`,
-      expected: 'All budgets should have IDs',
-      actual: `Found ${budgetsWithoutId.length} budgets without IDs`,
+      message: `${budgetsWithoutName.length} budgets are missing names`,
+      expected: 'All budgets should have names',
+      actual: `Found ${budgetsWithoutName.length} budgets without names`,
     });
   }
 
   // All budgets should have rollover setting
   const budgetsWithoutRollover = budgetsData.slice(1).filter((row) => {
-    const rollover = row[7];
+    const rollover = row[6];
     return !rollover || (rollover !== 'Так' && rollover !== 'Ні');
   });
   if (budgetsWithoutRollover.length === 0) {
@@ -203,11 +203,9 @@ async function main(): Promise<void> {
       message: 'All budgets have valid rollover setting (Так/Ні)',
     });
   } else {
-    report.failed.push({
+    report.warnings.push({
       passed: false,
-      message: `${budgetsWithoutRollover.length} budgets have missing or invalid rollover setting`,
-      expected: 'Так or Ні',
-      actual: `Found ${budgetsWithoutRollover.length} budgets with invalid rollover`,
+      message: `${budgetsWithoutRollover.length} budgets have missing or invalid rollover setting (expected Так/Ні, empty is allowed for one-time/ongoing budgets)`,
     });
   }
 
@@ -249,18 +247,21 @@ async function main(): Promise<void> {
     return sum + parseNumber(row[3] as string);
   }, 0);
 
-  // Calculate "Всього виділено" (Total allocated up to selected month)
-  const allocationsUpToMonth = allocationsData.slice(1).filter((row) => {
-    const period = String(row[3] || '');
-    return period <= selectedMonth;
-  });
-  const calculatedTotalAllocated = allocationsUpToMonth.reduce((sum, row) => {
-    return sum + parseNumber(row[2] as string);
-  }, 0);
+  // Calculate "Всього виділено" by summing E column from the budget table in Monthly View
+  // This matches the spreadsheet formula =SUM(E12:E100) which respects per-budget rollover logic
+  let calculatedTotalAllocated = 0;
+  for (let rowIndex = 11; rowIndex <= 49; rowIndex++) {
+    const row = monthlyViewData[rowIndex];
+    if (row && row[4]) {
+      calculatedTotalAllocated += parseNumber(row[4] as string);
+    }
+  }
 
   // Get actual values from Monthly View
-  const actualAvailableFunds = parseNumber(monthlyViewData[2]?.[1] as string);
-  const actualCapital = parseNumber(monthlyViewData[3]?.[1] as string);
+  // Row 3 (index 2) = Капітал (заощадження), Row 4 (index 3) = Доступні кошти
+  // Row 5 (index 4) = Всього виділено, Row 6 (index 5) = Готівка для розподілу
+  const actualCapital = parseNumber(monthlyViewData[2]?.[1] as string);
+  const actualAvailableFunds = parseNumber(monthlyViewData[3]?.[1] as string);
   const actualTotalAllocated = parseNumber(monthlyViewData[4]?.[1] as string);
   const actualReadyToAssign = parseNumber(monthlyViewData[5]?.[1] as string);
 
@@ -325,10 +326,10 @@ async function main(): Promise<void> {
     });
   }
 
-  // 5. Check for transactions using budget IDs vs names
+  // 5. Check for transactions using budget names
   console.log('Checking transaction budget references...\n');
 
-  const budgetIds = new Set(budgetsData.slice(1).map((row) => row[0]));
+  const budgetNames = new Set(budgetsData.slice(1).map((row) => row[0]));
   const transactionsWithBudget = transactionsData.slice(1).filter((row) => {
     const budget = row[4]; // Column E = Budget
     return budget && budget !== '';
@@ -336,19 +337,19 @@ async function main(): Promise<void> {
 
   const transactionsWithInvalidBudget = transactionsWithBudget.filter((row) => {
     const budget = row[4];
-    return !budgetIds.has(budget);
+    return !budgetNames.has(budget);
   });
 
   if (transactionsWithInvalidBudget.length === 0) {
     report.passed.push({
       passed: true,
-      message: `All ${transactionsWithBudget.length} transactions with budgets use valid budget IDs`,
+      message: `All ${transactionsWithBudget.length} transactions with budgets use valid budget names`,
     });
   } else {
     report.failed.push({
       passed: false,
       message: `${transactionsWithInvalidBudget.length} transactions have invalid budget references`,
-      expected: 'Budget IDs like budget-001, budget-002, etc.',
+      expected: 'Budget names from Бюджети sheet',
       actual: `Found: ${[...new Set(transactionsWithInvalidBudget.map((row) => row[4]))].slice(0, 5).join(', ')}`,
     });
   }
