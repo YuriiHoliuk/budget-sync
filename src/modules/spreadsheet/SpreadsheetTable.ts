@@ -533,11 +533,23 @@ export class SpreadsheetTable<T extends Record<string, ColumnDefinition>> {
     rowIndex: number,
     columnName: string,
   ): Date {
-    const parsedDate = new Date(String(value));
-    if (Number.isNaN(parsedDate.getTime())) {
-      throw new RowParseError(rowIndex, columnName, 'date', value);
+    const stringValue = String(value);
+    const parsedDate = new Date(stringValue);
+    if (!Number.isNaN(parsedDate.getTime())) {
+      return parsedDate;
     }
-    return parsedDate;
+
+    // Try dd.mm.yyyy format (common in spreadsheets)
+    const ddmmyyyy = stringValue.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (ddmmyyyy) {
+      const [, day, month, year] = ddmmyyyy;
+      const date = new Date(`${year}-${month}-${day}`);
+      if (!Number.isNaN(date.getTime())) {
+        return date;
+      }
+    }
+
+    throw new RowParseError(rowIndex, columnName, 'date', value);
   }
 
   /**

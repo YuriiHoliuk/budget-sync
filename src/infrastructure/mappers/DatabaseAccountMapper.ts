@@ -38,9 +38,7 @@ export class DatabaseAccountMapper {
         type: accountType,
         iban: row.iban ?? undefined,
         bank: row.bank ?? undefined,
-        lastSyncTime: row.lastSyncTime
-          ? Math.floor(row.lastSyncTime.getTime() / 1000)
-          : undefined,
+        lastSyncTime: row.lastSyncTime ? row.lastSyncTime.getTime() : undefined,
         dbId: row.id,
       },
       row.externalId ?? String(row.id),
@@ -64,7 +62,7 @@ export class DatabaseAccountMapper {
       iban: account.iban ?? null,
       bank: account.bank ?? null,
       lastSyncTime: account.lastSyncTime
-        ? new Date(account.lastSyncTime * 1000)
+        ? new Date(account.lastSyncTime)
         : null,
     };
   }

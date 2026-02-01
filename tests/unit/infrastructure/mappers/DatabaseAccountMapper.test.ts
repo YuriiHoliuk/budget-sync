@@ -176,7 +176,7 @@ describe('DatabaseAccountMapper', () => {
 
       const account = mapper.toEntity(row);
 
-      expect(account.lastSyncTime).toBe(Math.floor(syncTime.getTime() / 1000));
+      expect(account.lastSyncTime).toBe(syncTime.getTime());
     });
 
     test('should handle null lastSyncTime', () => {
@@ -362,11 +362,9 @@ describe('DatabaseAccountMapper', () => {
       expect(row.creditLimit).toBe(0);
     });
 
-    test('should convert lastSyncTime from Unix timestamp to Date', () => {
+    test('should convert lastSyncTime from millisecond timestamp to Date', () => {
       const currency = Currency.UAH;
-      const syncTimestamp = Math.floor(
-        new Date('2024-01-15T12:00:00Z').getTime() / 1000,
-      );
+      const syncTimestamp = new Date('2024-01-15T12:00:00Z').getTime();
       const account = Account.create({
         externalId: 'ext-110',
         name: 'Synced Account',
@@ -378,7 +376,7 @@ describe('DatabaseAccountMapper', () => {
       const row: NewAccountRow = mapper.toInsert(account);
 
       expect(row.lastSyncTime).toBeInstanceOf(Date);
-      expect(row.lastSyncTime?.getTime()).toBe(syncTimestamp * 1000);
+      expect(row.lastSyncTime?.getTime()).toBe(syncTimestamp);
     });
 
     test('should handle null lastSyncTime', () => {
