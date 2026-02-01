@@ -23,6 +23,8 @@ export interface BudgetRecord {
   startDate?: Date;
   /** End date for the budget period (optional) */
   endDate?: Date;
+  /** Database ID (auto-incremented row number) */
+  dbId?: number;
 }
 
 /**
@@ -42,6 +44,7 @@ export class SpreadsheetBudgetMapper {
       currency: budget.amount.currency.code,
       startDate: budget.startDate,
       endDate: budget.endDate,
+      dbId: budget.dbId ?? undefined,
     };
   }
 
@@ -60,6 +63,7 @@ export class SpreadsheetBudgetMapper {
       amount: money,
       startDate: record.startDate ?? new Date(0),
       endDate: record.endDate ?? new Date('2099-12-31'),
+      dbId: record.dbId,
     });
   }
 }

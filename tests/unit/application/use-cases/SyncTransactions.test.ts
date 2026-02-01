@@ -28,7 +28,7 @@ function createTestTransaction(
   const externalId =
     overrides.externalId ?? `tx-${Date.now()}-${Math.random()}`;
   return createTestTransactionBase({
-    date: new Date('2026-01-02T10:00:00.000Z'),
+    date: new Date(),
     amount: Money.create(-5000, Currency.UAH),
     description: 'Test transaction',
     type: TransactionType.DEBIT,

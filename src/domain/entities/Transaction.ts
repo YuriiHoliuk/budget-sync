@@ -26,6 +26,7 @@ export interface TransactionProps {
   invoiceId?: string;
   /** Counterparty tax ID (EDRPOU) */
   counterEdrpou?: string;
+  dbId?: number | null;
 }
 
 export class Transaction {
@@ -115,11 +116,19 @@ export class Transaction {
     return this.props.counterEdrpou;
   }
 
+  get dbId(): number | null {
+    return this.props.dbId ?? null;
+  }
+
   get isCredit(): boolean {
     return this.props.type === TransactionType.CREDIT;
   }
 
   get isDebit(): boolean {
     return this.props.type === TransactionType.DEBIT;
+  }
+
+  withDbId(dbId: number): Transaction {
+    return Transaction.create({ ...this.props, dbId }, this.id);
   }
 }

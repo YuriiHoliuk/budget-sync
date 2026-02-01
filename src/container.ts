@@ -2,7 +2,7 @@
  * Dependency Injection Container Setup
  *
  * Configures TSyringe container with all dependencies for the budget-sync application.
- * Uses type-based injection (abstract classes) rather than string tokens.
+ * Uses dual-write pattern: DB primary + Spreadsheet mirror.
  */
 
 import 'reflect-metadata';
@@ -29,6 +29,27 @@ import {
   PUBSUB_QUEUE_CONFIG_TOKEN,
   PubSubMessageQueueGateway,
 } from '@infrastructure/gateways/pubsub/index.ts';
+import { DualWriteAccountRepository } from '@infrastructure/repositories/DualWriteAccountRepository.ts';
+import { DualWriteBudgetizationRuleRepository } from '@infrastructure/repositories/DualWriteBudgetizationRuleRepository.ts';
+import { DualWriteBudgetRepository } from '@infrastructure/repositories/DualWriteBudgetRepository.ts';
+import { DualWriteCategorizationRuleRepository } from '@infrastructure/repositories/DualWriteCategorizationRuleRepository.ts';
+import { DualWriteCategoryRepository } from '@infrastructure/repositories/DualWriteCategoryRepository.ts';
+import { DualWriteTransactionRepository } from '@infrastructure/repositories/DualWriteTransactionRepository.ts';
+import { DatabaseAccountRepository } from '@infrastructure/repositories/database/DatabaseAccountRepository.ts';
+import { DatabaseBudgetizationRuleRepository } from '@infrastructure/repositories/database/DatabaseBudgetizationRuleRepository.ts';
+import { DatabaseBudgetRepository } from '@infrastructure/repositories/database/DatabaseBudgetRepository.ts';
+import { DatabaseCategorizationRuleRepository } from '@infrastructure/repositories/database/DatabaseCategorizationRuleRepository.ts';
+import { DatabaseCategoryRepository } from '@infrastructure/repositories/database/DatabaseCategoryRepository.ts';
+import { DatabaseTransactionRepository } from '@infrastructure/repositories/database/DatabaseTransactionRepository.ts';
+import {
+  DATABASE_ACCOUNT_REPOSITORY_TOKEN,
+  DATABASE_BUDGET_REPOSITORY_TOKEN,
+  DATABASE_BUDGETIZATION_RULE_REPOSITORY_TOKEN,
+  DATABASE_CATEGORIZATION_RULE_REPOSITORY_TOKEN,
+  DATABASE_CATEGORY_REPOSITORY_TOKEN,
+  DATABASE_CLIENT_TOKEN,
+  DATABASE_TRANSACTION_REPOSITORY_TOKEN,
+} from '@infrastructure/repositories/database/tokens.ts';
 import {
   SPREADSHEET_CONFIG_TOKEN,
   SPREADSHEETS_CLIENT_TOKEN,
@@ -42,8 +63,18 @@ import {
   ACCOUNT_NAME_RESOLVER_TOKEN,
   SpreadsheetTransactionRepository,
 } from '@infrastructure/repositories/SpreadsheetTransactionRepository.ts';
+import {
+  SPREADSHEET_ACCOUNT_REPOSITORY_TOKEN,
+  SPREADSHEET_BUDGET_REPOSITORY_TOKEN,
+  SPREADSHEET_BUDGETIZATION_RULE_REPOSITORY_TOKEN,
+  SPREADSHEET_CATEGORIZATION_RULE_REPOSITORY_TOKEN,
+  SPREADSHEET_CATEGORY_REPOSITORY_TOKEN,
+  SPREADSHEET_TRANSACTION_REPOSITORY_TOKEN,
+} from '@infrastructure/repositories/spreadsheet/tokens.ts';
 import { SpreadsheetAccountNameResolver } from '@infrastructure/services/AccountNameResolver.ts';
+import { DatabaseClient } from '@modules/database/DatabaseClient.ts';
 import { GeminiClient } from '@modules/llm/index.ts';
+import { ConsoleLogger, LOGGER_TOKEN } from '@modules/logging/index.ts';
 import { PubSubClient } from '@modules/pubsub/index.ts';
 import { SpreadsheetsClient } from '@modules/spreadsheet/SpreadsheetsClient.ts';
 import { container } from 'tsyringe';
@@ -115,7 +146,14 @@ export function setupContainer(): typeof container {
     ? new GeminiClient({ apiKey: geminiApiKey })
     : null;
 
-  // Register infrastructure dependencies (config tokens and clients)
+  // Database configuration
+  const databaseUrl = getRequiredEnv('DATABASE_URL');
+  const databaseClient = new DatabaseClient({ url: databaseUrl });
+
+  // Register Logger
+  container.register(LOGGER_TOKEN, { useClass: ConsoleLogger });
+
+  // Register infrastructure clients
   container.register(SPREADSHEETS_CLIENT_TOKEN, {
     useValue: spreadsheetsClient,
   });
@@ -125,44 +163,82 @@ export function setupContainer(): typeof container {
   container.register(PUBSUB_QUEUE_CONFIG_TOKEN, {
     useValue: pubSubQueueConfig,
   });
+  container.register(DATABASE_CLIENT_TOKEN, { useValue: databaseClient });
 
   // LLM Client (optional - categorization disabled if not configured)
   if (geminiClient) {
     container.register(GEMINI_CLIENT_TOKEN, { useValue: geminiClient });
   }
 
-  // Register domain abstractions with their infrastructure implementations
-  // Uses Symbol tokens defined in domain layer for type-safe injection
+  // Register gateways
   container.register(BANK_GATEWAY_TOKEN, { useClass: MonobankGateway });
   container.register(MESSAGE_QUEUE_GATEWAY_TOKEN, {
     useClass: PubSubMessageQueueGateway,
   });
-  container.register(ACCOUNT_REPOSITORY_TOKEN, {
-    useClass: SpreadsheetAccountRepository,
-  });
 
-  // Account name resolver (needed by transaction repository)
+  // Account name resolver (needed by spreadsheet transaction repository)
   container.register(ACCOUNT_NAME_RESOLVER_TOKEN, {
     useClass: SpreadsheetAccountNameResolver,
   });
 
-  // Transaction repository
-  container.register(TRANSACTION_REPOSITORY_TOKEN, {
-    useClass: SpreadsheetTransactionRepository,
+  // Register internal database repositories (used by dual-write orchestrators)
+  container.register(DATABASE_ACCOUNT_REPOSITORY_TOKEN, {
+    useClass: DatabaseAccountRepository,
+  });
+  container.register(DATABASE_TRANSACTION_REPOSITORY_TOKEN, {
+    useClass: DatabaseTransactionRepository,
+  });
+  container.register(DATABASE_CATEGORY_REPOSITORY_TOKEN, {
+    useClass: DatabaseCategoryRepository,
+  });
+  container.register(DATABASE_BUDGET_REPOSITORY_TOKEN, {
+    useClass: DatabaseBudgetRepository,
+  });
+  container.register(DATABASE_CATEGORIZATION_RULE_REPOSITORY_TOKEN, {
+    useClass: DatabaseCategorizationRuleRepository,
+  });
+  container.register(DATABASE_BUDGETIZATION_RULE_REPOSITORY_TOKEN, {
+    useClass: DatabaseBudgetizationRuleRepository,
   });
 
-  // Category, Budget, and Categorization Rule repositories
-  container.register(CATEGORY_REPOSITORY_TOKEN, {
+  // Register internal spreadsheet repositories (used by dual-write orchestrators)
+  container.register(SPREADSHEET_ACCOUNT_REPOSITORY_TOKEN, {
+    useClass: SpreadsheetAccountRepository,
+  });
+  container.register(SPREADSHEET_TRANSACTION_REPOSITORY_TOKEN, {
+    useClass: SpreadsheetTransactionRepository,
+  });
+  container.register(SPREADSHEET_CATEGORY_REPOSITORY_TOKEN, {
     useClass: SpreadsheetCategoryRepository,
   });
-  container.register(BUDGET_REPOSITORY_TOKEN, {
+  container.register(SPREADSHEET_BUDGET_REPOSITORY_TOKEN, {
     useClass: SpreadsheetBudgetRepository,
   });
-  container.register(CATEGORIZATION_RULE_REPOSITORY_TOKEN, {
+  container.register(SPREADSHEET_CATEGORIZATION_RULE_REPOSITORY_TOKEN, {
     useClass: SpreadsheetCategorizationRuleRepository,
   });
-  container.register(BUDGETIZATION_RULE_REPOSITORY_TOKEN, {
+  container.register(SPREADSHEET_BUDGETIZATION_RULE_REPOSITORY_TOKEN, {
     useClass: SpreadsheetBudgetizationRuleRepository,
+  });
+
+  // Register domain tokens → dual-write orchestrators
+  container.register(ACCOUNT_REPOSITORY_TOKEN, {
+    useClass: DualWriteAccountRepository,
+  });
+  container.register(TRANSACTION_REPOSITORY_TOKEN, {
+    useClass: DualWriteTransactionRepository,
+  });
+  container.register(CATEGORY_REPOSITORY_TOKEN, {
+    useClass: DualWriteCategoryRepository,
+  });
+  container.register(BUDGET_REPOSITORY_TOKEN, {
+    useClass: DualWriteBudgetRepository,
+  });
+  container.register(CATEGORIZATION_RULE_REPOSITORY_TOKEN, {
+    useClass: DualWriteCategorizationRuleRepository,
+  });
+  container.register(BUDGETIZATION_RULE_REPOSITORY_TOKEN, {
+    useClass: DualWriteBudgetizationRuleRepository,
   });
 
   // LLM Gateway (only registered if Gemini client is available)

@@ -19,6 +19,11 @@ export const CATEGORIES_SHEET_NAME = 'Категорії';
  * Optional columns (required: false) may be missing.
  */
 export const categorySchema = {
+  dbId: {
+    name: 'ID',
+    type: 'number',
+    required: false,
+  } as ColumnDefinition,
   name: {
     name: 'Назва',
     type: 'string',

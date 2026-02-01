@@ -4,6 +4,7 @@ export interface CategoryProps {
   name: string;
   parent?: string;
   status: CategoryStatus;
+  dbId?: number | null;
 }
 
 export class Category {
@@ -26,6 +27,10 @@ export class Category {
 
   get status(): CategoryStatus {
     return this.props.status;
+  }
+
+  get dbId(): number | null {
+    return this.props.dbId ?? null;
   }
 
   /** Returns immediate full path: "Parent > Child" (only 2 levels) */
@@ -55,5 +60,9 @@ export class Category {
     }
 
     return pathParts.join(' > ');
+  }
+
+  withDbId(dbId: number): Category {
+    return Category.create({ ...this.props, dbId }, this.id);
   }
 }

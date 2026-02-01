@@ -19,6 +19,11 @@ export const ACCOUNTS_SHEET_NAME = 'Рахунки';
  * Optional columns (required: false) may be missing.
  */
 export const accountSchema = {
+  dbId: {
+    name: 'ID',
+    type: 'number',
+    required: false,
+  } as ColumnDefinition,
   externalId: {
     name: 'ID (зовнішній)',
     type: 'string',

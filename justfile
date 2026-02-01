@@ -79,6 +79,22 @@ test-coverage:
     bun test --coverage tests/unit
 
 # ============================================
+# Database Commands
+# ============================================
+
+# Generate database migration files from schema changes
+db-generate:
+    bunx drizzle-kit generate
+
+# Run pending database migrations
+db-migrate:
+    bunx drizzle-kit migrate
+
+# Open Drizzle Studio for database inspection
+db-studio:
+    bunx drizzle-kit studio
+
+# ============================================
 # Google Cloud Commands
 # ============================================
 

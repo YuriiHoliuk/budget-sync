@@ -174,6 +174,24 @@ export class SpreadsheetTransactionRepository
   }
 
   /**
+   * Save a transaction and return it.
+   * Spreadsheet doesn't generate IDs, so we just save and return the same transaction.
+   */
+  async saveAndReturn(transaction: Transaction): Promise<Transaction> {
+    await this.save(transaction);
+    return transaction;
+  }
+
+  /**
+   * Save multiple transactions and return them.
+   * Spreadsheet doesn't generate IDs, so we just save and return the same transactions.
+   */
+  async saveManyAndReturn(transactions: Transaction[]): Promise<Transaction[]> {
+    await this.saveMany(transactions);
+    return transactions;
+  }
+
+  /**
    * Update an existing transaction in the spreadsheet.
    * Finds the transaction by externalId and updates its data.
    */

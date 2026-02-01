@@ -5,6 +5,7 @@ export interface BudgetProps {
   amount: Money;
   startDate: Date;
   endDate: Date;
+  dbId?: number | null;
 }
 
 export class Budget {
@@ -33,8 +34,16 @@ export class Budget {
     return this.props.endDate;
   }
 
+  get dbId(): number | null {
+    return this.props.dbId ?? null;
+  }
+
   /** Returns true if the budget is active on the given date */
   isActiveOn(date: Date): boolean {
     return date >= this.props.startDate && date <= this.props.endDate;
+  }
+
+  withDbId(dbId: number): Budget {
+    return Budget.create({ ...this.props, dbId }, this.id);
   }
 }

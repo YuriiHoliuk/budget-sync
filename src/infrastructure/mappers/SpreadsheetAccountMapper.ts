@@ -36,6 +36,8 @@ export interface AccountRecord {
   bank?: string;
   /** Last sync timestamp in Unix seconds */
   lastSyncTime?: number;
+  /** Database ID (auto-incremented row number) */
+  dbId?: number;
 }
 
 /**
@@ -89,6 +91,7 @@ export class SpreadsheetAccountMapper {
       iban: account.iban,
       bank: account.bank,
       lastSyncTime: account.lastSyncTime,
+      dbId: account.dbId ?? undefined,
     };
   }
 
@@ -139,6 +142,7 @@ export class SpreadsheetAccountMapper {
         iban: record.iban,
         bank: record.bank,
         lastSyncTime: record.lastSyncTime,
+        dbId: record.dbId,
       },
       accountId,
     );

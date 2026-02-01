@@ -11,6 +11,7 @@ export interface AccountProps {
   maskedPan?: string[];
   bank?: string;
   lastSyncTime?: number;
+  dbId?: number | null;
 }
 
 export class Account {
@@ -64,6 +65,10 @@ export class Account {
     return this.props.lastSyncTime;
   }
 
+  get dbId(): number | null {
+    return this.props.dbId ?? null;
+  }
+
   /**
    * Returns true if this account has a credit limit (is a credit card).
    */
@@ -83,5 +88,9 @@ export class Account {
       return this.props.balance.subtract(this.props.creditLimit);
     }
     return this.props.balance;
+  }
+
+  withDbId(dbId: number): Account {
+    return Account.create({ ...this.props, dbId }, this.id);
   }
 }

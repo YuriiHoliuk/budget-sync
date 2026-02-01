@@ -19,6 +19,8 @@ export interface CategoryRecord {
   parent?: string;
   /** Status: "active", "suggested", or "archived" (optional, defaults to "active") */
   status?: string;
+  /** Database ID (auto-incremented row number) */
+  dbId?: number;
 }
 
 /**
@@ -46,6 +48,7 @@ export class SpreadsheetCategoryMapper {
       name: category.name,
       parent: category.parent,
       status: category.status,
+      dbId: category.dbId ?? undefined,
     };
   }
 
@@ -62,6 +65,7 @@ export class SpreadsheetCategoryMapper {
       name: record.name,
       parent: record.parent,
       status,
+      dbId: record.dbId,
     });
   }
 

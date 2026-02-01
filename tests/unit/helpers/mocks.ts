@@ -60,6 +60,23 @@ export function createMockBankGateway(
   } as unknown as BankGateway;
 }
 
+/** Default mock implementations for AccountRepository */
+function getDefaultAccountRepositoryMocks() {
+  return {
+    findById: mock(() => Promise.resolve(null)),
+    findByExternalId: mock(() => Promise.resolve(null)),
+    findByIban: mock(() => Promise.resolve(null)),
+    findByBank: mock(() => Promise.resolve([])),
+    findAll: mock(() => Promise.resolve([])),
+    save: mock(() => Promise.resolve()),
+    saveAndReturn: mock((account: Account) => Promise.resolve(account)),
+    update: mock(() => Promise.resolve()),
+    delete: mock(() => Promise.resolve()),
+    updateLastSyncTime: mock(() => Promise.resolve()),
+    updateBalance: mock(() => Promise.resolve()),
+  };
+}
+
 /**
  * Creates a mock AccountRepository with default implementations.
  * All find methods return null/empty, all mutation methods resolve successfully.
@@ -72,26 +89,15 @@ export function createMockAccountRepository(
     findByBank: (bank: string) => Promise<Account[]>;
     findAll: () => Promise<Account[]>;
     save: (account: Account) => Promise<void>;
+    saveAndReturn: (account: Account) => Promise<Account>;
     update: (account: Account) => Promise<void>;
     delete: (id: string) => Promise<void>;
     updateLastSyncTime: (accountId: string, timestamp: number) => Promise<void>;
     updateBalance: (externalId: string, newBalance: Money) => Promise<void>;
   }> = {},
 ): AccountRepository {
-  return {
-    findById: overrides.findById ?? mock(() => Promise.resolve(null)),
-    findByExternalId:
-      overrides.findByExternalId ?? mock(() => Promise.resolve(null)),
-    findByIban: overrides.findByIban ?? mock(() => Promise.resolve(null)),
-    findByBank: overrides.findByBank ?? mock(() => Promise.resolve([])),
-    findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
-    save: overrides.save ?? mock(() => Promise.resolve()),
-    update: overrides.update ?? mock(() => Promise.resolve()),
-    delete: overrides.delete ?? mock(() => Promise.resolve()),
-    updateLastSyncTime:
-      overrides.updateLastSyncTime ?? mock(() => Promise.resolve()),
-    updateBalance: overrides.updateBalance ?? mock(() => Promise.resolve()),
-  } as unknown as AccountRepository;
+  const defaults = getDefaultAccountRepositoryMocks();
+  return { ...defaults, ...overrides } as unknown as AccountRepository;
 }
 
 /** Default mock implementations for TransactionRepository */
@@ -105,11 +111,19 @@ function getDefaultTransactionRepositoryMocks() {
     findByAccountId: mock(() => Promise.resolve([])),
     findAll: mock(() => Promise.resolve([])),
     save: mock(() => Promise.resolve()),
+    saveAndReturn: mock((transaction: Transaction) =>
+      Promise.resolve(transaction),
+    ),
     update: mock(() => Promise.resolve()),
     delete: mock(() => Promise.resolve()),
     saveMany: mock(() => Promise.resolve()),
+    saveManyAndReturn: mock((transactions: Transaction[]) =>
+      Promise.resolve(transactions),
+    ),
     updateMany: mock(() => Promise.resolve()),
     updateCategorization: mock(() => Promise.resolve()),
+    findByCategorizationStatus: mock(() => Promise.resolve([])),
+    findUncategorized: mock(() => Promise.resolve([])),
   };
 }
 
@@ -127,14 +141,18 @@ export function createMockTransactionRepository(
     findByAccountId: (accountId: string) => Promise<Transaction[]>;
     findAll: () => Promise<Transaction[]>;
     save: (transaction: Transaction) => Promise<void>;
+    saveAndReturn: (transaction: Transaction) => Promise<Transaction>;
     update: (transaction: Transaction) => Promise<void>;
     delete: (id: string) => Promise<void>;
     saveMany: (transactions: Transaction[]) => Promise<void>;
+    saveManyAndReturn: (transactions: Transaction[]) => Promise<Transaction[]>;
     updateMany: (transactions: Transaction[]) => Promise<void>;
     updateCategorization: (
       externalId: string,
       data: CategorizationUpdate,
     ) => Promise<void>;
+    findByCategorizationStatus: (status: string) => Promise<Transaction[]>;
+    findUncategorized: () => Promise<Transaction[]>;
   }> = {},
 ): TransactionRepository {
   const defaults = getDefaultTransactionRepositoryMocks();
@@ -206,6 +224,7 @@ export function createMockCategoryRepository(
     findByName: (name: string) => Promise<Category | null>;
     findActive: () => Promise<Category[]>;
     save: (category: Category) => Promise<void>;
+    saveAndReturn: (category: Category) => Promise<Category>;
   }> = {},
 ): CategoryRepository {
   return {
@@ -213,6 +232,9 @@ export function createMockCategoryRepository(
     findByName: overrides.findByName ?? mock(() => Promise.resolve(null)),
     findActive: overrides.findActive ?? mock(() => Promise.resolve([])),
     save: overrides.save ?? mock(() => Promise.resolve()),
+    saveAndReturn:
+      overrides.saveAndReturn ??
+      mock((category: Category) => Promise.resolve(category)),
   } as unknown as CategoryRepository;
 }
 
@@ -225,12 +247,18 @@ export function createMockBudgetRepository(
     findAll: () => Promise<Budget[]>;
     findByName: (name: string) => Promise<Budget | null>;
     findActive: (date: Date) => Promise<Budget[]>;
+    save: (budget: Budget) => Promise<void>;
+    saveAndReturn: (budget: Budget) => Promise<Budget>;
   }> = {},
 ): BudgetRepository {
   return {
     findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
     findByName: overrides.findByName ?? mock(() => Promise.resolve(null)),
     findActive: overrides.findActive ?? mock(() => Promise.resolve([])),
+    save: overrides.save ?? mock(() => Promise.resolve()),
+    saveAndReturn:
+      overrides.saveAndReturn ??
+      mock((budget: Budget) => Promise.resolve(budget)),
   } as unknown as BudgetRepository;
 }
 

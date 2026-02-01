@@ -77,6 +77,8 @@ export interface TransactionRecord {
   categoryReason?: string;
   /** Reason for budget assignment from LLM */
   budgetReason?: string;
+  /** Database ID (auto-incremented row number) */
+  dbId?: number;
 }
 
 /**
@@ -123,6 +125,7 @@ export class SpreadsheetTransactionMapper {
       receiptId: transaction.receiptId,
       invoiceId: transaction.invoiceId,
       counterEdrpou: transaction.counterEdrpou,
+      dbId: transaction.dbId ?? undefined,
     };
   }
 
@@ -164,6 +167,7 @@ export class SpreadsheetTransactionMapper {
       receiptId: record.receiptId,
       invoiceId: record.invoiceId,
       counterEdrpou: record.counterEdrpou,
+      dbId: record.dbId,
     });
   }
 

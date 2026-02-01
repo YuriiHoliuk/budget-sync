@@ -15,4 +15,5 @@ export abstract class CategoryRepository {
   abstract findByName(name: string): Promise<Category | null>;
   abstract findActive(): Promise<Category[]>;
   abstract save(category: Category): Promise<void>;
+  abstract saveAndReturn(category: Category): Promise<Category>;
 }

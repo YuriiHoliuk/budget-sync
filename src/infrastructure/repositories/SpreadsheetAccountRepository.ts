@@ -233,4 +233,13 @@ export class SpreadsheetAccountRepository
       throw new Error(`Account not found for deletion: ${id}`);
     }
   }
+
+  /**
+   * Save an account and return it.
+   * Spreadsheet doesn't generate IDs, so we just save and return the same account.
+   */
+  async saveAndReturn(account: Account): Promise<Account> {
+    await this.save(account);
+    return account;
+  }
 }

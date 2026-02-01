@@ -37,7 +37,7 @@ export function createTestAccount(
  */
 const DEFAULT_TRANSACTION_PROPS = {
   externalId: 'tx-123',
-  date: new Date('2026-01-01T12:00:00.000Z'),
+  date: new Date(),
   amount: Money.create(5000, Currency.UAH),
   description: 'Test Transaction',
   type: TransactionType.DEBIT,
@@ -65,7 +65,7 @@ export const FAST_TEST_OPTIONS = {
   requestDelayMs: 0,
   maxRetries: 1,
   initialBackoffMs: 0,
-  earliestSyncDate: new Date('2026-01-01'),
+  earliestSyncDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
   syncOverlapMs: 0,
 } as const;
 
@@ -76,7 +76,7 @@ export const DEFAULT_SYNC_OPTIONS = {
   requestDelayMs: 0,
   maxRetries: 3,
   initialBackoffMs: 0,
-  earliestSyncDate: new Date('2026-01-01'),
+  earliestSyncDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
   syncOverlapMs: 600000,
 } as const;
 
@@ -109,7 +109,7 @@ export interface TestStatementItem {
  */
 const DEFAULT_STATEMENT_ITEM: TestStatementItem = {
   id: 'stmt-123',
-  time: Math.floor(new Date('2026-01-01T12:00:00.000Z').getTime() / 1000),
+  time: Math.floor(Date.now() / 1000),
   description: 'Test Transaction',
   mcc: 5411, // Grocery stores
   originalMcc: 5411,
@@ -194,7 +194,7 @@ const DEFAULT_QUEUED_TRANSACTION: TestQueuedWebhookTransactionDTO = {
   newBalanceCurrencyCode: 980,
   transaction: {
     externalId: 'tx-123',
-    date: '2026-01-01T12:00:00.000Z',
+    date: new Date().toISOString(),
     amount: -5000,
     currencyCode: 980,
     operationAmount: -5000,

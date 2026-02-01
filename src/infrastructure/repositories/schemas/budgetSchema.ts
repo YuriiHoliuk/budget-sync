@@ -19,6 +19,11 @@ export const BUDGETS_SHEET_NAME = 'Бюджети';
  * Optional columns (required: false) may be missing.
  */
 export const budgetSchema = {
+  dbId: {
+    name: 'ID',
+    type: 'number',
+    required: false,
+  } as ColumnDefinition,
   name: {
     name: 'Назва',
     type: 'string',

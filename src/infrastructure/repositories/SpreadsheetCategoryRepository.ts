@@ -72,4 +72,13 @@ export class SpreadsheetCategoryRepository
       return !status || status === CategoryStatus.ACTIVE;
     });
   }
+
+  /**
+   * Save a category and return it.
+   * Spreadsheet doesn't generate IDs, so we just save and return the same category.
+   */
+  async saveAndReturn(category: Category): Promise<Category> {
+    await this.save(category);
+    return category;
+  }
 }

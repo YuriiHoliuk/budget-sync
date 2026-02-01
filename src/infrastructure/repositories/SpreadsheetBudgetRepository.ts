@@ -8,6 +8,7 @@
 import type { Budget } from '@domain/entities/Budget.ts';
 import type { BudgetRepository } from '@domain/repositories/BudgetRepository.ts';
 import type { SpreadsheetsClient } from '@modules/spreadsheet/SpreadsheetsClient.ts';
+import type { SchemaToRecord } from '@modules/spreadsheet/types.ts';
 import { inject, injectable } from 'tsyringe';
 import {
   type BudgetRecord,
@@ -71,5 +72,23 @@ export class SpreadsheetBudgetRepository
       const endDate = record.endDate ?? new Date('2099-12-31');
       return date >= startDate && date <= endDate;
     });
+  }
+
+  /**
+   * Save a budget to the spreadsheet.
+   * Appends the budget as a new row.
+   */
+  override async save(budget: Budget): Promise<void> {
+    const record = this.toRecord(budget);
+    await this.table.appendRow(record as SchemaToRecord<BudgetSchema>);
+  }
+
+  /**
+   * Save a budget and return it.
+   * Spreadsheet doesn't generate IDs, so we just save and return the same budget.
+   */
+  async saveAndReturn(budget: Budget): Promise<Budget> {
+    await this.save(budget);
+    return budget;
   }
 }

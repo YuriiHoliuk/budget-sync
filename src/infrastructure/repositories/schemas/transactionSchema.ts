@@ -19,6 +19,11 @@ export const TRANSACTIONS_SHEET_NAME = 'Транзакції';
  * Optional columns (required: false) may be missing.
  */
 export const transactionSchema = {
+  dbId: {
+    name: 'ID',
+    type: 'number',
+    required: false,
+  } as ColumnDefinition,
   externalId: {
     name: 'ID (зовнішній)',
     type: 'string',
