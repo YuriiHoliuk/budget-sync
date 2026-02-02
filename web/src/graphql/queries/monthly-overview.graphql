@@ -1,0 +1,21 @@
+query GetMonthlyOverview($month: String!) {
+  monthlyOverview(month: $month) {
+    month
+    readyToAssign
+    totalAllocated
+    totalSpent
+    capitalBalance
+    availableFunds
+    savingsRate
+    budgetSummaries {
+      budgetId
+      name
+      type
+      targetAmount
+      allocated
+      spent
+      available
+      carryover
+    }
+  }
+}

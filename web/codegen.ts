@@ -6,9 +6,7 @@ const config: CodegenConfig = {
   generates: {
     "src/graphql/generated/": {
       preset: "client",
-      config: {
-        documentMode: "string",
-      },
+      config: {},
     },
   },
   ignoreNoDocuments: true,

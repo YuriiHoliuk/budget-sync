@@ -2,6 +2,20 @@
 
 ## 2026-02-02
 
+### P4-001: Monthly Overview header with key metrics
+
+- Created `monthly-overview.graphql` query document for the monthlyOverview API
+- Changed GraphQL codegen from `documentMode: "string"` to default `DocumentNode` for Apollo Client compatibility
+- Created `formatCurrency` and `formatPercent` utilities in `web/src/lib/format.ts` (Ukrainian locale, UAH)
+- Built `MonthlyOverviewHeader` component with:
+  - Prominent "Ready to Assign" banner with color coding (green=0, yellow>0, red<0)
+  - Metrics row: Available Funds, Capital, Total Allocated, Total Spent, Savings Rate
+  - Loading skeleton state and error display
+  - Reactive to month changes via `useMonth` hook
+- Installed ShadCN `badge` component
+- Integrated header into Budget Overview page (`page.tsx`)
+- Verified: Next.js build passes, 707 backend tests pass, visually tested in dark and light modes with real data
+
 ### P3-003: App layout with navigation sidebar
 
 - Installed ShadCN sidebar, separator, tooltip, sheet, skeleton, dropdown-menu components

@@ -127,7 +127,7 @@
     "phase": "P4: Budget Overview Page (Main Feature)",
     "title": "Build Monthly Overview header with key metrics",
     "description": "Create the Budget page (main page) header section showing: month selector (prev/next arrows + month name), Ready to Assign (with color coding: green=0, yellow>0, red<0), Capital (savings), Available Funds, Total Allocated, Total Spent, Savings Rate. Use monthlyOverview GraphQL query. YNAB-style design.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P3-003", "P2-007"]
   },
   {
