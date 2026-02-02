@@ -143,7 +143,7 @@
     "phase": "P4: Budget Overview Page (Main Feature)",
     "title": "Implement Move Funds dialog",
     "description": "Create a dialog/modal for moving funds between budgets: select source budget, destination budget, amount. Uses moveFunds mutation. Shows current available balance for source. Updates table immediately via Apollo cache.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P4-002"]
   },
   {

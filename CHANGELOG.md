@@ -2,6 +2,21 @@
 
 ## 2026-02-02
 
+### P4-003: Move Funds dialog
+
+- Created `MoveFundsDialog` component with source/destination budget selects and amount input
+- Each select dropdown shows budget name + available balance (color-coded for negative)
+- Source budget is disabled in destination dropdown (and vice versa) to prevent self-transfers
+- Shows available balance hint below each selected budget
+- Warning when amount exceeds source budget's available balance
+- Submit via button or Enter key, cancel via Escape or Cancel button
+- Uses `moveFunds` GraphQL mutation, refetches `monthlyOverview` on success
+- Added `move-funds.graphql` frontend mutation document, ran codegen
+- Installed ShadCN `dialog`, `label`, `select` components
+- Added "Move Funds" button above budget table (header-level action)
+- Added hover-reveal move icon on each budget row's Available cell (row-level shortcut, pre-selects source)
+- Verified: Next.js build passes, backend checks pass (750 tests), mutation works end-to-end with real data
+
 ### P4-002: Budget table with inline allocation editing
 
 - Built `BudgetTable` component with budgets grouped by type (Spending, Savings, Goals, Periodic)

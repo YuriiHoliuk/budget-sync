@@ -1,0 +1,22 @@
+mutation MoveFunds($input: MoveFundsInput!) {
+  moveFunds(input: $input) {
+    sourceAllocation {
+      id
+      budgetId
+      amount
+      currency
+      period
+      date
+      notes
+    }
+    destAllocation {
+      id
+      budgetId
+      amount
+      currency
+      period
+      date
+      notes
+    }
+  }
+}
