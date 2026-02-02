@@ -2,6 +2,22 @@
 
 ## 2026-02-02
 
+### P4-002: Budget table with inline allocation editing
+
+- Built `BudgetTable` component with budgets grouped by type (Spending, Savings, Goals, Periodic)
+- Group header rows show aggregate totals for allocated, spent, and available
+- Each budget row displays: name, target, allocated (editable), spent, available (color-coded), progress bar
+- Progress bar changes color: green (<80%), yellow (80-99%), red (100%+)
+- Available column color-coded: green (positive), red (negative), muted (zero)
+- Implemented `InlineAllocationEditor`: click allocation cell to edit, Enter to save, Escape to cancel
+- Editor calculates delta from current amount and creates a new allocation via `createAllocation` mutation
+- Refetches `monthlyOverview` after mutation to update all metrics (Ready to Assign, totals, per-budget)
+- Created `allocations.graphql` frontend mutations (createAllocation, updateAllocation)
+- Refactored `MonthlyOverviewHeader` to accept props (lifted query to page level to share data with table)
+- Added loading skeleton for budget table
+- Installed ShadCN `table` and `progress` components
+- Verified: Next.js build passes, 750 backend tests pass, inline editing works end-to-end with real data
+
 ### P4-001: Monthly Overview header with key metrics
 
 - Created `monthly-overview.graphql` query document for the monthlyOverview API

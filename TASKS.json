@@ -135,7 +135,7 @@
     "phase": "P4: Budget Overview Page (Main Feature)",
     "title": "Build Budget table with inline allocation editing",
     "description": "Create the budget table showing all active budgets for selected month: Budget name, Target/Limit, Allocated (editable inline), Spent, Available (with color), Progress bar. Support inline editing of allocated amount (click to edit, creates allocation). Group budgets by type (Spending, Savings, Goals). YNAB-style UX.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P4-001", "P2-003", "P2-005"]
   },
   {

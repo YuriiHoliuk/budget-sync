@@ -1,0 +1,23 @@
+mutation CreateAllocation($input: CreateAllocationInput!) {
+  createAllocation(input: $input) {
+    id
+    budgetId
+    amount
+    currency
+    period
+    date
+    notes
+  }
+}
+
+mutation UpdateAllocation($input: UpdateAllocationInput!) {
+  updateAllocation(input: $input) {
+    id
+    budgetId
+    amount
+    currency
+    period
+    date
+    notes
+  }
+}

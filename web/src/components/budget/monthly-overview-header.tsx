@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@apollo/client";
+import type { ApolloError } from "@apollo/client";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -8,11 +8,18 @@ import {
   TrendingUpIcon,
   WalletIcon,
 } from "lucide-react";
-import { useMonth } from "@/hooks/use-month";
-import { GetMonthlyOverviewDocument } from "@/graphql/generated/graphql";
+import type { GetMonthlyOverviewQuery } from "@/graphql/generated/graphql";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+
+type MonthlyOverview = GetMonthlyOverviewQuery["monthlyOverview"];
+
+interface MonthlyOverviewHeaderProps {
+  overview: MonthlyOverview | undefined;
+  loading: boolean;
+  error: ApolloError | undefined;
+}
 
 function getReadyToAssignStatus(amount: number) {
   if (amount === 0) return { label: "All assigned", color: "text-green-600 dark:text-green-400" };
@@ -72,12 +79,11 @@ function HeaderSkeleton() {
   );
 }
 
-export function MonthlyOverviewHeader() {
-  const { month } = useMonth();
-  const { data, loading, error } = useQuery(GetMonthlyOverviewDocument, {
-    variables: { month },
-  });
-
+export function MonthlyOverviewHeader({
+  overview,
+  loading,
+  error,
+}: MonthlyOverviewHeaderProps) {
   if (loading) return <HeaderSkeleton />;
 
   if (error) {
@@ -90,9 +96,8 @@ export function MonthlyOverviewHeader() {
     );
   }
 
-  if (!data) return null;
+  if (!overview) return null;
 
-  const overview = data.monthlyOverview;
   const readyStatus = getReadyToAssignStatus(overview.readyToAssign);
 
   return (
