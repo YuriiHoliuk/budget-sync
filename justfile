@@ -41,6 +41,18 @@ db-seed:
 dev-server:
     bun run --watch src/server.ts
 
+# Start Next.js frontend dev server
+dev-web:
+    cd web && bun run dev
+
+# Run GraphQL code generation for frontend
+codegen:
+    cd web && bun run codegen
+
+# Install web frontend dependencies
+web-install:
+    cd web && bun install
+
 # ============================================
 # Sync Commands
 # ============================================

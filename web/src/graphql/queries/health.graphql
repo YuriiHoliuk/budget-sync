@@ -1,0 +1,6 @@
+query HealthCheck {
+  health {
+    status
+    timestamp
+  }
+}

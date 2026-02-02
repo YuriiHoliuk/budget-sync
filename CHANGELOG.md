@@ -2,6 +2,20 @@
 
 ## 2026-02-02
 
+### P3-001 + P3-002: Next.js Frontend Setup with GraphQL Codegen
+
+- Created `web/` directory with Next.js 15 (App Router, TypeScript, Tailwind CSS v4)
+- Initialized ShadCN UI with neutral theme, new-york style, dark mode support
+- Installed button and card ShadCN components as baseline
+- Configured Apollo Client with `ApolloWrapper` provider for GraphQL
+- Set up Next.js rewrites proxy: `/api/graphql` -> `localhost:4001/graphql`
+- Configured `@graphql-codegen/client-preset` reading backend `.graphql` schema files
+- Created initial `.graphql` operation files (health check, accounts queries)
+- Generated typed GraphQL documents via `just codegen`
+- Added justfile commands: `dev-web`, `codegen`, `web-install`
+- Configured `outputFileTracingRoot` for monorepo lockfile detection
+- Verified: Next.js build passes, dev server serves pages, codegen generates types, backend checks/tests unaffected (707 tests pass)
+
 ### P2-007: Monthly Overview computed query
 
 - Created `BudgetCalculationService` in `src/domain/services/` with pure computation logic for monthly overview

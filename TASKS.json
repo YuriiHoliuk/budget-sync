@@ -94,7 +94,7 @@
     "phase": "P3: Next.js Frontend Setup",
     "title": "Initialize Next.js app with ShadCN UI and Tailwind CSS",
     "description": "Create web/ directory with Next.js 14+ app (App Router). Install and configure: Tailwind CSS, ShadCN UI (init with default theme), Apollo Client, graphql-codegen. Set up path aliases. Configure proxy to backend API at localhost:4000/graphql. Add `just dev-web` to justfile.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P2-001"]
   },
   {
@@ -102,7 +102,7 @@
     "phase": "P3: Next.js Frontend Setup",
     "title": "Set up GraphQL code generation for frontend",
     "description": "Install @graphql-codegen/cli, @graphql-codegen/client-preset, @graphql-codegen/typescript-operations. Configure codegen.ts to read .graphql files from web/src/graphql/ and generate typed hooks/documents. Add `just codegen` command. Create initial .graphql operation files for accounts query.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P3-001", "P2-002"]
   },
   {

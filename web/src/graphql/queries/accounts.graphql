@@ -1,0 +1,25 @@
+query GetAccounts {
+  accounts {
+    id
+    externalId
+    name
+    type
+    role
+    currency
+    balance
+    iban
+  }
+}
+
+query GetAccount($id: Int!) {
+  account(id: $id) {
+    id
+    externalId
+    name
+    type
+    role
+    currency
+    balance
+    iban
+  }
+}
