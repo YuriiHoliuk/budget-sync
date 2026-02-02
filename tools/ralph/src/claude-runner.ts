@@ -1,0 +1,250 @@
+import { type ChildProcess, spawn } from 'node:child_process';
+import type { ClaudeRunResult, ClaudeStreamEvent, RalphLogger } from './types.ts';
+
+const RATE_LIMIT_PATTERNS = [
+  'rate limit',
+  'rate_limit',
+  'too many requests',
+  '429',
+  'overloaded',
+  'capacity',
+];
+
+export interface ClaudeRunnerOptions {
+  model: string;
+  prompt: string;
+  logger: RalphLogger;
+  onOutput?: (content: string) => void;
+  /** Kill process if no activity for this long (default: 5 min) */
+  stallTimeout?: number;
+}
+
+export async function runClaude(
+  options: ClaudeRunnerOptions,
+): Promise<ClaudeRunResult> {
+  const {
+    model,
+    prompt,
+    logger,
+    onOutput,
+    stallTimeout = 300000,
+  } = options;
+
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    let output = '';
+    let currentToolName = '';
+    let lastActivityTime = Date.now();
+    let cost = 0;
+
+    const args = [
+      '--dangerously-skip-permissions',
+      '--model',
+      model,
+      '--no-session-persistence',
+      '--output-format',
+      'stream-json',
+      '--verbose',
+      '-p',
+      prompt,
+    ];
+
+    logger.debug(`Spawning: claude ${args.join(' ')}`);
+
+    let child: ChildProcess;
+    try {
+      child = spawn('claude', args, {
+        stdio: ['inherit', 'pipe', 'pipe'],
+        env: { ...process.env },
+      });
+    } catch (spawnError) {
+      const errorMessage =
+        spawnError instanceof Error
+          ? spawnError.message
+          : String(spawnError);
+      return resolve({
+        success: false,
+        output: '',
+        exitCode: 1,
+        error: `Failed to spawn Claude: ${errorMessage}`,
+        isRateLimited: false,
+      });
+    }
+
+    const stallChecker = setInterval(() => {
+      const timeSinceActivity = Date.now() - lastActivityTime;
+      if (timeSinceActivity > stallTimeout) {
+        logger.warn(
+          `No activity for ${Math.round(timeSinceActivity / 1000)}s - process appears stalled, killing`,
+        );
+        child.kill('SIGTERM');
+        setTimeout(() => {
+          if (!child.killed) {
+            child.kill('SIGKILL');
+          }
+        }, 5000);
+      } else if (timeSinceActivity > 60000) {
+        logger.info(
+          `Waiting... (${Math.round(timeSinceActivity / 1000)}s since last activity)`,
+        );
+      }
+    }, 30000);
+
+    const processStreamEvent = (event: ClaudeStreamEvent) => {
+      lastActivityTime = Date.now();
+
+      switch (event.type) {
+        case 'system':
+          if (event.subtype === 'init') {
+            logger.debug(`Session initialized: ${event.session_id}`);
+          }
+          break;
+
+        case 'assistant':
+          if (event.message?.content) {
+            const content = event.message.content;
+            if (Array.isArray(content)) {
+              for (const item of content) {
+                if (item.type === 'text' && item.text) {
+                  output += item.text;
+                  logger.claudeOutput(item.text);
+                  onOutput?.(item.text);
+                }
+              }
+            } else if (typeof content === 'string') {
+              output += content;
+              logger.claudeOutput(content);
+              onOutput?.(content);
+            }
+          }
+          break;
+
+        case 'tool_use':
+          if (event.tool_use?.name) {
+            currentToolName = event.tool_use.name;
+            logger.toolStart(currentToolName);
+          }
+          break;
+
+        case 'tool_result':
+          if (currentToolName) {
+            const isError =
+              typeof event.result === 'object' &&
+              event.result !== null &&
+              'is_error' in event.result &&
+              event.result.is_error;
+            logger.toolEnd(currentToolName, Boolean(isError));
+            currentToolName = '';
+          }
+          break;
+
+        case 'result':
+          if (event.total_cost_usd !== undefined) {
+            cost = event.total_cost_usd;
+          }
+          if (event.subtype === 'success') {
+            logger.debug(`Completed successfully, cost: $${cost.toFixed(4)}`);
+            if (
+              event.result &&
+              typeof event.result === 'string' &&
+              !output.includes(event.result)
+            ) {
+              output += event.result;
+            }
+          } else if (event.subtype === 'error') {
+            const errorMsg =
+              typeof event.result === 'string'
+                ? event.result
+                : 'Unknown error';
+            logger.error(`Claude returned error: ${errorMsg}`);
+          }
+          break;
+      }
+    };
+
+    let buffer = '';
+
+    child.stdout?.on('data', (data: Buffer) => {
+      lastActivityTime = Date.now();
+      buffer += data.toString();
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+
+        try {
+          const event = JSON.parse(line) as ClaudeStreamEvent;
+          processStreamEvent(event);
+        } catch {
+          if (line.trim()) {
+            logger.debug(`Non-JSON output: ${line}`);
+            output += `${line}\n`;
+            logger.claudeOutput(line);
+            onOutput?.(line);
+          }
+        }
+      }
+    });
+
+    child.stderr?.on('data', (data: Buffer) => {
+      lastActivityTime = Date.now();
+      const text = data.toString();
+      logger.warn(`stderr: ${text}`);
+
+      const lowerText = text.toLowerCase();
+      const isRateLimited = RATE_LIMIT_PATTERNS.some((pattern) =>
+        lowerText.includes(pattern),
+      );
+      if (isRateLimited) {
+        logger.warn('Rate limiting detected');
+      }
+    });
+
+    child.on('error', (processError: Error) => {
+      clearInterval(stallChecker);
+      logger.error(`Process error: ${processError.message}`);
+      resolve({
+        success: false,
+        output,
+        exitCode: 1,
+        error: processError.message,
+        isRateLimited: false,
+        cost,
+        durationMs: Date.now() - startTime,
+      });
+    });
+
+    child.on('close', (code: number | null) => {
+      clearInterval(stallChecker);
+
+      const exitCode = code ?? 1;
+      const durationMs = Date.now() - startTime;
+
+      if (buffer.trim()) {
+        try {
+          const event = JSON.parse(buffer) as ClaudeStreamEvent;
+          processStreamEvent(event);
+        } catch {
+          output += buffer;
+          logger.claudeOutput(buffer);
+        }
+      }
+
+      const lowerOutput = output.toLowerCase();
+      const isRateLimited = RATE_LIMIT_PATTERNS.some((pattern) =>
+        lowerOutput.includes(pattern),
+      );
+
+      resolve({
+        success: exitCode === 0,
+        output,
+        exitCode,
+        isRateLimited,
+        cost,
+        durationMs,
+      });
+    });
+  });
+}

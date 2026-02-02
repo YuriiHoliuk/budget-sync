@@ -199,3 +199,16 @@ tf-state:
 # Show details of a specific resource
 tf-show resource:
     cd terraform && terraform state show {{resource}}
+
+# ============================================
+# Tools
+# ============================================
+
+# Run Ralph Loop (autonomous Claude Code loop)
+# Usage: just ralph [options]
+# Examples:
+#   just ralph                              # Default: PROMPT.md, opus, 100 iterations
+#   just ralph "-p TODO.md --model sonnet"  # Custom prompt file and model
+#   just ralph "--mock"                     # Test with mock Claude
+ralph args='':
+    cd tools/ralph && bun run src/index.ts {{args}}

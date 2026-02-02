@@ -1,0 +1,16 @@
+{
+  "name": "ralph",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "ralph": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^14.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.0"
+  }
+}
