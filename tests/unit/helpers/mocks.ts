@@ -245,6 +245,7 @@ export function createMockCategoryRepository(
 export function createMockBudgetRepository(
   overrides: Partial<{
     findAll: () => Promise<Budget[]>;
+    findById: (id: number) => Promise<Budget | null>;
     findByName: (name: string) => Promise<Budget | null>;
     findActive: (date: Date) => Promise<Budget[]>;
     save: (budget: Budget) => Promise<void>;
@@ -253,6 +254,7 @@ export function createMockBudgetRepository(
 ): BudgetRepository {
   return {
     findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
+    findById: overrides.findById ?? mock(() => Promise.resolve(null)),
     findByName: overrides.findByName ?? mock(() => Promise.resolve(null)),
     findActive: overrides.findActive ?? mock(() => Promise.resolve([])),
     save: overrides.save ?? mock(() => Promise.resolve()),

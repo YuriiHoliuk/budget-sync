@@ -6,6 +6,7 @@
  */
 
 import { accountsResolver } from './accountsResolver.ts';
+import { budgetsResolver } from './budgetsResolver.ts';
 import { healthResolver } from './healthResolver.ts';
 
-export const resolvers = [healthResolver, accountsResolver];
+export const resolvers = [healthResolver, accountsResolver, budgetsResolver];

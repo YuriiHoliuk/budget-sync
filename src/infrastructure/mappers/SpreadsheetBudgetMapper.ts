@@ -42,8 +42,8 @@ export class SpreadsheetBudgetMapper {
       name: budget.name,
       amount: budget.amount.amount,
       currency: budget.amount.currency.code,
-      startDate: budget.startDate,
-      endDate: budget.endDate,
+      startDate: budget.startDate ?? undefined,
+      endDate: budget.endDate ?? undefined,
       dbId: budget.dbId ?? undefined,
     };
   }
@@ -60,9 +60,14 @@ export class SpreadsheetBudgetMapper {
 
     return Budget.create({
       name: record.name,
+      type: 'spending',
       amount: money,
-      startDate: record.startDate ?? new Date(0),
-      endDate: record.endDate ?? new Date('2099-12-31'),
+      targetCadence: null,
+      targetCadenceMonths: null,
+      targetDate: null,
+      startDate: record.startDate ?? null,
+      endDate: record.endDate ?? null,
+      isArchived: false,
       dbId: record.dbId,
     });
   }

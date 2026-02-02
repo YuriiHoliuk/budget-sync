@@ -1,10 +1,18 @@
 import type { Money } from '../value-objects/index.ts';
 
+export type BudgetType = 'spending' | 'savings' | 'goal' | 'periodic';
+export type TargetCadence = 'monthly' | 'yearly' | 'custom';
+
 export interface BudgetProps {
   name: string;
+  type: BudgetType;
   amount: Money;
-  startDate: Date;
-  endDate: Date;
+  targetCadence: TargetCadence | null;
+  targetCadenceMonths: number | null;
+  targetDate: Date | null;
+  startDate: Date | null;
+  endDate: Date | null;
+  isArchived: boolean;
   dbId?: number | null;
 }
 
@@ -22,16 +30,36 @@ export class Budget {
     return this.props.name;
   }
 
+  get type(): BudgetType {
+    return this.props.type;
+  }
+
   get amount(): Money {
     return this.props.amount;
   }
 
-  get startDate(): Date {
+  get targetCadence(): TargetCadence | null {
+    return this.props.targetCadence;
+  }
+
+  get targetCadenceMonths(): number | null {
+    return this.props.targetCadenceMonths;
+  }
+
+  get targetDate(): Date | null {
+    return this.props.targetDate;
+  }
+
+  get startDate(): Date | null {
     return this.props.startDate;
   }
 
-  get endDate(): Date {
+  get endDate(): Date | null {
     return this.props.endDate;
+  }
+
+  get isArchived(): boolean {
+    return this.props.isArchived;
   }
 
   get dbId(): number | null {
@@ -40,7 +68,9 @@ export class Budget {
 
   /** Returns true if the budget is active on the given date */
   isActiveOn(date: Date): boolean {
-    return date >= this.props.startDate && date <= this.props.endDate;
+    const afterStart = !this.props.startDate || date >= this.props.startDate;
+    const beforeEnd = !this.props.endDate || date <= this.props.endDate;
+    return !this.props.isArchived && afterStart && beforeEnd;
   }
 
   withDbId(dbId: number): Budget {

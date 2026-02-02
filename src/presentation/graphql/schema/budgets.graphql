@@ -1,0 +1,60 @@
+extend type Query {
+  """
+  Get all budgets. Optionally filter by active-only (non-archived).
+  """
+  budgets(activeOnly: Boolean = false): [Budget!]!
+
+  """
+  Get a single budget by its database ID.
+  """
+  budget(id: Int!): Budget
+}
+
+"""
+YNAB-style budget envelope.
+Type determines rollover behavior and target calculation.
+"""
+type Budget {
+  id: Int!
+  name: String!
+  type: BudgetType!
+  currency: String!
+  targetAmount: Float!
+  targetCadence: TargetCadence
+  targetCadenceMonths: Int
+  targetDate: String
+  startDate: String
+  endDate: String
+  isArchived: Boolean!
+}
+
+"""
+Budget type determines rollover and target behavior.
+"""
+enum BudgetType {
+  """
+  Monthly budget. Positive balance resets, negative carries forward.
+  """
+  SPENDING
+  """
+  Monthly contribution. Everything accumulates over time.
+  """
+  SAVINGS
+  """
+  Save toward a total amount by a target date.
+  """
+  GOAL
+  """
+  Save toward a recurring bill on a cadence.
+  """
+  PERIODIC
+}
+
+"""
+Target cadence for periodic budgets.
+"""
+enum TargetCadence {
+  MONTHLY
+  YEARLY
+  CUSTOM
+}

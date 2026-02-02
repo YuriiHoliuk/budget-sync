@@ -12,6 +12,7 @@ export const BUDGET_REPOSITORY_TOKEN = Symbol('BudgetRepository');
  */
 export abstract class BudgetRepository {
   abstract findAll(): Promise<Budget[]>;
+  abstract findById(id: number): Promise<Budget | null>;
   abstract findByName(name: string): Promise<Budget | null>;
   abstract findActive(date: Date): Promise<Budget[]>;
   abstract save(budget: Budget): Promise<void>;

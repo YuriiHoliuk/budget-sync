@@ -69,9 +69,14 @@ function createTestBudget(
 ): Budget {
   return Budget.create({
     name: overrides.name ?? 'Test Budget',
+    type: 'spending',
     amount: overrides.amount ?? Money.create(100000, Currency.UAH),
+    targetCadence: null,
+    targetCadenceMonths: null,
+    targetDate: null,
     startDate: overrides.startDate ?? new Date('2026-01-01'),
     endDate: overrides.endDate ?? new Date('2026-12-31'),
+    isArchived: false,
   });
 }
 

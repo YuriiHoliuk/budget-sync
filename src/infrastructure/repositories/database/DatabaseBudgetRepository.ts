@@ -24,6 +24,16 @@ export class DatabaseBudgetRepository implements BudgetRepository {
     return rows.map((row) => this.mapper.toEntity(row));
   }
 
+  async findById(id: number): Promise<Budget | null> {
+    const rows = await this.db
+      .select()
+      .from(budgets)
+      .where(eq(budgets.id, id))
+      .limit(1);
+    const row = rows[0];
+    return row ? this.mapper.toEntity(row) : null;
+  }
+
   async findByName(name: string): Promise<Budget | null> {
     const rows = await this.db
       .select()

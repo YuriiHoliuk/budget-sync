@@ -55,6 +55,14 @@ export class SpreadsheetBudgetRepository
   }
 
   /**
+   * Find a budget by its database ID.
+   * Spreadsheet doesn't have a direct ID lookup, so we scan all records.
+   */
+  findById(id: number): Promise<Budget | null> {
+    return this.findBy((record) => record.dbId === id);
+  }
+
+  /**
    * Find a budget by its name.
    * Name matching is case-sensitive.
    */

@@ -20,6 +20,10 @@ export class DualWriteBudgetRepository implements BudgetRepository {
     return this.dbRepo.findAll();
   }
 
+  findById(id: number): Promise<Budget | null> {
+    return this.dbRepo.findById(id);
+  }
+
   findByName(name: string): Promise<Budget | null> {
     return this.dbRepo.findByName(name);
   }

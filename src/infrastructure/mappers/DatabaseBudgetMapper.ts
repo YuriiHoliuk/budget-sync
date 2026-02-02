@@ -1,18 +1,37 @@
-import { Budget } from '@domain/entities/Budget.ts';
+import {
+  Budget,
+  type BudgetType,
+  type TargetCadence,
+} from '@domain/entities/Budget.ts';
 import { Currency, Money } from '@domain/value-objects/index.ts';
 import type { BudgetRow, NewBudgetRow } from '@modules/database/types.ts';
+
+const VALID_BUDGET_TYPES = new Set(['spending', 'savings', 'goal', 'periodic']);
+const VALID_CADENCES = new Set(['monthly', 'yearly', 'custom']);
 
 export class DatabaseBudgetMapper {
   toEntity(row: BudgetRow): Budget {
     const currency = Currency.fromCode(row.currency);
     const amount = Money.create(row.targetAmount, currency);
+    const budgetType = VALID_BUDGET_TYPES.has(row.type)
+      ? (row.type as BudgetType)
+      : 'spending';
+    const cadence =
+      row.targetCadence && VALID_CADENCES.has(row.targetCadence)
+        ? (row.targetCadence as TargetCadence)
+        : null;
 
     return Budget.create(
       {
         name: row.name,
+        type: budgetType,
         amount,
-        startDate: row.startDate ? new Date(row.startDate) : new Date(0),
-        endDate: row.endDate ? new Date(row.endDate) : new Date('2099-12-31'),
+        targetCadence: cadence,
+        targetCadenceMonths: row.targetCadenceMonths ?? null,
+        targetDate: row.targetDate ? new Date(row.targetDate) : null,
+        startDate: row.startDate ? new Date(row.startDate) : null,
+        endDate: row.endDate ? new Date(row.endDate) : null,
+        isArchived: row.isArchived,
         dbId: row.id,
       },
       row.name,
@@ -22,21 +41,15 @@ export class DatabaseBudgetMapper {
   toInsert(budget: Budget): NewBudgetRow {
     return {
       name: budget.name,
-      type: 'spending',
+      type: budget.type,
       currency: budget.amount.currency.code,
       targetAmount: budget.amount.amount,
-      targetCadence: null,
-      targetCadenceMonths: null,
-      targetDate: null,
-      startDate:
-        budget.startDate.getTime() > 0
-          ? this.formatDate(budget.startDate)
-          : null,
-      endDate:
-        budget.endDate.getFullYear() < 2099
-          ? this.formatDate(budget.endDate)
-          : null,
-      isArchived: false,
+      targetCadence: budget.targetCadence,
+      targetCadenceMonths: budget.targetCadenceMonths,
+      targetDate: budget.targetDate ? this.formatDate(budget.targetDate) : null,
+      startDate: budget.startDate ? this.formatDate(budget.startDate) : null,
+      endDate: budget.endDate ? this.formatDate(budget.endDate) : null,
+      isArchived: budget.isArchived,
     };
   }
 
