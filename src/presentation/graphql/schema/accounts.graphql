@@ -1,0 +1,47 @@
+extend type Query {
+  """
+  Get all bank accounts.
+  """
+  accounts: [Account!]!
+
+  """
+  Get a single account by its database ID.
+  """
+  account(id: Int!): Account
+}
+
+"""
+Bank account synced from Monobank.
+"""
+type Account {
+  id: Int!
+  externalId: String!
+  name: String!
+  type: AccountType!
+  role: AccountRole!
+  currency: String!
+  balance: Float!
+  creditLimit: Float
+  iban: String
+  bank: String
+  lastSyncTime: String
+  isCreditAccount: Boolean!
+}
+
+"""
+Account type as stored in the database.
+"""
+enum AccountType {
+  DEBIT
+  CREDIT
+  FOP
+}
+
+"""
+Account role for budgeting purposes.
+Operational accounts feed into Ready to Assign; savings accounts are tracked separately.
+"""
+enum AccountRole {
+  OPERATIONAL
+  SAVINGS
+}

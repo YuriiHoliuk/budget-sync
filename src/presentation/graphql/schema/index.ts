@@ -15,4 +15,7 @@ function loadSchema(filename: string): string {
   return readFileSync(join(schemaDir, filename), 'utf-8');
 }
 
-export const typeDefs: string[] = [loadSchema('base.graphql')];
+export const typeDefs: string[] = [
+  loadSchema('base.graphql'),
+  loadSchema('accounts.graphql'),
+];

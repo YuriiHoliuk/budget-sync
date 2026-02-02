@@ -45,7 +45,7 @@
     "phase": "P2: GraphQL API Foundation",
     "title": "Define GraphQL schema for Accounts",
     "description": "Create src/presentation/graphql/schema/accounts.graphql with Account type, AccountRole enum, AccountType enum. Add Query { accounts, account(id: Int!) }. Create AccountResolver in src/presentation/graphql/resolvers/AccountResolver.ts that reads from AccountRepository. Register in schema.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P2-001"]
   },
   {

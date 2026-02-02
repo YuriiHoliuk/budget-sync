@@ -1,5 +1,7 @@
 import type { Currency, Money } from '../value-objects/index.ts';
 
+export type AccountRole = 'operational' | 'savings';
+
 export interface AccountProps {
   externalId: string;
   name: string;
@@ -7,6 +9,7 @@ export interface AccountProps {
   balance: Money;
   creditLimit?: Money;
   type?: string;
+  role?: AccountRole;
   iban?: string;
   maskedPan?: string[];
   bank?: string;
@@ -43,6 +46,10 @@ export class Account {
 
   get type(): string | undefined {
     return this.props.type;
+  }
+
+  get role(): AccountRole {
+    return this.props.role ?? 'operational';
   }
 
   get iban(): string | undefined {
