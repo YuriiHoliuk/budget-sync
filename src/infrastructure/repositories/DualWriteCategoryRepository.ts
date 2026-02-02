@@ -20,6 +20,10 @@ export class DualWriteCategoryRepository implements CategoryRepository {
     return this.dbRepo.findAll();
   }
 
+  findById(id: number): Promise<Category | null> {
+    return this.dbRepo.findById(id);
+  }
+
   findByName(name: string): Promise<Category | null> {
     return this.dbRepo.findByName(name);
   }
@@ -37,6 +41,10 @@ export class DualWriteCategoryRepository implements CategoryRepository {
     const saved = await this.dbRepo.saveAndReturn(category);
     await this.mirrorToSpreadsheet(() => this.spreadsheetRepo.save(saved));
     return saved;
+  }
+
+  update(category: Category): Promise<Category> {
+    return this.dbRepo.update(category);
   }
 
   private async mirrorToSpreadsheet(

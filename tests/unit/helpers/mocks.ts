@@ -221,19 +221,25 @@ export function createMockCategorizeTransactionUseCase(
 export function createMockCategoryRepository(
   overrides: Partial<{
     findAll: () => Promise<Category[]>;
+    findById: (id: number) => Promise<Category | null>;
     findByName: (name: string) => Promise<Category | null>;
     findActive: () => Promise<Category[]>;
     save: (category: Category) => Promise<void>;
     saveAndReturn: (category: Category) => Promise<Category>;
+    update: (category: Category) => Promise<Category>;
   }> = {},
 ): CategoryRepository {
   return {
     findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
+    findById: overrides.findById ?? mock(() => Promise.resolve(null)),
     findByName: overrides.findByName ?? mock(() => Promise.resolve(null)),
     findActive: overrides.findActive ?? mock(() => Promise.resolve([])),
     save: overrides.save ?? mock(() => Promise.resolve()),
     saveAndReturn:
       overrides.saveAndReturn ??
+      mock((category: Category) => Promise.resolve(category)),
+    update:
+      overrides.update ??
       mock((category: Category) => Promise.resolve(category)),
   } as unknown as CategoryRepository;
 }

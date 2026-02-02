@@ -1,6 +1,8 @@
 import { Account } from '@domain/entities/Account.ts';
 import { Budget, type BudgetProps } from '@domain/entities/Budget.ts';
+import { Category, type CategoryProps } from '@domain/entities/Category.ts';
 import { Transaction } from '@domain/entities/Transaction.ts';
+import { CategoryStatus } from '@domain/value-objects/CategoryStatus.ts';
 import { Currency } from '@domain/value-objects/Currency.ts';
 import { Money } from '@domain/value-objects/Money.ts';
 import { TransactionType } from '@domain/value-objects/TransactionType.ts';
@@ -253,6 +255,28 @@ const DEFAULT_BUDGET_PROPS: BudgetProps = {
 export function createTestBudget(overrides: Partial<BudgetProps> = {}): Budget {
   return Budget.create({
     ...DEFAULT_BUDGET_PROPS,
+    ...overrides,
+  });
+}
+
+/**
+ * Default values for test Category entities.
+ */
+const DEFAULT_CATEGORY_PROPS: CategoryProps = {
+  name: 'Test Category',
+  status: CategoryStatus.ACTIVE,
+  dbId: 1,
+};
+
+/**
+ * Creates a test Category entity with sensible defaults.
+ * Override any property as needed for specific test scenarios.
+ */
+export function createTestCategory(
+  overrides: Partial<CategoryProps> = {},
+): Category {
+  return Category.create({
+    ...DEFAULT_CATEGORY_PROPS,
     ...overrides,
   });
 }

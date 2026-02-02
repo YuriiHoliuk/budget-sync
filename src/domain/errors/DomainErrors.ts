@@ -49,6 +49,33 @@ export class BudgetNameTakenError extends DomainError {
 }
 
 /**
+ * Thrown when a category cannot be found by its identifier.
+ */
+export class CategoryNotFoundError extends DomainError {
+  constructor(public readonly categoryId: number) {
+    super(`Category not found with id: ${categoryId}`);
+  }
+}
+
+/**
+ * Thrown when attempting to create a category with a name that already exists.
+ */
+export class CategoryNameTakenError extends DomainError {
+  constructor(public readonly categoryName: string) {
+    super(`Category with name "${categoryName}" already exists`);
+  }
+}
+
+/**
+ * Thrown when a parent category referenced by name does not exist.
+ */
+export class ParentCategoryNotFoundError extends DomainError {
+  constructor(public readonly parentName: string) {
+    super(`Parent category "${parentName}" not found`);
+  }
+}
+
+/**
  * Thrown when an external service (bank gateway, API) enforces rate limiting.
  * Use this in the application layer for retry logic.
  */

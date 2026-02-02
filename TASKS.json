@@ -61,7 +61,7 @@
     "phase": "P2: GraphQL API Foundation",
     "title": "Define GraphQL schema for Categories with CRUD mutations",
     "description": "Create categories.graphql with Category type (including parent/children hierarchy), CategoryStatus enum, queries (categories, category(id)), mutations (createCategory, updateCategory, archiveCategory). Create CategoryResolver. Implement use cases.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P2-001"]
   },
   {

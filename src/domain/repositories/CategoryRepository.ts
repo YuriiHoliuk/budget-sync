@@ -12,8 +12,10 @@ export const CATEGORY_REPOSITORY_TOKEN = Symbol('CategoryRepository');
  */
 export abstract class CategoryRepository {
   abstract findAll(): Promise<Category[]>;
+  abstract findById(id: number): Promise<Category | null>;
   abstract findByName(name: string): Promise<Category | null>;
   abstract findActive(): Promise<Category[]>;
   abstract save(category: Category): Promise<void>;
   abstract saveAndReturn(category: Category): Promise<Category>;
+  abstract update(category: Category): Promise<Category>;
 }

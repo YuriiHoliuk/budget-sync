@@ -1,10 +1,16 @@
-import type { CategoryStatus } from '../value-objects/index.ts';
+import { CategoryStatus } from '../value-objects/index.ts';
 
 export interface CategoryProps {
   name: string;
   parent?: string;
   status: CategoryStatus;
   dbId?: number | null;
+}
+
+export interface UpdateCategoryProps {
+  name?: string;
+  parent?: string | null;
+  status?: CategoryStatus;
 }
 
 export class Category {
@@ -64,5 +70,24 @@ export class Category {
 
   withDbId(dbId: number): Category {
     return Category.create({ ...this.props, dbId }, this.id);
+  }
+
+  withUpdatedProps(updates: UpdateCategoryProps): Category {
+    return Category.create(
+      {
+        ...this.props,
+        name: updates.name ?? this.props.name,
+        parent:
+          updates.parent !== undefined
+            ? (updates.parent ?? undefined)
+            : this.props.parent,
+        status: updates.status ?? this.props.status,
+      },
+      updates.name ?? this.id,
+    );
+  }
+
+  archive(): Category {
+    return this.withUpdatedProps({ status: CategoryStatus.ARCHIVED });
   }
 }

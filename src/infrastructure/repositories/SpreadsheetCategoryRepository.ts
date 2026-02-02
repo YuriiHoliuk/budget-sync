@@ -55,6 +55,14 @@ export class SpreadsheetCategoryRepository
   }
 
   /**
+   * Find a category by its database ID.
+   * Spreadsheet doesn't have a direct ID lookup, so we scan all records.
+   */
+  findById(id: number): Promise<Category | null> {
+    return this.findBy((record) => record.dbId === id);
+  }
+
+  /**
    * Find a category by its name.
    * Name matching is case-sensitive.
    */
@@ -78,6 +86,11 @@ export class SpreadsheetCategoryRepository
    * Spreadsheet doesn't generate IDs, so we just save and return the same category.
    */
   async saveAndReturn(category: Category): Promise<Category> {
+    await this.save(category);
+    return category;
+  }
+
+  async update(category: Category): Promise<Category> {
     await this.save(category);
     return category;
   }

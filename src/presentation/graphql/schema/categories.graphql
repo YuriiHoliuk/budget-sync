@@ -1,0 +1,72 @@
+extend type Query {
+  """
+  Get all categories. Optionally filter by active-only (non-archived).
+  """
+  categories(activeOnly: Boolean = false): [Category!]!
+
+  """
+  Get a single category by its database ID.
+  """
+  category(id: Int!): Category
+}
+
+extend type Mutation {
+  """
+  Create a new category.
+  """
+  createCategory(input: CreateCategoryInput!): Category!
+
+  """
+  Update an existing category. Only provided fields are updated.
+  """
+  updateCategory(input: UpdateCategoryInput!): Category!
+
+  """
+  Archive a category (soft delete). Archived categories are hidden from active lists.
+  """
+  archiveCategory(id: Int!): Category!
+}
+
+input CreateCategoryInput {
+  name: String!
+  parentName: String
+  status: CategoryStatus
+}
+
+input UpdateCategoryInput {
+  id: Int!
+  name: String
+  parentName: String
+  status: CategoryStatus
+}
+
+"""
+Hierarchical transaction classification.
+Categories describe what a transaction is (e.g., "Food > Supermarket").
+"""
+type Category {
+  id: Int!
+  name: String!
+  parentName: String
+  status: CategoryStatus!
+  fullPath: String!
+  children: [Category!]!
+}
+
+"""
+Category lifecycle status.
+"""
+enum CategoryStatus {
+  """
+  Confirmed by user, available for assignment.
+  """
+  ACTIVE
+  """
+  Proposed by AI, awaiting user review.
+  """
+  SUGGESTED
+  """
+  No longer used, hidden from selection.
+  """
+  ARCHIVED
+}

@@ -2,6 +2,18 @@
 
 ## 2026-02-02
 
+### P2-004: GraphQL Categories schema with CRUD mutations
+
+- Added `withUpdatedProps()` and `archive()` methods to Category entity
+- Added `CategoryNotFoundError`, `CategoryNameTakenError`, `ParentCategoryNotFoundError` domain errors
+- Added `findById(id)` and `update(category)` to `CategoryRepository` interface and all implementations (Database, DualWrite, Spreadsheet)
+- Created `CreateCategoryUseCase`, `UpdateCategoryUseCase`, `ArchiveCategoryUseCase` in application layer
+- Created `categories.graphql` schema with `CategoryStatus` enum, hierarchy support (`children` resolver, `fullPath` field), queries and mutations
+- Implemented `categoriesResolver` with GQL enum mapping and parent validation
+- Added `createTestCategory` fixture, updated mock repository with `findById` and `update`
+- 17 new unit tests for all three use cases (661 total pass)
+- Verified all queries and mutations via local dev server
+
 ### P2-003: GraphQL Budgets CRUD mutations
 
 - Added `update(budget)` to `BudgetRepository` interface and all implementations (Database, DualWrite, Spreadsheet)

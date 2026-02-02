@@ -53,6 +53,20 @@ export class DatabaseCategoryRepository implements CategoryRepository {
     );
   }
 
+  async findById(id: number): Promise<Category | null> {
+    const rows = await this.db
+      .select()
+      .from(categories)
+      .where(eq(categories.id, id))
+      .limit(1);
+    const row = rows[0];
+    if (!row) {
+      return null;
+    }
+    const parentName = await this.resolveParentName(row.parentId);
+    return this.mapper.toEntity(row, parentName);
+  }
+
   async save(category: Category): Promise<void> {
     const parentDbId = await this.resolveParentId(category.parent);
     const insertData = this.mapper.toInsert(category, parentDbId ?? undefined);
@@ -69,6 +83,25 @@ export class DatabaseCategoryRepository implements CategoryRepository {
     const row = rows[0];
     if (!row) {
       throw new Error('Failed to insert category');
+    }
+    return this.mapper.toEntity(row, category.parent);
+  }
+
+  async update(category: Category): Promise<Category> {
+    const categoryId = category.dbId;
+    if (!categoryId) {
+      throw new Error('Cannot update category without database ID');
+    }
+    const parentDbId = await this.resolveParentId(category.parent);
+    const updateData = this.mapper.toInsert(category, parentDbId ?? undefined);
+    const rows = await this.db
+      .update(categories)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(categories.id, categoryId))
+      .returning();
+    const row = rows[0];
+    if (!row) {
+      throw new Error(`Failed to update category with id ${categoryId}`);
     }
     return this.mapper.toEntity(row, category.parent);
   }

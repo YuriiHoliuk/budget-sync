@@ -7,6 +7,12 @@
 
 import { accountsResolver } from './accountsResolver.ts';
 import { budgetsResolver } from './budgetsResolver.ts';
+import { categoriesResolver } from './categoriesResolver.ts';
 import { healthResolver } from './healthResolver.ts';
 
-export const resolvers = [healthResolver, accountsResolver, budgetsResolver];
+export const resolvers = [
+  healthResolver,
+  accountsResolver,
+  budgetsResolver,
+  categoriesResolver,
+];
