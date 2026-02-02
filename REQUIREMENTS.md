@@ -1,0 +1,14 @@
+For now, we have webhooks from MonoBank, and store our transactions and other data in a database and spreadsheet.
+The next step is to implement a full app (meaning web UI) to be able to do all the stuff without spreadsheet.
+On this iteration, we should focus on the main functionality, which means budgets, categories, allocations, moving funds, displaying money to allocate accounts, their balances. All this stuff requires some UI and CRUD operations on the API.
+Read @docs/PRD.md.
+For that, we need a fully functional API, not just a few endpoints. I want to use GraphQL where possible. It should be ApolloGraphQL. We should continue hosting on GCP and using the Google Cloud Run service because it's cost-effective and still suits our needs. But our web server functionality should be extended.
+And for this feature, we need to be able to up it locally. When we up it locally, if we need some testing, we should use also local database. We should probably use some mocks. We already have dependency injections, so local setup may have another container some mocks for spreadsheet directions and use everything else real as we don't want to make a lot of queries even maybe zero queries to the MonoBank. We will use real DB like infrastructure mocking in some docker compose.
+And agent should run this local server and test implemented functionality using agent browser CLI. So, firstly, need to spend time on local env.
+We should use Playwright to set up end-to-end testing. Tests use a similar but separate environment for testing. We should have fixtures to send data to the database because end-to-end tests like up UI, API, DB in end-to-end tests we mock spreadsheet stuff and also mock MonoBank API. For every page major feature, we should have end-to-end tests.
+We should use Next.js, ShadCNUI, and Tailwind CSS for the frontend, also Apollo client and GraphQL generated to generate from schema. We should use GQL files on frontend to generate like queries. We should also use plug-in like near the file generation or so. We should also have API integration tests where we up API database and mock. Like, see the data into the database we may use factory girl or so, and there we test one endpoint meaning mutation, query, or child resolver.
+We built a product similar to You Need A Budget, and you will be provided with a screenshot of its UI.
+No need to copy it exactly; need to create your own style, but very similar, and use great parts of the UX of You Need A Budget.
+Pay attention that we have budgets which are named categories in You Need A Budget because they don't have categories, but we have budgets and categories are separately for us just for breakdown, and they don't exist in You Need A Budget.
+Example screenshot from YNAB - docs/design/unity-budget-reference.png
+
