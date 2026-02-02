@@ -1,7 +1,8 @@
 /**
- * WebhookServer - HTTP server for Monobank webhook handling
+ * WebhookServer - HTTP server for webhook handling and API
  *
- * Configures and runs an HTTP server with webhook endpoints.
+ * Configures and runs an HTTP server with webhook endpoints and
+ * optional additional route setup (e.g., GraphQL).
  * Designed for deployment as a Cloud Run Service.
  */
 
@@ -11,12 +12,21 @@ import type { DependencyContainer } from 'tsyringe';
 import { inject, injectable } from 'tsyringe';
 import { CONTROLLERS } from './controllers/index.ts';
 
+/** Options for starting the server */
+export interface WebhookServerStartOptions {
+  port: number;
+  container: DependencyContainer;
+  /** Async hook called after controllers are registered but before server starts listening */
+  beforeStart?: (server: HttpServer) => Promise<void>;
+}
+
 /**
- * HTTP server for handling Monobank webhooks.
+ * HTTP server for handling webhooks and API endpoints.
  *
  * This server is responsible for:
  * - Creating and configuring the HTTP server
  * - Resolving and registering all controllers from the registry
+ * - Running optional setup hooks (e.g., GraphQL registration)
  * - Logging incoming requests
  * - Starting and stopping the server
  */
@@ -29,18 +39,43 @@ export class WebhookServer {
   /**
    * Start the webhook server on the specified port.
    *
-   * @param port - Port to listen on
-   * @param container - DI container to resolve controllers from
+   * @param portOrOptions - Port number or full options object
+   * @param container - DI container (when using positional args)
    * @returns The underlying HTTP server instance
    */
-  start(port: number, container: DependencyContainer): HttpServer {
-    this.server = this.createServer();
-    this.registerControllers(container);
-    this.server.start({ port });
+  async start(
+    portOrOptions: number | WebhookServerStartOptions,
+    container?: DependencyContainer,
+  ): Promise<HttpServer> {
+    const options = this.resolveStartOptions(portOrOptions, container);
 
-    this.logger.info(`Webhook server started on port ${port}`);
+    this.server = this.createServer();
+    this.registerControllers(options.container);
+
+    if (options.beforeStart) {
+      await options.beforeStart(this.server);
+    }
+
+    this.server.start({ port: options.port });
+
+    this.logger.info(`Server started on port ${options.port}`);
 
     return this.server;
+  }
+
+  private resolveStartOptions(
+    portOrOptions: number | WebhookServerStartOptions,
+    container?: DependencyContainer,
+  ): WebhookServerStartOptions {
+    if (typeof portOrOptions === 'number') {
+      if (!container) {
+        throw new Error(
+          'Container is required when using positional arguments',
+        );
+      }
+      return { port: portOrOptions, container };
+    }
+    return portOrOptions;
   }
 
   /**

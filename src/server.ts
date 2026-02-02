@@ -3,6 +3,7 @@
  *
  * Entry point for the local dev web server.
  * Uses local DI container (real DB, mocked external services).
+ * Hosts both webhook endpoints and GraphQL API.
  *
  * Usage:
  *   bun run --watch src/server.ts
@@ -16,28 +17,45 @@
 import 'dotenv/config';
 import 'reflect-metadata';
 
+import { GraphQLServer } from '@modules/graphql/index.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging/index.ts';
 import { setupLocalContainer } from './container.local.ts';
+import { resolvers } from './presentation/graphql/resolvers/index.ts';
+import { typeDefs } from './presentation/graphql/schema/index.ts';
 import { WebhookServer } from './presentation/http/WebhookServer.ts';
 
 const DEFAULT_PORT = 4001;
 
-function main() {
+async function main() {
   const container = setupLocalContainer();
 
   const logger = container.resolve<Logger>(LOGGER_TOKEN);
   const webhookServer = container.resolve(WebhookServer);
 
+  const graphqlServer = new GraphQLServer({
+    typeDefs,
+    resolvers,
+    introspection: true,
+  });
+
   const port = getPort();
 
   try {
-    webhookServer.start(port, container);
+    await webhookServer.start({
+      port,
+      container,
+      beforeStart: async (httpServer) => {
+        await graphqlServer.register(httpServer, () => ({ container }));
+        logger.info('GraphQL endpoint registered at /graphql');
+      },
+    });
 
-    setupGracefulShutdown(webhookServer, logger);
+    setupGracefulShutdown(webhookServer, graphqlServer, logger);
 
     logger.info(`Dev server started on http://localhost:${port}`);
     logger.info('Health check: GET /health');
     logger.info('Webhook: GET/POST /webhook');
+    logger.info(`GraphQL: POST http://localhost:${port}/graphql`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to start dev server', { error: message });
@@ -56,15 +74,20 @@ function getPort(): number {
   return DEFAULT_PORT;
 }
 
-function setupGracefulShutdown(server: WebhookServer, logger: Logger): void {
-  const shutdown = () => {
+function setupGracefulShutdown(
+  server: WebhookServer,
+  graphqlServer: GraphQLServer,
+  logger: Logger,
+): void {
+  const shutdown = async () => {
     logger.info('Shutting down dev server...');
+    await graphqlServer.stop();
     server.stop();
     process.exit(0);
   };
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', () => shutdown());
+  process.on('SIGINT', () => shutdown());
 }
 
 main();

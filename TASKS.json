@@ -37,7 +37,7 @@
     "phase": "P2: GraphQL API Foundation",
     "title": "Install GraphQL dependencies and configure Apollo Server",
     "description": "Install @apollo/server, graphql, @graphql-tools/schema. Create src/modules/graphql/ module with ApolloServer setup that integrates with the existing Bun HttpServer. Set up basic schema with Query type and health check query. Wire into the dev server entry point at /graphql endpoint.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P1-003"]
   },
   {

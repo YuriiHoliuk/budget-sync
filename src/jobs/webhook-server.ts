@@ -25,7 +25,7 @@ import { WebhookServer } from '../presentation/http/WebhookServer.ts';
 
 const DEFAULT_PORT = 8080;
 
-function main() {
+async function main() {
   const container = setupContainer();
   container.register(LOGGER_TOKEN, { useClass: StructuredLogger });
 
@@ -35,7 +35,7 @@ function main() {
   const port = getPort();
 
   try {
-    webhookServer.start(port, container);
+    await webhookServer.start(port, container);
 
     setupGracefulShutdown(webhookServer, logger);
 

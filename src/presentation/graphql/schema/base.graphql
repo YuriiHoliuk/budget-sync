@@ -1,0 +1,18 @@
+type Query {
+  """
+  Health check query. Returns service status.
+  """
+  health: HealthStatus!
+}
+
+type Mutation {
+  """
+  Placeholder mutation. Will be extended by feature schemas.
+  """
+  _empty: Boolean
+}
+
+type HealthStatus {
+  status: String!
+  timestamp: String!
+}
