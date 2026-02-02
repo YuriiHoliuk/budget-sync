@@ -17,4 +17,5 @@ export abstract class BudgetRepository {
   abstract findActive(date: Date): Promise<Budget[]>;
   abstract save(budget: Budget): Promise<void>;
   abstract saveAndReturn(budget: Budget): Promise<Budget>;
+  abstract update(budget: Budget): Promise<Budget>;
 }

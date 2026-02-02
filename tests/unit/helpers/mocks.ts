@@ -250,6 +250,7 @@ export function createMockBudgetRepository(
     findActive: (date: Date) => Promise<Budget[]>;
     save: (budget: Budget) => Promise<void>;
     saveAndReturn: (budget: Budget) => Promise<Budget>;
+    update: (budget: Budget) => Promise<Budget>;
   }> = {},
 ): BudgetRepository {
   return {
@@ -261,6 +262,8 @@ export function createMockBudgetRepository(
     saveAndReturn:
       overrides.saveAndReturn ??
       mock((budget: Budget) => Promise.resolve(budget)),
+    update:
+      overrides.update ?? mock((budget: Budget) => Promise.resolve(budget)),
   } as unknown as BudgetRepository;
 }
 

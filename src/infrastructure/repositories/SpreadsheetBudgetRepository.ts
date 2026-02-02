@@ -99,4 +99,9 @@ export class SpreadsheetBudgetRepository
     await this.save(budget);
     return budget;
   }
+
+  async update(budget: Budget): Promise<Budget> {
+    await this.save(budget);
+    return budget;
+  }
 }

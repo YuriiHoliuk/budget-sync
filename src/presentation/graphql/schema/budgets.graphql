@@ -10,6 +10,48 @@ extend type Query {
   budget(id: Int!): Budget
 }
 
+extend type Mutation {
+  """
+  Create a new budget envelope.
+  """
+  createBudget(input: CreateBudgetInput!): Budget!
+
+  """
+  Update an existing budget. Only provided fields are updated.
+  """
+  updateBudget(input: UpdateBudgetInput!): Budget!
+
+  """
+  Archive a budget (soft delete). Archived budgets are hidden from active lists.
+  """
+  archiveBudget(id: Int!): Budget!
+}
+
+input CreateBudgetInput {
+  name: String!
+  type: BudgetType!
+  currency: String!
+  targetAmount: Float!
+  targetCadence: TargetCadence
+  targetCadenceMonths: Int
+  targetDate: String
+  startDate: String
+  endDate: String
+}
+
+input UpdateBudgetInput {
+  id: Int!
+  name: String
+  type: BudgetType
+  currency: String
+  targetAmount: Float
+  targetCadence: TargetCadence
+  targetCadenceMonths: Int
+  targetDate: String
+  startDate: String
+  endDate: String
+}
+
 """
 YNAB-style budget envelope.
 Type determines rollover behavior and target calculation.

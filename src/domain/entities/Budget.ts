@@ -76,4 +76,14 @@ export class Budget {
   withDbId(dbId: number): Budget {
     return Budget.create({ ...this.props, dbId }, this.id);
   }
+
+  /** Returns a new Budget with the given properties overridden */
+  withUpdatedProps(updates: Partial<BudgetProps>): Budget {
+    return Budget.create({ ...this.props, ...updates }, this.id);
+  }
+
+  /** Returns a new Budget with isArchived set to true */
+  archive(): Budget {
+    return Budget.create({ ...this.props, isArchived: true }, this.id);
+  }
 }

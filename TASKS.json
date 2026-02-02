@@ -53,7 +53,7 @@
     "phase": "P2: GraphQL API Foundation",
     "title": "Define GraphQL schema for Budgets with CRUD mutations",
     "description": "Create budgets.graphql with Budget type, BudgetType enum, queries (budgets, budget(id)), mutations (createBudget, updateBudget, archiveBudget). Create BudgetResolver. Implement CreateBudget and UpdateBudget use cases in application layer.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P2-001"]
   },
   {

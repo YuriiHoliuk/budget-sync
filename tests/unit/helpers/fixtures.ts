@@ -1,4 +1,5 @@
 import { Account } from '@domain/entities/Account.ts';
+import { Budget, type BudgetProps } from '@domain/entities/Budget.ts';
 import { Transaction } from '@domain/entities/Transaction.ts';
 import { Currency } from '@domain/value-objects/Currency.ts';
 import { Money } from '@domain/value-objects/Money.ts';
@@ -227,4 +228,31 @@ export function createTestQueuedTransaction(
       ...overrides.transaction,
     },
   };
+}
+
+/**
+ * Default values for test Budget entities.
+ */
+const DEFAULT_BUDGET_PROPS: BudgetProps = {
+  name: 'Test Budget',
+  type: 'spending',
+  amount: Money.create(1000000, Currency.UAH),
+  targetCadence: null,
+  targetCadenceMonths: null,
+  targetDate: null,
+  startDate: null,
+  endDate: null,
+  isArchived: false,
+  dbId: 1,
+};
+
+/**
+ * Creates a test Budget entity with sensible defaults.
+ * Override any property as needed for specific test scenarios.
+ */
+export function createTestBudget(overrides: Partial<BudgetProps> = {}): Budget {
+  return Budget.create({
+    ...DEFAULT_BUDGET_PROPS,
+    ...overrides,
+  });
 }

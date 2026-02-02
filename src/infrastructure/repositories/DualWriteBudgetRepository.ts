@@ -43,6 +43,10 @@ export class DualWriteBudgetRepository implements BudgetRepository {
     return saved;
   }
 
+  update(budget: Budget): Promise<Budget> {
+    return this.dbRepo.update(budget);
+  }
+
   private async mirrorToSpreadsheet(
     operation: () => Promise<void>,
   ): Promise<void> {

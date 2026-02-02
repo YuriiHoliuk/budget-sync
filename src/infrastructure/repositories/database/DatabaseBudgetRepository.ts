@@ -73,4 +73,22 @@ export class DatabaseBudgetRepository implements BudgetRepository {
     }
     return this.mapper.toEntity(row);
   }
+
+  async update(budget: Budget): Promise<Budget> {
+    const budgetId = budget.dbId;
+    if (!budgetId) {
+      throw new Error('Cannot update budget without database ID');
+    }
+    const updateData = this.mapper.toInsert(budget);
+    const rows = await this.db
+      .update(budgets)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(budgets.id, budgetId))
+      .returning();
+    const row = rows[0];
+    if (!row) {
+      throw new Error(`Failed to update budget with id ${budgetId}`);
+    }
+    return this.mapper.toEntity(row);
+  }
 }

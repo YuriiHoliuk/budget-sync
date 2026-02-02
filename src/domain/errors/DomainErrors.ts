@@ -31,6 +31,24 @@ export class AccountNotFoundError extends DomainError {
 }
 
 /**
+ * Thrown when a budget cannot be found by its identifier.
+ */
+export class BudgetNotFoundError extends DomainError {
+  constructor(public readonly budgetId: number) {
+    super(`Budget not found with id: ${budgetId}`);
+  }
+}
+
+/**
+ * Thrown when attempting to create a budget with a name that already exists.
+ */
+export class BudgetNameTakenError extends DomainError {
+  constructor(public readonly budgetName: string) {
+    super(`Budget with name "${budgetName}" already exists`);
+  }
+}
+
+/**
  * Thrown when an external service (bank gateway, API) enforces rate limiting.
  * Use this in the application layer for retry logic.
  */
