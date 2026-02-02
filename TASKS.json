@@ -110,7 +110,7 @@
     "phase": "P3: Next.js Frontend Setup",
     "title": "Create app layout with navigation sidebar",
     "description": "Build main layout with sidebar navigation (like YNAB): Budget overview (main page), Accounts list, Transactions list, Settings. Use ShadCN sidebar component. Include month selector in header. Dark theme support. Responsive design.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P3-001"]
   },
   {

@@ -2,6 +2,21 @@
 
 ## 2026-02-02
 
+### P3-003: App layout with navigation sidebar
+
+- Installed ShadCN sidebar, separator, tooltip, sheet, skeleton, dropdown-menu components
+- Created `AppSidebar` with navigation links: Budget, Accounts, Transactions, Categories, Settings
+- Created `AppHeader` with sidebar toggle, month selector (prev/next arrows), and dark mode toggle
+- Created `MonthProvider` context (`useMonth` hook) for global month state (YYYY-MM format)
+- Created `ThemeToggle` with localStorage persistence and system preference detection
+- Created `AppShell` wrapping SidebarProvider + MonthProvider for the full layout
+- Added route pages: `/accounts`, `/transactions`, `/categories`, `/settings` (placeholder content)
+- Updated root `page.tsx` to show Budget Overview as the main page
+- Responsive design: sidebar collapses to sheet overlay on mobile, icon-collapsible on desktop
+- Keyboard shortcut: Cmd+B to toggle sidebar
+- Dark mode: full theme support via CSS class toggle on `<html>`
+- Verified: build passes, all 750 backend tests pass, navigation/theme/month selector working
+
 ### P3-001 + P3-002: Next.js Frontend Setup with GraphQL Codegen
 
 - Created `web/` directory with Next.js 15 (App Router, TypeScript, Tailwind CSS v4)
