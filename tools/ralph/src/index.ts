@@ -28,6 +28,7 @@ program
     '60000',
   )
   .option('-v, --verbose', 'Enable verbose logging')
+  .option('--cwd <dir>', 'Working directory for Claude process')
   .option('--mock', 'Use mock Claude for testing')
   .option(
     '--mock-scenario <name>',
@@ -41,6 +42,7 @@ program
       exitSignal: options.exitSignal,
       rateLimitDelay: Number.parseInt(options.rateLimitDelay, 10),
       verbose: options.verbose || false,
+      cwd: options.cwd,
       mockMode: options.mock || false,
       mockScenario: options.mockScenario,
     });

@@ -21,6 +21,7 @@ const DEFAULT_CONFIG: RalphConfig = {
   rateLimitDelay: 60000,
   verbose: false,
   mockMode: false,
+  cwd: process.cwd(),
 };
 
 export class RalphLoop {
@@ -80,6 +81,7 @@ export class RalphLoop {
       model: this.config.model,
       prompt,
       logger: this.logger,
+      cwd: this.config.cwd,
     });
   }
 

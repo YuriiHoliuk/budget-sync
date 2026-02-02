@@ -17,6 +17,8 @@ export interface ClaudeRunnerOptions {
   onOutput?: (content: string) => void;
   /** Kill process if no activity for this long (default: 5 min) */
   stallTimeout?: number;
+  /** Working directory for the Claude process */
+  cwd?: string;
 }
 
 export async function runClaude(
@@ -28,6 +30,7 @@ export async function runClaude(
     logger,
     onOutput,
     stallTimeout = 300000,
+    cwd,
   } = options;
 
   return new Promise((resolve) => {
@@ -56,6 +59,7 @@ export async function runClaude(
       child = spawn('claude', args, {
         stdio: ['inherit', 'pipe', 'pipe'],
         env: { ...process.env },
+        cwd,
       });
     } catch (spawnError) {
       const errorMessage =

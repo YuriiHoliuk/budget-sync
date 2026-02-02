@@ -6,6 +6,7 @@ export interface RalphConfig {
   rateLimitDelay: number;
   verbose: boolean;
   mockMode: boolean;
+  cwd: string;
 }
 
 export interface ClaudeMessageContent {
