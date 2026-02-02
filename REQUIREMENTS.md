@@ -11,4 +11,4 @@ We built a product similar to You Need A Budget, and you will be provided with a
 No need to copy it exactly; need to create your own style, but very similar, and use great parts of the UX of You Need A Budget.
 Pay attention that we have budgets which are named categories in You Need A Budget because they don't have categories, but we have budgets and categories are separately for us just for breakdown, and they don't exist in You Need A Budget.
 Example screenshot from YNAB - docs/design/unity-budget-reference.png
-
+For the beginning, we will support only one user and no user relations in the database, but we have to have basic sign-in which accepts only my personal email.
