@@ -211,4 +211,4 @@ tf-show resource:
 #   just ralph "-p TODO.md --model sonnet"  # Custom prompt file and model
 #   just ralph "--mock"                     # Test with mock Claude
 ralph args='':
-    cd tools/ralph && bun run src/index.ts {{args}}
+    cd tools/ralph && bun run src/index.ts -p "{{justfile_directory()}}/PROMPT.md" {{args}}
