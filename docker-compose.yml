@@ -1,19 +1,40 @@
-# Docker Compose for local testing
+# Docker Compose for local development
 #
 # Usage:
-#   docker compose build
-#   docker compose run --rm budget-sync sync-accounts
-#   docker compose run --rm budget-sync sync-transactions
+#   docker compose up -d db        # Start local PostgreSQL
+#   docker compose up -d           # Start all services
+#   docker compose down            # Stop all services
+#   docker compose down -v         # Stop and remove volumes (reset DB)
 
 services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: budget_sync
+      POSTGRES_PASSWORD: budget_sync
+      POSTGRES_DB: budget_sync
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U budget_sync"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   budget-sync:
+    profiles: ["legacy"]
     build: .
     env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
-      # Mount service account file for local development
-      # Update path to match your local service account file
       - ${GOOGLE_SERVICE_ACCOUNT_FILE}:/secrets/google-sa.json:ro
     environment:
-      # Override to use mounted path in container
       - GOOGLE_SERVICE_ACCOUNT_FILE=/secrets/google-sa.json
     command: ["sync-transactions"]
+
+volumes:
+  pgdata:

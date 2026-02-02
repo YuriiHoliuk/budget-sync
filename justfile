@@ -21,6 +21,26 @@ install:
 dev:
     bun run dev
 
+# Start local PostgreSQL database
+db-up:
+    docker compose up -d db
+
+# Stop local PostgreSQL database
+db-down:
+    docker compose down
+
+# Reset local database (destroy and recreate)
+db-reset:
+    docker compose down -v && docker compose up -d db && sleep 2 && just db-migrate
+
+# Seed local database with test data
+db-seed:
+    bun run scripts/seed-local-db.ts
+
+# Run local dev server (API + GraphQL)
+dev-server:
+    bun run --watch src/server.ts
+
 # ============================================
 # Sync Commands
 # ============================================

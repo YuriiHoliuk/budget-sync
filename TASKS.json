@@ -1,1 +1,250 @@
-[]
+[
+  {
+    "id": "P1-001",
+    "phase": "P1: Local Dev Environment",
+    "title": "Set up Docker Compose with PostgreSQL for local development",
+    "description": "Update docker-compose.yml to include a local PostgreSQL service (postgres:16-alpine) with health checks, volume persistence, and proper env vars. Add a .env.local template with DATABASE_URL pointing to the local DB. Ensure `just db-migrate` works against local DB.",
+    "status": "done",
+    "dependencies": []
+  },
+  {
+    "id": "P1-002",
+    "phase": "P1: Local Dev Environment",
+    "title": "Create local development container setup with mocks",
+    "description": "Create src/container.local.ts that sets up DI container for local development: uses real DB, mocks spreadsheet repositories (no-op), mocks Monobank gateway (returns empty), mocks PubSub. Reuse all database repositories directly (skip dual-write). Create a MockSpreadsheetsClient, MockBankGateway, MockPubSubClient.",
+    "status": "done",
+    "dependencies": ["P1-001"]
+  },
+  {
+    "id": "P1-003",
+    "phase": "P1: Local Dev Environment",
+    "title": "Create local dev server entry point",
+    "description": "Create src/server.ts as the main entry point for the local dev web server. It should: load .env, set up local container, start HTTP server on configurable port (default 4001). Add `just dev-server` command to justfile. This will later host both the webhook endpoints AND GraphQL.",
+    "status": "done",
+    "dependencies": ["P1-002"]
+  },
+  {
+    "id": "P1-004",
+    "phase": "P1: Local Dev Environment",
+    "title": "Add seed script for local database",
+    "description": "Create scripts/seed-local-db.ts that seeds the local DB with realistic test data: 5 accounts (3 operational, 2 savings), 23 categories (hierarchical), 15 budgets (mix of spending/savings/goal), 45 allocations across 3 months, 186 transactions across 3 months. Add `just db-seed` to justfile.",
+    "status": "done",
+    "dependencies": ["P1-001"]
+  },
+
+  {
+    "id": "P2-001",
+    "phase": "P2: GraphQL API Foundation",
+    "title": "Install GraphQL dependencies and configure Apollo Server",
+    "description": "Install @apollo/server, graphql, @graphql-tools/schema. Create src/modules/graphql/ module with ApolloServer setup that integrates with the existing Bun HttpServer. Set up basic schema with Query type and health check query. Wire into the dev server entry point at /graphql endpoint.",
+    "status": "todo",
+    "dependencies": ["P1-003"]
+  },
+  {
+    "id": "P2-002",
+    "phase": "P2: GraphQL API Foundation",
+    "title": "Define GraphQL schema for Accounts",
+    "description": "Create src/presentation/graphql/schema/accounts.graphql with Account type, AccountRole enum, AccountType enum. Add Query { accounts, account(id: Int!) }. Create AccountResolver in src/presentation/graphql/resolvers/AccountResolver.ts that reads from AccountRepository. Register in schema.",
+    "status": "todo",
+    "dependencies": ["P2-001"]
+  },
+  {
+    "id": "P2-003",
+    "phase": "P2: GraphQL API Foundation",
+    "title": "Define GraphQL schema for Budgets with CRUD mutations",
+    "description": "Create budgets.graphql with Budget type, BudgetType enum, queries (budgets, budget(id)), mutations (createBudget, updateBudget, archiveBudget). Create BudgetResolver. Implement CreateBudget and UpdateBudget use cases in application layer.",
+    "status": "todo",
+    "dependencies": ["P2-001"]
+  },
+  {
+    "id": "P2-004",
+    "phase": "P2: GraphQL API Foundation",
+    "title": "Define GraphQL schema for Categories with CRUD mutations",
+    "description": "Create categories.graphql with Category type (including parent/children hierarchy), CategoryStatus enum, queries (categories, category(id)), mutations (createCategory, updateCategory, archiveCategory). Create CategoryResolver. Implement use cases.",
+    "status": "todo",
+    "dependencies": ["P2-001"]
+  },
+  {
+    "id": "P2-005",
+    "phase": "P2: GraphQL API Foundation",
+    "title": "Define GraphQL schema for Allocations with CRUD mutations",
+    "description": "Create allocations.graphql with Allocation type, queries (allocations(budgetId, period)), mutations (createAllocation, updateAllocation, deleteAllocation, moveFunds(sourceBudgetId, destBudgetId, amount, period)). Create AllocationResolver. Implement use cases. moveFunds creates two allocations atomically.",
+    "status": "todo",
+    "dependencies": ["P2-001"]
+  },
+  {
+    "id": "P2-006",
+    "phase": "P2: GraphQL API Foundation",
+    "title": "Define GraphQL schema for Transactions with queries",
+    "description": "Create transactions.graphql with Transaction type, TransactionType enum, CategorizationStatus enum. Add queries: transactions(filters: TransactionFilter), transaction(id). Add mutations: updateTransactionCategory, updateTransactionBudget, verifyTransaction. Create TransactionResolver with pagination support. Add child resolvers for account, category, budget fields.",
+    "status": "todo",
+    "dependencies": ["P2-001"]
+  },
+  {
+    "id": "P2-007",
+    "phase": "P2: GraphQL API Foundation",
+    "title": "Implement Monthly Overview computed query",
+    "description": "Add GraphQL query monthlyOverview(month: String!) that returns: readyToAssign, totalAllocated, totalSpent, capitalBalance, availableFunds, savingsRate. Also returns budgetSummaries[] with per-budget: allocated, spent, available, carryover. Implement BudgetCalculationService in domain layer with pure computation logic per PRD.",
+    "status": "todo",
+    "dependencies": ["P2-005", "P2-006"]
+  },
+
+  {
+    "id": "P3-001",
+    "phase": "P3: Next.js Frontend Setup",
+    "title": "Initialize Next.js app with ShadCN UI and Tailwind CSS",
+    "description": "Create web/ directory with Next.js 14+ app (App Router). Install and configure: Tailwind CSS, ShadCN UI (init with default theme), Apollo Client, graphql-codegen. Set up path aliases. Configure proxy to backend API at localhost:4000/graphql. Add `just dev-web` to justfile.",
+    "status": "todo",
+    "dependencies": ["P2-001"]
+  },
+  {
+    "id": "P3-002",
+    "phase": "P3: Next.js Frontend Setup",
+    "title": "Set up GraphQL code generation for frontend",
+    "description": "Install @graphql-codegen/cli, @graphql-codegen/client-preset, @graphql-codegen/typescript-operations. Configure codegen.ts to read .graphql files from web/src/graphql/ and generate typed hooks/documents. Add `just codegen` command. Create initial .graphql operation files for accounts query.",
+    "status": "todo",
+    "dependencies": ["P3-001", "P2-002"]
+  },
+  {
+    "id": "P3-003",
+    "phase": "P3: Next.js Frontend Setup",
+    "title": "Create app layout with navigation sidebar",
+    "description": "Build main layout with sidebar navigation (like YNAB): Budget overview (main page), Accounts list, Transactions list, Settings. Use ShadCN sidebar component. Include month selector in header. Dark theme support. Responsive design.",
+    "status": "todo",
+    "dependencies": ["P3-001"]
+  },
+  {
+    "id": "P3-004",
+    "phase": "P3: Next.js Frontend Setup",
+    "title": "Create basic auth gate (single user, email-only)",
+    "description": "Implement a simple auth gate: on first load, check localStorage for authenticated email. If not present, show login form that accepts only the owner's email (configured via env var ALLOWED_EMAIL). No password - just email verification for now. Store in localStorage. Protect all routes.",
+    "status": "todo",
+    "dependencies": ["P3-003"]
+  },
+
+  {
+    "id": "P4-001",
+    "phase": "P4: Budget Overview Page (Main Feature)",
+    "title": "Build Monthly Overview header with key metrics",
+    "description": "Create the Budget page (main page) header section showing: month selector (prev/next arrows + month name), Ready to Assign (with color coding: green=0, yellow>0, red<0), Capital (savings), Available Funds, Total Allocated, Total Spent, Savings Rate. Use monthlyOverview GraphQL query. YNAB-style design.",
+    "status": "todo",
+    "dependencies": ["P3-003", "P2-007"]
+  },
+  {
+    "id": "P4-002",
+    "phase": "P4: Budget Overview Page (Main Feature)",
+    "title": "Build Budget table with inline allocation editing",
+    "description": "Create the budget table showing all active budgets for selected month: Budget name, Target/Limit, Allocated (editable inline), Spent, Available (with color), Progress bar. Support inline editing of allocated amount (click to edit, creates allocation). Group budgets by type (Spending, Savings, Goals). YNAB-style UX.",
+    "status": "todo",
+    "dependencies": ["P4-001", "P2-003", "P2-005"]
+  },
+  {
+    "id": "P4-003",
+    "phase": "P4: Budget Overview Page (Main Feature)",
+    "title": "Implement Move Funds dialog",
+    "description": "Create a dialog/modal for moving funds between budgets: select source budget, destination budget, amount. Uses moveFunds mutation. Shows current available balance for source. Updates table immediately via Apollo cache.",
+    "status": "todo",
+    "dependencies": ["P4-002"]
+  },
+  {
+    "id": "P4-004",
+    "phase": "P4: Budget Overview Page (Main Feature)",
+    "title": "Build Budget CRUD dialogs (create, edit, archive)",
+    "description": "Create dialogs for: New Budget (name, type, target amount, cadence, dates), Edit Budget, Archive Budget (with confirmation). Use ShadCN Dialog, Form, Select components. Validate inputs with Zod on client side.",
+    "status": "todo",
+    "dependencies": ["P4-002"]
+  },
+  {
+    "id": "P4-005",
+    "phase": "P4: Budget Overview Page (Main Feature)",
+    "title": "Build Unbudgeted Transactions warning section",
+    "description": "Below the budget table, show a warning section listing expense transactions from operational accounts that have no budget assigned for the selected month. Show date, amount, description, account. Allow quick budget assignment from this list.",
+    "status": "todo",
+    "dependencies": ["P4-002", "P2-006"]
+  },
+
+  {
+    "id": "P5-001",
+    "phase": "P5: Accounts & Transactions Pages",
+    "title": "Build Accounts page",
+    "description": "Create Accounts page showing all bank accounts grouped by role (Operational, Savings). For each account: name, type badge, currency, balance, IBAN (truncated), last sync time. Show total balance per group. No CRUD needed (accounts come from bank sync).",
+    "status": "todo",
+    "dependencies": ["P3-003", "P2-002"]
+  },
+  {
+    "id": "P5-002",
+    "phase": "P5: Accounts & Transactions Pages",
+    "title": "Build Transactions page with filtering and pagination",
+    "description": "Create Transactions page with: filterable table (date range, account, category, budget, search text, status), pagination, sortable columns. Show: date, description, amount (color by type), category, budget, status badge. Click row to expand details.",
+    "status": "todo",
+    "dependencies": ["P3-003", "P2-006"]
+  },
+  {
+    "id": "P5-003",
+    "phase": "P5: Accounts & Transactions Pages",
+    "title": "Build Transaction detail/edit panel",
+    "description": "When a transaction is clicked, show a side panel or expanded row with full details. Allow editing: category (dropdown with search), budget (dropdown with search), notes. Show AI reasoning if available. Add Verify button to confirm categorization.",
+    "status": "todo",
+    "dependencies": ["P5-002", "P2-004"]
+  },
+
+  {
+    "id": "P6-001",
+    "phase": "P6: Categories Management",
+    "title": "Build Categories management page",
+    "description": "Create Categories page showing hierarchical category tree. Support: create category (with optional parent), rename, archive. Show transaction count per category. Tree view with expand/collapse. ShadCN Tree or custom accordion component.",
+    "status": "todo",
+    "dependencies": ["P3-003", "P2-004"]
+  },
+
+  {
+    "id": "P7-001",
+    "phase": "P7: API Integration Tests",
+    "title": "Set up API integration test infrastructure",
+    "description": "Create tests/integration/api/ directory. Set up test harness that: starts local Postgres (from docker-compose), runs migrations, creates Apollo Server instance with test container (mocked spreadsheet/bank), provides helpers to seed data and make GraphQL queries. Use Bun test runner. Add factory functions for creating test entities.",
+    "status": "todo",
+    "dependencies": ["P2-001", "P1-004"]
+  },
+  {
+    "id": "P7-002",
+    "phase": "P7: API Integration Tests",
+    "title": "Write API integration tests for core queries and mutations",
+    "description": "Write integration tests for: accounts query, budgets CRUD, categories CRUD, allocations CRUD, moveFunds mutation, transactions query with filters, monthlyOverview computation. Each test seeds data, executes query/mutation, asserts response.",
+    "status": "todo",
+    "dependencies": ["P7-001", "P2-007"]
+  },
+
+  {
+    "id": "P8-001",
+    "phase": "P8: E2E Tests (Playwright)",
+    "title": "Set up Playwright E2E test infrastructure",
+    "description": "Install Playwright. Create e2e/ directory with playwright.config.ts. Set up test environment: docker-compose for test DB, seed fixtures, start API server + Next.js dev server. Create base test fixtures. Mock spreadsheet and Monobank at container level. Add `just test-e2e` command.",
+    "status": "todo",
+    "dependencies": ["P4-002", "P5-002"]
+  },
+  {
+    "id": "P8-002",
+    "phase": "P8: E2E Tests (Playwright)",
+    "title": "Write E2E tests for Budget Overview page",
+    "description": "E2E tests: load budget page, verify metrics display, navigate months, edit allocation inline, move funds between budgets, create new budget, verify Ready to Assign updates. Use seeded test data.",
+    "status": "todo",
+    "dependencies": ["P8-001"]
+  },
+  {
+    "id": "P8-003",
+    "phase": "P8: E2E Tests (Playwright)",
+    "title": "Write E2E tests for Transactions and Accounts pages",
+    "description": "E2E tests: load transactions page, filter by date/category/budget, search, paginate, edit transaction category/budget, verify transaction. Load accounts page, verify accounts display and grouping.",
+    "status": "todo",
+    "dependencies": ["P8-001"]
+  },
+
+  {
+    "id": "P9-001",
+    "phase": "P9: GCP Deployment",
+    "title": "Configure Cloud Run Service for web app",
+    "description": "Update Terraform to deploy the web server as a Cloud Run Service (alongside existing webhook service). Configure: Dockerfile multi-stage build for Next.js + API, env vars, secrets, IAM. Set up custom domain or Cloud Run URL. Update CI/CD pipeline.",
+    "status": "todo",
+    "dependencies": ["P4-005", "P5-003"]
+  }
+]
