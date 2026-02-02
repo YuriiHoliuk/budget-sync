@@ -2,6 +2,21 @@
 
 ## 2026-02-02
 
+### P2-007: Monthly Overview computed query
+
+- Created `BudgetCalculationService` in `src/domain/services/` with pure computation logic for monthly overview
+- Implements YNAB-style envelope budgeting: Ready to Assign, per-budget available, spending carryover
+- Spending budgets: only negative carryover carries forward (overspending as debt)
+- Savings/Goal/Periodic budgets: all allocations and spending accumulate over time
+- Ready to Assign = sum of operational account balances − sum of all allocations ever
+- Savings rate = (income − expenses) / income for the month
+- Added `findTransactionSummaries()` to `DatabaseTransactionRepository` — lightweight join query for budget calculations
+- Created `monthlyOverview.graphql` with `MonthlyOverview` and `BudgetSummary` types
+- Created `monthlyOverviewResolver` that fetches all data in parallel and delegates to BudgetCalculationService
+- Month format validation (YYYY-MM) with descriptive error messages
+- 26 new unit tests for BudgetCalculationService covering all budget types, carryover chains, edge cases (707 total pass)
+- Verified all queries via local dev server with real data
+
 ### P2-006: GraphQL Transactions schema with queries and mutations
 
 - Created `transactions.graphql` with `Transaction` type, `TransactionTypeEnum`, `CategorizationStatusEnum`, `TransactionFilter`, `PaginationInput`, `TransactionConnection` for paginated results

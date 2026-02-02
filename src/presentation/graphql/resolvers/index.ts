@@ -10,6 +10,7 @@ import { allocationsResolver } from './allocationsResolver.ts';
 import { budgetsResolver } from './budgetsResolver.ts';
 import { categoriesResolver } from './categoriesResolver.ts';
 import { healthResolver } from './healthResolver.ts';
+import { monthlyOverviewResolver } from './monthlyOverviewResolver.ts';
 import { transactionsResolver } from './transactionsResolver.ts';
 
 export const resolvers = [
@@ -18,5 +19,6 @@ export const resolvers = [
   allocationsResolver,
   budgetsResolver,
   categoriesResolver,
+  monthlyOverviewResolver,
   transactionsResolver,
 ];

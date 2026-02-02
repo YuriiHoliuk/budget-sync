@@ -6,6 +6,7 @@ import type {
 import type { CategorizationStatus } from '@domain/value-objects/index.ts';
 import type { DatabaseClient } from '@modules/database/DatabaseClient.ts';
 import {
+  accounts,
   budgets,
   categories,
   transactions,
@@ -42,6 +43,14 @@ export interface TransactionFilterParams {
 export interface PaginationParams {
   limit: number;
   offset: number;
+}
+
+export interface TransactionSummaryRow {
+  budgetId: number | null;
+  amount: number;
+  type: 'credit' | 'debit';
+  date: Date;
+  accountRole: 'operational' | 'savings';
 }
 
 @injectable()
@@ -275,6 +284,34 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       .where(eq(transactions.id, dbId))
       .returning();
     return rows[0] ?? null;
+  }
+
+  /**
+   * Fetches lightweight transaction data joined with account role
+   * for budget calculation purposes. Returns only the fields needed
+   * for the monthly overview computation.
+   */
+  async findTransactionSummaries(): Promise<TransactionSummaryRow[]> {
+    const rows = await this.db
+      .select({
+        budgetId: transactions.budgetId,
+        amount: transactions.amount,
+        type: transactions.type,
+        date: transactions.date,
+        accountRole: accounts.role,
+      })
+      .from(transactions)
+      .leftJoin(accounts, eq(transactions.accountId, accounts.id));
+
+    return rows.map((row) => ({
+      budgetId: row.budgetId,
+      amount: Math.abs(row.amount),
+      type: row.type as 'credit' | 'debit',
+      date: row.date,
+      accountRole: (row.accountRole ?? 'operational') as
+        | 'operational'
+        | 'savings',
+    }));
   }
 
   private buildFilterConditions(filter: TransactionFilterParams): SQL[] {

@@ -1,0 +1,60 @@
+extend type Query {
+  """
+  Returns computed monthly overview for budget planning.
+  All monetary values are in major units (e.g., 100.50 UAH).
+  """
+  monthlyOverview(month: String!): MonthlyOverview!
+}
+
+"""
+Full monthly financial overview with key metrics and per-budget summaries.
+"""
+type MonthlyOverview {
+  """Selected month in YYYY-MM format"""
+  month: String!
+
+  """
+  Unassigned money: operational account balances minus all allocations ever.
+  Positive = unassigned money available.
+  Negative = over-allocated.
+  Zero = all money assigned (ideal).
+  """
+  readyToAssign: Float!
+
+  """Sum of allocations for the selected month"""
+  totalAllocated: Float!
+
+  """Sum of expenses from operational accounts in the selected month"""
+  totalSpent: Float!
+
+  """Total balance across all savings accounts"""
+  capitalBalance: Float!
+
+  """Total balance across all operational accounts"""
+  availableFunds: Float!
+
+  """(Income - Expenses) / Income for the month. 0 if no income."""
+  savingsRate: Float!
+
+  """Per-budget breakdown for the selected month"""
+  budgetSummaries: [BudgetSummary!]!
+}
+
+"""
+Computed summary for a single budget in a given month.
+"""
+type BudgetSummary {
+  budgetId: Int!
+  name: String!
+  type: BudgetType!
+  """Target amount (monthly limit or total target)"""
+  targetAmount: Float!
+  """Money allocated to this budget in the selected month"""
+  allocated: Float!
+  """Money spent from this budget in the selected month"""
+  spent: Float!
+  """Available balance (calculation varies by budget type)"""
+  available: Float!
+  """Carryover from previous months (spending budgets only, negative = debt)"""
+  carryover: Float!
+}

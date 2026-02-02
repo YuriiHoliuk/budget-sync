@@ -85,7 +85,7 @@
     "phase": "P2: GraphQL API Foundation",
     "title": "Implement Monthly Overview computed query",
     "description": "Add GraphQL query monthlyOverview(month: String!) that returns: readyToAssign, totalAllocated, totalSpent, capitalBalance, availableFunds, savingsRate. Also returns budgetSummaries[] with per-budget: allocated, spent, available, carryover. Implement BudgetCalculationService in domain layer with pure computation logic per PRD.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P2-005", "P2-006"]
   },
 
