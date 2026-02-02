@@ -2,6 +2,21 @@
 
 ## 2026-02-02
 
+### P2-005: GraphQL Allocations schema with CRUD mutations
+
+- Created `Allocation` domain entity with period validation and immutable updates
+- Created `AllocationRepository` interface with budget/period query methods
+- Added `AllocationNotFoundError` domain error
+- Created `DatabaseAllocationMapper` and `DatabaseAllocationRepository`
+- Registered allocation repository in both production and local containers (DB-only, no dual-write)
+- Created `CreateAllocationUseCase`, `UpdateAllocationUseCase`, `DeleteAllocationUseCase`, `MoveFundsUseCase`
+- `MoveFunds` creates paired allocations atomically (negative source, positive dest)
+- Created `allocations.graphql` schema with queries (filtered by budgetId/period), CRUD mutations, `moveFunds`, and `budget` child resolver
+- Implemented `allocationsResolver` with major/minor unit conversion
+- Added `createTestAllocation` fixture and `createMockAllocationRepository` mock
+- 20 new unit tests for all four use cases (681 total pass)
+- Verified all queries and mutations via local dev server
+
 ### P2-004: GraphQL Categories schema with CRUD mutations
 
 - Added `withUpdatedProps()` and `archive()` methods to Category entity

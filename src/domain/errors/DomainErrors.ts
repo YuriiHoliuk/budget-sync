@@ -76,6 +76,15 @@ export class ParentCategoryNotFoundError extends DomainError {
 }
 
 /**
+ * Thrown when an allocation cannot be found by its identifier.
+ */
+export class AllocationNotFoundError extends DomainError {
+  constructor(public readonly allocationId: number) {
+    super(`Allocation not found with id: ${allocationId}`);
+  }
+}
+
+/**
  * Thrown when an external service (bank gateway, API) enforces rate limiting.
  * Use this in the application layer for retry logic.
  */

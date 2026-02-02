@@ -69,7 +69,7 @@
     "phase": "P2: GraphQL API Foundation",
     "title": "Define GraphQL schema for Allocations with CRUD mutations",
     "description": "Create allocations.graphql with Allocation type, queries (allocations(budgetId, period)), mutations (createAllocation, updateAllocation, deleteAllocation, moveFunds(sourceBudgetId, destBudgetId, amount, period)). Create AllocationResolver. Implement use cases. moveFunds creates two allocations atomically.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P2-001"]
   },
   {

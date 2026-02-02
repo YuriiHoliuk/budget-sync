@@ -17,3 +17,6 @@ export const DATABASE_CATEGORIZATION_RULE_REPOSITORY_TOKEN = Symbol(
 export const DATABASE_BUDGETIZATION_RULE_REPOSITORY_TOKEN = Symbol(
   'DatabaseBudgetizationRuleRepository',
 );
+export const DATABASE_ALLOCATION_REPOSITORY_TOKEN = Symbol(
+  'DatabaseAllocationRepository',
+);

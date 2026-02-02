@@ -11,6 +11,7 @@ import { BANK_GATEWAY_TOKEN } from '@domain/gateways/BankGateway.ts';
 import { LLM_GATEWAY_TOKEN } from '@domain/gateways/LLMGateway.ts';
 import { MESSAGE_QUEUE_GATEWAY_TOKEN } from '@domain/gateways/MessageQueueGateway.ts';
 import { ACCOUNT_REPOSITORY_TOKEN } from '@domain/repositories/AccountRepository.ts';
+import { ALLOCATION_REPOSITORY_TOKEN } from '@domain/repositories/AllocationRepository.ts';
 import { BUDGETIZATION_RULE_REPOSITORY_TOKEN } from '@domain/repositories/BudgetizationRuleRepository.ts';
 import { BUDGET_REPOSITORY_TOKEN } from '@domain/repositories/BudgetRepository.ts';
 import { CATEGORIZATION_RULE_REPOSITORY_TOKEN } from '@domain/repositories/CategorizationRuleRepository.ts';
@@ -20,6 +21,7 @@ import { MockBankGateway } from '@infrastructure/gateways/mocks/MockBankGateway.
 import { MockLLMGateway } from '@infrastructure/gateways/mocks/MockLLMGateway.ts';
 import { MockMessageQueueGateway } from '@infrastructure/gateways/mocks/MockMessageQueueGateway.ts';
 import { DatabaseAccountRepository } from '@infrastructure/repositories/database/DatabaseAccountRepository.ts';
+import { DatabaseAllocationRepository } from '@infrastructure/repositories/database/DatabaseAllocationRepository.ts';
 import { DatabaseBudgetizationRuleRepository } from '@infrastructure/repositories/database/DatabaseBudgetizationRuleRepository.ts';
 import { DatabaseBudgetRepository } from '@infrastructure/repositories/database/DatabaseBudgetRepository.ts';
 import { DatabaseCategorizationRuleRepository } from '@infrastructure/repositories/database/DatabaseCategorizationRuleRepository.ts';
@@ -51,6 +53,9 @@ export function setupLocalContainer(): typeof container {
   container.register(DATABASE_CLIENT_TOKEN, { useValue: databaseClient });
 
   // Repositories - direct database access (no dual-write)
+  container.register(ALLOCATION_REPOSITORY_TOKEN, {
+    useClass: DatabaseAllocationRepository,
+  });
   container.register(ACCOUNT_REPOSITORY_TOKEN, {
     useClass: DatabaseAccountRepository,
   });

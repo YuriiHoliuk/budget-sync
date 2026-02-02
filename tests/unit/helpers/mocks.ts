@@ -5,6 +5,7 @@ import type {
   CategorizeTransactionUseCase,
 } from '@application/use-cases/CategorizeTransaction.ts';
 import type { Account } from '@domain/entities/Account.ts';
+import type { Allocation } from '@domain/entities/Allocation.ts';
 import type { Budget } from '@domain/entities/Budget.ts';
 import type { Category } from '@domain/entities/Category.ts';
 import type { Transaction } from '@domain/entities/Transaction.ts';
@@ -21,6 +22,7 @@ import type {
   QueueMessage,
 } from '@domain/gateways/MessageQueueGateway.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
+import type { AllocationRepository } from '@domain/repositories/AllocationRepository.ts';
 import type { BudgetizationRuleRepository } from '@domain/repositories/BudgetizationRuleRepository.ts';
 import type { BudgetRepository } from '@domain/repositories/BudgetRepository.ts';
 import type { CategorizationRuleRepository } from '@domain/repositories/CategorizationRuleRepository.ts';
@@ -318,6 +320,42 @@ export function createMockCategorizationRuleRepository(
   return {
     findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
   } as unknown as CategorizationRuleRepository;
+}
+
+/**
+ * Creates a mock AllocationRepository with default implementations.
+ * All find methods return null/empty, mutation methods resolve successfully.
+ */
+export function createMockAllocationRepository(
+  overrides: Partial<{
+    findAll: () => Promise<Allocation[]>;
+    findById: (id: number) => Promise<Allocation | null>;
+    findByBudgetId: (budgetId: number) => Promise<Allocation[]>;
+    findByPeriod: (period: string) => Promise<Allocation[]>;
+    findByBudgetAndPeriod: (
+      budgetId: number,
+      period: string,
+    ) => Promise<Allocation[]>;
+    save: (allocation: Allocation) => Promise<Allocation>;
+    update: (allocation: Allocation) => Promise<Allocation>;
+    delete: (id: number) => Promise<void>;
+  }> = {},
+): AllocationRepository {
+  return {
+    findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
+    findById: overrides.findById ?? mock(() => Promise.resolve(null)),
+    findByBudgetId: overrides.findByBudgetId ?? mock(() => Promise.resolve([])),
+    findByPeriod: overrides.findByPeriod ?? mock(() => Promise.resolve([])),
+    findByBudgetAndPeriod:
+      overrides.findByBudgetAndPeriod ?? mock(() => Promise.resolve([])),
+    save:
+      overrides.save ??
+      mock((allocation: Allocation) => Promise.resolve(allocation)),
+    update:
+      overrides.update ??
+      mock((allocation: Allocation) => Promise.resolve(allocation)),
+    delete: overrides.delete ?? mock(() => Promise.resolve()),
+  } as unknown as AllocationRepository;
 }
 
 /**

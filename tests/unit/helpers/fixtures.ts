@@ -1,4 +1,8 @@
 import { Account } from '@domain/entities/Account.ts';
+import {
+  Allocation,
+  type AllocationProps,
+} from '@domain/entities/Allocation.ts';
 import { Budget, type BudgetProps } from '@domain/entities/Budget.ts';
 import { Category, type CategoryProps } from '@domain/entities/Category.ts';
 import { Transaction } from '@domain/entities/Transaction.ts';
@@ -230,6 +234,31 @@ export function createTestQueuedTransaction(
       ...overrides.transaction,
     },
   };
+}
+
+/**
+ * Default values for test Allocation entities.
+ */
+const DEFAULT_ALLOCATION_PROPS: AllocationProps = {
+  budgetId: 1,
+  amount: Money.create(500000, Currency.UAH),
+  period: '2026-02',
+  date: new Date('2026-02-01'),
+  notes: null,
+  dbId: 1,
+};
+
+/**
+ * Creates a test Allocation entity with sensible defaults.
+ * Override any property as needed for specific test scenarios.
+ */
+export function createTestAllocation(
+  overrides: Partial<AllocationProps> = {},
+): Allocation {
+  return Allocation.create({
+    ...DEFAULT_ALLOCATION_PROPS,
+    ...overrides,
+  });
 }
 
 /**

@@ -1,0 +1,112 @@
+extend type Query {
+  """
+  Get allocations, optionally filtered by budget and/or period.
+  """
+  allocations(budgetId: Int, period: String): [Allocation!]!
+
+  """
+  Get a single allocation by ID.
+  """
+  allocation(id: Int!): Allocation
+}
+
+extend type Mutation {
+  """
+  Create a new allocation (assign money to a budget for a period).
+  """
+  createAllocation(input: CreateAllocationInput!): Allocation!
+
+  """
+  Update an existing allocation.
+  """
+  updateAllocation(input: UpdateAllocationInput!): Allocation!
+
+  """
+  Delete an allocation by ID.
+  """
+  deleteAllocation(id: Int!): Boolean!
+
+  """
+  Move funds between two budgets by creating paired allocations atomically.
+  Returns both the source (negative) and destination (positive) allocations.
+  """
+  moveFunds(input: MoveFundsInput!): MoveFundsResult!
+}
+
+input CreateAllocationInput {
+  budgetId: Int!
+  """
+  Amount in major units (e.g., 100.50 UAH). Can be negative to remove from a budget.
+  """
+  amount: Float!
+  currency: String!
+  """
+  Period in YYYY-MM format.
+  """
+  period: String!
+  """
+  Date when allocation was made (ISO date string). Defaults to today.
+  """
+  date: String
+  notes: String
+}
+
+input UpdateAllocationInput {
+  id: Int!
+  budgetId: Int
+  """
+  Amount in major units (e.g., 100.50 UAH).
+  """
+  amount: Float
+  currency: String
+  """
+  Period in YYYY-MM format.
+  """
+  period: String
+  """
+  Date when allocation was made (ISO date string).
+  """
+  date: String
+  notes: String
+}
+
+input MoveFundsInput {
+  sourceBudgetId: Int!
+  destBudgetId: Int!
+  """
+  Amount in major units (must be positive).
+  """
+  amount: Float!
+  currency: String!
+  """
+  Period in YYYY-MM format.
+  """
+  period: String!
+  date: String
+  notes: String
+}
+
+type Allocation {
+  id: Int!
+  budgetId: Int!
+  """
+  Amount in major units (e.g., 100.50 UAH). Can be negative.
+  """
+  amount: Float!
+  currency: String!
+  """
+  Period in YYYY-MM format.
+  """
+  period: String!
+  """
+  Date when allocation was made (YYYY-MM-DD).
+  """
+  date: String!
+  notes: String
+  budget: Budget
+}
+
+type MoveFundsResult {
+  sourceAllocation: Allocation!
+  destAllocation: Allocation!
+}
