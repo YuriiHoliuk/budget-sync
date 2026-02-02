@@ -1,0 +1,169 @@
+extend type Query {
+  """
+  Get transactions with optional filters and pagination.
+  Returns paginated results with total count.
+  """
+  transactions(filter: TransactionFilter, pagination: PaginationInput): TransactionConnection!
+
+  """
+  Get a single transaction by its database ID.
+  """
+  transaction(id: Int!): Transaction
+}
+
+extend type Mutation {
+  """
+  Update the category of a transaction.
+  """
+  updateTransactionCategory(input: UpdateTransactionCategoryInput!): Transaction!
+
+  """
+  Update the budget of a transaction.
+  """
+  updateTransactionBudget(input: UpdateTransactionBudgetInput!): Transaction!
+
+  """
+  Mark a transaction as verified (user confirmed categorization).
+  """
+  verifyTransaction(id: Int!): Transaction!
+}
+
+input TransactionFilter {
+  """
+  Filter by account database ID.
+  """
+  accountId: Int
+
+  """
+  Filter by category database ID.
+  """
+  categoryId: Int
+
+  """
+  Filter by budget database ID.
+  """
+  budgetId: Int
+
+  """
+  Filter by transaction type (CREDIT or DEBIT).
+  """
+  type: TransactionTypeEnum
+
+  """
+  Filter by categorization status.
+  """
+  categorizationStatus: CategorizationStatusEnum
+
+  """
+  Start date for date range filter (ISO date string, inclusive).
+  """
+  dateFrom: String
+
+  """
+  End date for date range filter (ISO date string, inclusive).
+  """
+  dateTo: String
+
+  """
+  Search text (matches description or counterparty).
+  """
+  search: String
+}
+
+input PaginationInput {
+  """
+  Number of items per page. Defaults to 50.
+  """
+  limit: Int
+
+  """
+  Offset for pagination. Defaults to 0.
+  """
+  offset: Int
+}
+
+input UpdateTransactionCategoryInput {
+  """
+  Transaction database ID.
+  """
+  id: Int!
+
+  """
+  Category database ID. Pass null to remove category.
+  """
+  categoryId: Int
+}
+
+input UpdateTransactionBudgetInput {
+  """
+  Transaction database ID.
+  """
+  id: Int!
+
+  """
+  Budget database ID. Pass null to remove budget.
+  """
+  budgetId: Int
+}
+
+type TransactionConnection {
+  items: [Transaction!]!
+  totalCount: Int!
+  hasMore: Boolean!
+}
+
+type Transaction {
+  id: Int!
+  externalId: String!
+  date: String!
+  """
+  Amount in major units (always positive).
+  """
+  amount: Float!
+  currency: String!
+  type: TransactionTypeEnum!
+  description: String!
+  categorizationStatus: CategorizationStatusEnum!
+  categoryReason: String
+  budgetReason: String
+  mcc: Int
+  counterpartyName: String
+  counterpartyIban: String
+  hold: Boolean!
+  """
+  Cashback in major units.
+  """
+  cashbackAmount: Float
+  """
+  Commission in major units.
+  """
+  commissionAmount: Float
+  receiptId: String
+  notes: String
+
+  """
+  Account this transaction belongs to.
+  """
+  account: Account
+
+  """
+  Assigned category (null if uncategorized).
+  """
+  category: Category
+
+  """
+  Assigned budget (null if unbudgeted).
+  """
+  budget: Budget
+}
+
+enum TransactionTypeEnum {
+  CREDIT
+  DEBIT
+}
+
+enum CategorizationStatusEnum {
+  PENDING
+  CATEGORIZED
+  VERIFIED
+}

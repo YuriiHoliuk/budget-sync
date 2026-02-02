@@ -27,7 +27,10 @@ import { DatabaseBudgetRepository } from '@infrastructure/repositories/database/
 import { DatabaseCategorizationRuleRepository } from '@infrastructure/repositories/database/DatabaseCategorizationRuleRepository.ts';
 import { DatabaseCategoryRepository } from '@infrastructure/repositories/database/DatabaseCategoryRepository.ts';
 import { DatabaseTransactionRepository } from '@infrastructure/repositories/database/DatabaseTransactionRepository.ts';
-import { DATABASE_CLIENT_TOKEN } from '@infrastructure/repositories/database/tokens.ts';
+import {
+  DATABASE_CLIENT_TOKEN,
+  DATABASE_TRANSACTION_REPOSITORY_TOKEN,
+} from '@infrastructure/repositories/database/tokens.ts';
 import { DatabaseClient } from '@modules/database/DatabaseClient.ts';
 import { ConsoleLogger, LOGGER_TOKEN } from '@modules/logging/index.ts';
 import { container } from 'tsyringe';
@@ -60,6 +63,9 @@ export function setupLocalContainer(): typeof container {
     useClass: DatabaseAccountRepository,
   });
   container.register(TRANSACTION_REPOSITORY_TOKEN, {
+    useClass: DatabaseTransactionRepository,
+  });
+  container.register(DATABASE_TRANSACTION_REPOSITORY_TOKEN, {
     useClass: DatabaseTransactionRepository,
   });
   container.register(CATEGORY_REPOSITORY_TOKEN, {

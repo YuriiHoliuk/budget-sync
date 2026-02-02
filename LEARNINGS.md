@@ -23,6 +23,14 @@
 - New resolvers must be added to `src/presentation/graphql/resolvers/index.ts` `resolvers` array
 - Missing either causes "defined in resolvers, but not in schema" or silent omission
 
+## Transaction Entity vs DB Row
+
+- The `Transaction` domain entity does NOT carry categorization data (categoryId, budgetId, categorizationStatus)
+- These fields exist only on the DB row (`TransactionRow`)
+- For GraphQL, the `transactionsResolver` works directly with `DatabaseTransactionRepository` and raw DB rows via `DATABASE_TRANSACTION_REPOSITORY_TOKEN`
+- This token must be registered in both production (`container.ts`) and local (`container.local.ts`) containers
+- Child resolvers for `account`, `category`, `budget` resolve from domain repositories using DB IDs from the row
+
 ## Allocations — No Dual-Write
 
 - Allocations are a new DB-only feature — no spreadsheet backing needed

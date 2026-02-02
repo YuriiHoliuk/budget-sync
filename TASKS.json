@@ -77,7 +77,7 @@
     "phase": "P2: GraphQL API Foundation",
     "title": "Define GraphQL schema for Transactions with queries",
     "description": "Create transactions.graphql with Transaction type, TransactionType enum, CategorizationStatus enum. Add queries: transactions(filters: TransactionFilter), transaction(id). Add mutations: updateTransactionCategory, updateTransactionBudget, verifyTransaction. Create TransactionResolver with pagination support. Add child resolvers for account, category, budget fields.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P2-001"]
   },
   {

@@ -2,6 +2,20 @@
 
 ## 2026-02-02
 
+### P2-006: GraphQL Transactions schema with queries and mutations
+
+- Created `transactions.graphql` with `Transaction` type, `TransactionTypeEnum`, `CategorizationStatusEnum`, `TransactionFilter`, `PaginationInput`, `TransactionConnection` for paginated results
+- Added queries: `transactions(filter, pagination)` with filtered pagination, `transaction(id)` by DB ID
+- Added mutations: `updateTransactionCategory`, `updateTransactionBudget`, `verifyTransaction`
+- Extended `DatabaseTransactionRepository` with `findRowByDbId`, `findRowsFiltered`, `countFiltered`, `updateCategoryByDbId`, `updateBudgetByDbId`, `updateStatusByDbId` methods
+- Added `TransactionNotFoundError` domain error
+- Created `transactionsResolver` with DB row-based mapping (categorization fields live on DB row, not domain entity)
+- Child resolvers for `account`, `category`, `budget` fields resolve from their respective repositories
+- Mutations validate referenced category/budget exists before updating
+- Registered `DATABASE_TRANSACTION_REPOSITORY_TOKEN` in local container
+- All 681 tests pass, typecheck and lint clean
+- Verified all queries and mutations via local dev server
+
 ### P2-005: GraphQL Allocations schema with CRUD mutations
 
 - Created `Allocation` domain entity with period validation and immutable updates

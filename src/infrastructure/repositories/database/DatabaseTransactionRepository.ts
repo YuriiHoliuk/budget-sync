@@ -10,10 +10,39 @@ import {
   categories,
   transactions,
 } from '@modules/database/schema/index.ts';
-import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import type { TransactionRow } from '@modules/database/types.ts';
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNull,
+  lte,
+  or,
+  type SQL,
+} from 'drizzle-orm';
 import { inject, injectable } from 'tsyringe';
 import { DatabaseTransactionMapper } from '../../mappers/DatabaseTransactionMapper.ts';
 import { DATABASE_CLIENT_TOKEN } from './tokens.ts';
+
+export interface TransactionFilterParams {
+  accountId?: number;
+  categoryId?: number;
+  budgetId?: number;
+  type?: string;
+  categorizationStatus?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+}
+
+export interface PaginationParams {
+  limit: number;
+  offset: number;
+}
 
 @injectable()
 export class DatabaseTransactionRepository implements TransactionRepository {
@@ -178,6 +207,115 @@ export class DatabaseTransactionRepository implements TransactionRepository {
         and(isNull(transactions.categoryId), isNull(transactions.budgetId)),
       );
     return rows.map((row) => this.mapper.toEntity(row));
+  }
+
+  async findRowByDbId(dbId: number): Promise<TransactionRow | null> {
+    const rows = await this.db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.id, dbId))
+      .limit(1);
+    return rows[0] ?? null;
+  }
+
+  async findRowsFiltered(
+    filter: TransactionFilterParams,
+    pagination: PaginationParams,
+  ): Promise<TransactionRow[]> {
+    const conditions = this.buildFilterConditions(filter);
+    return await this.db
+      .select()
+      .from(transactions)
+      .where(and(...conditions))
+      .orderBy(desc(transactions.date), desc(transactions.id))
+      .limit(pagination.limit)
+      .offset(pagination.offset);
+  }
+
+  async countFiltered(filter: TransactionFilterParams): Promise<number> {
+    const conditions = this.buildFilterConditions(filter);
+    const result = await this.db
+      .select({ total: count() })
+      .from(transactions)
+      .where(and(...conditions));
+    return result[0]?.total ?? 0;
+  }
+
+  async updateCategoryByDbId(
+    dbId: number,
+    categoryId: number | null,
+  ): Promise<TransactionRow | null> {
+    const rows = await this.db
+      .update(transactions)
+      .set({ categoryId, updatedAt: new Date() })
+      .where(eq(transactions.id, dbId))
+      .returning();
+    return rows[0] ?? null;
+  }
+
+  async updateBudgetByDbId(
+    dbId: number,
+    budgetId: number | null,
+  ): Promise<TransactionRow | null> {
+    const rows = await this.db
+      .update(transactions)
+      .set({ budgetId, updatedAt: new Date() })
+      .where(eq(transactions.id, dbId))
+      .returning();
+    return rows[0] ?? null;
+  }
+
+  async updateStatusByDbId(
+    dbId: number,
+    status: CategorizationStatus,
+  ): Promise<TransactionRow | null> {
+    const rows = await this.db
+      .update(transactions)
+      .set({ categorizationStatus: status, updatedAt: new Date() })
+      .where(eq(transactions.id, dbId))
+      .returning();
+    return rows[0] ?? null;
+  }
+
+  private buildFilterConditions(filter: TransactionFilterParams): SQL[] {
+    const conditions: SQL[] = [];
+
+    if (filter.accountId !== undefined) {
+      conditions.push(eq(transactions.accountId, filter.accountId));
+    }
+    if (filter.categoryId !== undefined) {
+      conditions.push(eq(transactions.categoryId, filter.categoryId));
+    }
+    if (filter.budgetId !== undefined) {
+      conditions.push(eq(transactions.budgetId, filter.budgetId));
+    }
+    if (filter.type) {
+      conditions.push(eq(transactions.type, filter.type.toLowerCase()));
+    }
+    if (filter.categorizationStatus) {
+      conditions.push(
+        eq(
+          transactions.categorizationStatus,
+          filter.categorizationStatus.toLowerCase(),
+        ),
+      );
+    }
+    if (filter.dateFrom) {
+      conditions.push(gte(transactions.date, new Date(filter.dateFrom)));
+    }
+    if (filter.dateTo) {
+      conditions.push(lte(transactions.date, new Date(filter.dateTo)));
+    }
+    if (filter.search) {
+      const searchPattern = `%${filter.search}%`;
+      conditions.push(
+        or(
+          ilike(transactions.bankDescription, searchPattern),
+          ilike(transactions.counterparty, searchPattern),
+        ) as SQL,
+      );
+    }
+    return conditions;
   }
 
   private async resolveCategoryId(

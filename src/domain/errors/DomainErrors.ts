@@ -76,6 +76,15 @@ export class ParentCategoryNotFoundError extends DomainError {
 }
 
 /**
+ * Thrown when a transaction cannot be found by its identifier.
+ */
+export class TransactionNotFoundError extends DomainError {
+  constructor(public readonly transactionId: number | string) {
+    super(`Transaction not found with id: ${transactionId}`);
+  }
+}
+
+/**
  * Thrown when an allocation cannot be found by its identifier.
  */
 export class AllocationNotFoundError extends DomainError {
