@@ -1,6 +1,12 @@
 import type { Transaction } from '../entities/Transaction.ts';
 import type { CategorizationStatus } from '../value-objects/CategorizationStatus.ts';
 import { Repository } from './Repository.ts';
+import type {
+  PaginationParams,
+  TransactionFilterParams,
+  TransactionRecord,
+  TransactionSummary,
+} from './transaction-types.ts';
 
 /**
  * Data for updating transaction categorization fields.
@@ -51,4 +57,27 @@ export abstract class TransactionRepository extends Repository<
     status: CategorizationStatus,
   ): Promise<Transaction[]>;
   abstract findUncategorized(): Promise<Transaction[]>;
+
+  // Record-based methods for GraphQL queries
+  abstract findRecordById(dbId: number): Promise<TransactionRecord | null>;
+  abstract findRecordsFiltered(
+    filter: TransactionFilterParams,
+    pagination: PaginationParams,
+  ): Promise<TransactionRecord[]>;
+  abstract countFiltered(filter: TransactionFilterParams): Promise<number>;
+  abstract updateRecordCategory(
+    dbId: number,
+    categoryId: number | null,
+  ): Promise<TransactionRecord | null>;
+  abstract updateRecordBudget(
+    dbId: number,
+    budgetId: number | null,
+  ): Promise<TransactionRecord | null>;
+  abstract updateRecordStatus(
+    dbId: number,
+    status: CategorizationStatus,
+  ): Promise<TransactionRecord | null>;
+
+  // Summary methods for budget calculations
+  abstract findTransactionSummaries(): Promise<TransactionSummary[]>;
 }

@@ -11,14 +11,16 @@ import {
   type BudgetRepository,
 } from '@domain/repositories/BudgetRepository.ts';
 import {
+  TRANSACTION_REPOSITORY_TOKEN,
+  type TransactionRepository,
+} from '@domain/repositories/TransactionRepository.ts';
+import {
   type AccountBalanceInput,
   type AllocationInput,
   BudgetCalculationService,
   type BudgetInput,
   type TransactionInput,
 } from '@domain/services/BudgetCalculationService.ts';
-import type { DatabaseTransactionRepository } from '@infrastructure/repositories/database/DatabaseTransactionRepository.ts';
-import { DATABASE_TRANSACTION_REPOSITORY_TOKEN } from '@infrastructure/repositories/database/tokens.ts';
 import type { GraphQLContext } from '@modules/graphql/types.ts';
 
 const BUDGET_TYPE_TO_GQL: Record<string, string> = {
@@ -105,8 +107,8 @@ async function fetchAllData(
     ALLOCATION_REPOSITORY_TOKEN,
   );
   const transactionRepository =
-    context.container.resolve<DatabaseTransactionRepository>(
-      DATABASE_TRANSACTION_REPOSITORY_TOKEN,
+    context.container.resolve<TransactionRepository>(
+      TRANSACTION_REPOSITORY_TOKEN,
     );
 
   const [accounts, budgets, allocations, transactionSummaries] =
@@ -137,12 +139,12 @@ async function fetchAllData(
   }));
 
   const transactionInputs: TransactionInput[] = transactionSummaries.map(
-    (row) => ({
-      budgetId: row.budgetId,
-      amount: row.amount,
-      type: row.type,
-      date: row.date,
-      accountRole: row.accountRole,
+    (summary) => ({
+      budgetId: summary.budgetId,
+      amount: summary.amount,
+      type: summary.type,
+      date: summary.date,
+      accountRole: summary.accountRole,
     }),
   );
 

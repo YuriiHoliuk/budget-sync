@@ -3,6 +3,12 @@ import type {
   CategorizationUpdate,
   TransactionRepository,
 } from '@domain/repositories/TransactionRepository.ts';
+import type {
+  PaginationParams,
+  TransactionFilterParams,
+  TransactionRecord,
+  TransactionSummary,
+} from '@domain/repositories/transaction-types.ts';
 import type { CategorizationStatus } from '@domain/value-objects/index.ts';
 import type { Logger } from '@modules/logging/Logger.ts';
 import { LOGGER_TOKEN } from '@modules/logging/Logger.ts';
@@ -103,6 +109,50 @@ export class DualWriteTransactionRepository implements TransactionRepository {
   async delete(id: string): Promise<void> {
     await this.dbRepo.delete(id);
     await this.mirrorToSpreadsheet(() => this.spreadsheetRepo.delete(id));
+  }
+
+  // Record-based methods (read-only, no dual-write needed)
+  findRecordById(dbId: number): Promise<TransactionRecord | null> {
+    return this.dbRepo.findRecordById(dbId);
+  }
+
+  findRecordsFiltered(
+    filter: TransactionFilterParams,
+    pagination: PaginationParams,
+  ): Promise<TransactionRecord[]> {
+    return this.dbRepo.findRecordsFiltered(filter, pagination);
+  }
+
+  countFiltered(filter: TransactionFilterParams): Promise<number> {
+    return this.dbRepo.countFiltered(filter);
+  }
+
+  updateRecordCategory(
+    dbId: number,
+    categoryId: number | null,
+  ): Promise<TransactionRecord | null> {
+    // Updates only affect DB, no spreadsheet mirror for category updates by DB ID
+    return this.dbRepo.updateRecordCategory(dbId, categoryId);
+  }
+
+  updateRecordBudget(
+    dbId: number,
+    budgetId: number | null,
+  ): Promise<TransactionRecord | null> {
+    // Updates only affect DB, no spreadsheet mirror for budget updates by DB ID
+    return this.dbRepo.updateRecordBudget(dbId, budgetId);
+  }
+
+  updateRecordStatus(
+    dbId: number,
+    status: CategorizationStatus,
+  ): Promise<TransactionRecord | null> {
+    // Updates only affect DB, no spreadsheet mirror for status updates by DB ID
+    return this.dbRepo.updateRecordStatus(dbId, status);
+  }
+
+  findTransactionSummaries(): Promise<TransactionSummary[]> {
+    return this.dbRepo.findTransactionSummaries();
   }
 
   private async mirrorToSpreadsheet(

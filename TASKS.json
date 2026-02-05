@@ -341,7 +341,7 @@
     "phase": "TX: Technical Debt",
     "title": "Fix architecture dependency rule violations",
     "description": "Fix presentation layer importing from infrastructure. In transactionsResolver.ts and monthlyOverviewResolver.ts: create domain-level TransactionRepository methods (e.g., findTransactionSummaries, findByFilters) instead of importing DatabaseTransactionRepository directly. Move TransactionFilterParams to domain layer. Resolvers should only import from domain/application layers.",
-    "status": "todo",
+    "status": "done",
     "dependencies": []
   },
   {
@@ -357,7 +357,7 @@
     "phase": "TX: Technical Debt",
     "title": "Add tests for DatabaseAllocationMapper",
     "description": "Create tests/unit/infrastructure/mappers/DatabaseAllocationMapper.test.ts. Test toDomain() mapping from DB row to Allocation entity. Test toRow() mapping from entity to DB row. Test edge cases: null values, boundary dates, various amount values.",
-    "status": "todo",
+    "status": "done",
     "dependencies": []
   },
   {

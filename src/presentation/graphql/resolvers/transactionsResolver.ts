@@ -10,13 +10,15 @@ import {
   CATEGORY_REPOSITORY_TOKEN,
   type CategoryRepository,
 } from '@domain/repositories/CategoryRepository.ts';
-import { CategorizationStatus } from '@domain/value-objects/CategorizationStatus.ts';
 import {
-  type DatabaseTransactionRepository,
-  type TransactionFilterParams,
-} from '@infrastructure/repositories/database/DatabaseTransactionRepository.ts';
-import { DATABASE_TRANSACTION_REPOSITORY_TOKEN } from '@infrastructure/repositories/database/tokens.ts';
-import type { TransactionRow } from '@modules/database/types.ts';
+  TRANSACTION_REPOSITORY_TOKEN,
+  type TransactionRepository,
+} from '@domain/repositories/TransactionRepository.ts';
+import type {
+  TransactionFilterParams,
+  TransactionRecord,
+} from '@domain/repositories/transaction-types.ts';
+import { CategorizationStatus } from '@domain/value-objects/CategorizationStatus.ts';
 import type { GraphQLContext } from '@modules/graphql/types.ts';
 
 const STATUS_TO_GQL: Record<string, string> = {
@@ -62,30 +64,30 @@ function toMajorUnitsOrNull(minorUnits: number | null): number | null {
   return minorUnits != null ? toMajorUnits(minorUnits) : null;
 }
 
-function mapRowToGql(row: TransactionRow): TransactionGql {
+function mapRecordToGql(record: TransactionRecord): TransactionGql {
   return {
-    id: row.id,
-    externalId: row.externalId ?? '',
-    date: row.date.toISOString(),
-    amount: toMajorUnits(Math.abs(row.amount)),
-    currency: row.currency,
-    type: TYPE_TO_GQL[row.type] ?? 'DEBIT',
-    description: row.bankDescription ?? '',
+    id: record.id,
+    externalId: record.externalId ?? '',
+    date: record.date.toISOString(),
+    amount: toMajorUnits(Math.abs(record.amount)),
+    currency: record.currency,
+    type: TYPE_TO_GQL[record.type] ?? 'DEBIT',
+    description: record.bankDescription ?? '',
     categorizationStatus:
-      STATUS_TO_GQL[row.categorizationStatus ?? 'pending'] ?? 'PENDING',
-    categoryReason: row.categoryReason,
-    budgetReason: row.budgetReason,
-    mcc: row.mcc,
-    counterpartyName: row.counterparty,
-    counterpartyIban: row.counterpartyIban,
-    hold: row.hold ?? false,
-    cashbackAmount: toMajorUnitsOrNull(row.cashback),
-    commissionAmount: toMajorUnitsOrNull(row.commission),
-    receiptId: row.receiptId,
-    notes: row.notes,
-    accountId: row.accountId,
-    categoryId: row.categoryId,
-    budgetId: row.budgetId,
+      STATUS_TO_GQL[record.categorizationStatus ?? 'pending'] ?? 'PENDING',
+    categoryReason: record.categoryReason,
+    budgetReason: record.budgetReason,
+    mcc: record.mcc,
+    counterpartyName: record.counterparty,
+    counterpartyIban: record.counterpartyIban,
+    hold: record.hold ?? false,
+    cashbackAmount: toMajorUnitsOrNull(record.cashback),
+    commissionAmount: toMajorUnitsOrNull(record.commission),
+    receiptId: record.receiptId,
+    notes: record.notes,
+    accountId: record.accountId,
+    categoryId: record.categoryId,
+    budgetId: record.budgetId,
   };
 }
 
@@ -108,11 +110,9 @@ interface PaginationInput {
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
-function resolveRepository(
-  context: GraphQLContext,
-): DatabaseTransactionRepository {
-  return context.container.resolve<DatabaseTransactionRepository>(
-    DATABASE_TRANSACTION_REPOSITORY_TOKEN,
+function resolveRepository(context: GraphQLContext): TransactionRepository {
+  return context.container.resolve<TransactionRepository>(
+    TRANSACTION_REPOSITORY_TOKEN,
   );
 }
 
@@ -149,13 +149,13 @@ export const transactionsResolver = {
       const filter = mapFilter(args.filter);
       const pagination = resolvePagination(args.pagination);
 
-      const [rows, totalCount] = await Promise.all([
-        repository.findRowsFiltered(filter, pagination),
+      const [records, totalCount] = await Promise.all([
+        repository.findRecordsFiltered(filter, pagination),
         repository.countFiltered(filter),
       ]);
 
       return {
-        items: rows.map(mapRowToGql),
+        items: records.map(mapRecordToGql),
         totalCount,
         hasMore: pagination.offset + pagination.limit < totalCount,
       };
@@ -167,8 +167,8 @@ export const transactionsResolver = {
       context: GraphQLContext,
     ) => {
       const repository = resolveRepository(context);
-      const row = await repository.findRowByDbId(args.id);
-      return row ? mapRowToGql(row) : null;
+      const record = await repository.findRecordById(args.id);
+      return record ? mapRecordToGql(record) : null;
     },
   },
 
@@ -191,14 +191,14 @@ export const transactionsResolver = {
         }
       }
 
-      const row = await repository.updateCategoryByDbId(
+      const record = await repository.updateRecordCategory(
         args.input.id,
         categoryId,
       );
-      if (!row) {
+      if (!record) {
         throw new Error(`Transaction not found with id: ${args.input.id}`);
       }
-      return mapRowToGql(row);
+      return mapRecordToGql(record);
     },
 
     updateTransactionBudget: async (
@@ -219,11 +219,14 @@ export const transactionsResolver = {
         }
       }
 
-      const row = await repository.updateBudgetByDbId(args.input.id, budgetId);
-      if (!row) {
+      const record = await repository.updateRecordBudget(
+        args.input.id,
+        budgetId,
+      );
+      if (!record) {
         throw new Error(`Transaction not found with id: ${args.input.id}`);
       }
-      return mapRowToGql(row);
+      return mapRecordToGql(record);
     },
 
     verifyTransaction: async (
@@ -232,14 +235,14 @@ export const transactionsResolver = {
       context: GraphQLContext,
     ) => {
       const repository = resolveRepository(context);
-      const row = await repository.updateStatusByDbId(
+      const record = await repository.updateRecordStatus(
         args.id,
         CategorizationStatus.VERIFIED,
       );
-      if (!row) {
+      if (!record) {
         throw new Error(`Transaction not found with id: ${args.id}`);
       }
-      return mapRowToGql(row);
+      return mapRecordToGql(record);
     },
   },
 

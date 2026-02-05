@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-02-05
+
+### TX-001: Fix architecture dependency rule violations
+
+- Created domain-level types for transaction queries in `src/domain/repositories/transaction-types.ts`:
+  - `TransactionRecord` - full transaction data including categorization fields (for GraphQL)
+  - `TransactionFilterParams` - query filters (moved from infrastructure)
+  - `PaginationParams` - pagination parameters (moved from infrastructure)
+  - `TransactionSummary` - lightweight data for budget calculations
+- Added record-based methods to `TransactionRepository` interface:
+  - `findRecordById()`, `findRecordsFiltered()`, `countFiltered()` for queries
+  - `updateRecordCategory()`, `updateRecordBudget()`, `updateRecordStatus()` for mutations
+  - `findTransactionSummaries()` for budget calculations
+- Updated `DatabaseTransactionRepository` with `rowToRecord()` helper to convert DB rows to domain records
+- Updated `DualWriteTransactionRepository` to delegate record operations to DB repo
+- Updated `SpreadsheetTransactionRepository` with not-supported implementations for DB-specific methods
+- Refactored `transactionsResolver.ts` to import only from domain layer (`TransactionRepository`, `TransactionRecord`)
+- Refactored `monthlyOverviewResolver.ts` to use domain `TransactionRepository` token
+- Removed duplicate `DATABASE_TRANSACTION_REPOSITORY_TOKEN` registration from local container
+- Resolvers now follow Clean Architecture: presentation → domain only, no infrastructure imports
+- All 726 tests pass, typecheck and lint clean
+
+### TX-003: Add tests for DatabaseAllocationMapper
+
+- Created comprehensive unit tests for `DatabaseAllocationMapper` in `tests/unit/infrastructure/mappers/DatabaseAllocationMapper.test.ts`
+- Tests `toEntity()` mapping: correct properties, null notes, negative/zero amounts, large values, date parsing, boundary months
+- Tests `toInsert()` mapping: all fields, date formatting (YYYY-MM-DD), null/empty notes, negative amounts, period preservation
+- Tests roundtrip conversion to ensure data integrity through `toEntity` -> `toInsert` cycle
+- 19 new tests (726 total pass)
+
 ## 2026-02-02
 
 ### P4-003: Move Funds dialog

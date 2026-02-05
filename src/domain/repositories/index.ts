@@ -16,3 +16,9 @@ export {
   TRANSACTION_REPOSITORY_TOKEN,
   TransactionRepository,
 } from './TransactionRepository.ts';
+export type {
+  PaginationParams,
+  TransactionFilterParams,
+  TransactionRecord,
+  TransactionSummary,
+} from './transaction-types.ts';

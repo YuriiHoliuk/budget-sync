@@ -3,6 +3,12 @@ import type {
   CategorizationUpdate,
   TransactionRepository,
 } from '@domain/repositories/TransactionRepository.ts';
+import type {
+  PaginationParams,
+  TransactionFilterParams,
+  TransactionRecord,
+  TransactionSummary,
+} from '@domain/repositories/transaction-types.ts';
 import type { CategorizationStatus } from '@domain/value-objects/index.ts';
 import type { DatabaseClient } from '@modules/database/DatabaseClient.ts';
 import {
@@ -28,30 +34,6 @@ import {
 import { inject, injectable } from 'tsyringe';
 import { DatabaseTransactionMapper } from '../../mappers/DatabaseTransactionMapper.ts';
 import { DATABASE_CLIENT_TOKEN } from './tokens.ts';
-
-export interface TransactionFilterParams {
-  accountId?: number;
-  categoryId?: number;
-  budgetId?: number;
-  type?: string;
-  categorizationStatus?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  search?: string;
-}
-
-export interface PaginationParams {
-  limit: number;
-  offset: number;
-}
-
-export interface TransactionSummaryRow {
-  budgetId: number | null;
-  amount: number;
-  type: 'credit' | 'debit';
-  date: Date;
-  accountRole: 'operational' | 'savings';
-}
 
 @injectable()
 export class DatabaseTransactionRepository implements TransactionRepository {
@@ -218,27 +200,28 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     return rows.map((row) => this.mapper.toEntity(row));
   }
 
-  async findRowByDbId(dbId: number): Promise<TransactionRow | null> {
+  async findRecordById(dbId: number): Promise<TransactionRecord | null> {
     const rows = await this.db
       .select()
       .from(transactions)
       .where(eq(transactions.id, dbId))
       .limit(1);
-    return rows[0] ?? null;
+    return rows[0] ? this.rowToRecord(rows[0]) : null;
   }
 
-  async findRowsFiltered(
+  async findRecordsFiltered(
     filter: TransactionFilterParams,
     pagination: PaginationParams,
-  ): Promise<TransactionRow[]> {
+  ): Promise<TransactionRecord[]> {
     const conditions = this.buildFilterConditions(filter);
-    return await this.db
+    const rows = await this.db
       .select()
       .from(transactions)
       .where(and(...conditions))
       .orderBy(desc(transactions.date), desc(transactions.id))
       .limit(pagination.limit)
       .offset(pagination.offset);
+    return rows.map((row) => this.rowToRecord(row));
   }
 
   async countFiltered(filter: TransactionFilterParams): Promise<number> {
@@ -250,48 +233,43 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     return result[0]?.total ?? 0;
   }
 
-  async updateCategoryByDbId(
+  async updateRecordCategory(
     dbId: number,
     categoryId: number | null,
-  ): Promise<TransactionRow | null> {
+  ): Promise<TransactionRecord | null> {
     const rows = await this.db
       .update(transactions)
       .set({ categoryId, updatedAt: new Date() })
       .where(eq(transactions.id, dbId))
       .returning();
-    return rows[0] ?? null;
+    return rows[0] ? this.rowToRecord(rows[0]) : null;
   }
 
-  async updateBudgetByDbId(
+  async updateRecordBudget(
     dbId: number,
     budgetId: number | null,
-  ): Promise<TransactionRow | null> {
+  ): Promise<TransactionRecord | null> {
     const rows = await this.db
       .update(transactions)
       .set({ budgetId, updatedAt: new Date() })
       .where(eq(transactions.id, dbId))
       .returning();
-    return rows[0] ?? null;
+    return rows[0] ? this.rowToRecord(rows[0]) : null;
   }
 
-  async updateStatusByDbId(
+  async updateRecordStatus(
     dbId: number,
     status: CategorizationStatus,
-  ): Promise<TransactionRow | null> {
+  ): Promise<TransactionRecord | null> {
     const rows = await this.db
       .update(transactions)
       .set({ categorizationStatus: status, updatedAt: new Date() })
       .where(eq(transactions.id, dbId))
       .returning();
-    return rows[0] ?? null;
+    return rows[0] ? this.rowToRecord(rows[0]) : null;
   }
 
-  /**
-   * Fetches lightweight transaction data joined with account role
-   * for budget calculation purposes. Returns only the fields needed
-   * for the monthly overview computation.
-   */
-  async findTransactionSummaries(): Promise<TransactionSummaryRow[]> {
+  async findTransactionSummaries(): Promise<TransactionSummary[]> {
     const rows = await this.db
       .select({
         budgetId: transactions.budgetId,
@@ -312,6 +290,33 @@ export class DatabaseTransactionRepository implements TransactionRepository {
         | 'operational'
         | 'savings',
     }));
+  }
+
+  private rowToRecord(row: TransactionRow): TransactionRecord {
+    return {
+      id: row.id,
+      externalId: row.externalId,
+      date: row.date,
+      amount: row.amount,
+      currency: row.currency,
+      type: row.type as 'credit' | 'debit',
+      accountId: row.accountId,
+      accountExternalId: row.accountExternalId,
+      categoryId: row.categoryId,
+      budgetId: row.budgetId,
+      categorizationStatus: row.categorizationStatus,
+      categoryReason: row.categoryReason,
+      budgetReason: row.budgetReason,
+      mcc: row.mcc,
+      bankDescription: row.bankDescription,
+      counterparty: row.counterparty,
+      counterpartyIban: row.counterpartyIban,
+      hold: row.hold,
+      cashback: row.cashback,
+      commission: row.commission,
+      receiptId: row.receiptId,
+      notes: row.notes,
+    };
   }
 
   private buildFilterConditions(filter: TransactionFilterParams): SQL[] {

@@ -10,6 +10,12 @@ import type {
   CategorizationUpdate,
   TransactionRepository,
 } from '@domain/repositories/TransactionRepository.ts';
+import type {
+  TransactionRecord as DomainTransactionRecord,
+  PaginationParams,
+  TransactionFilterParams,
+  TransactionSummary,
+} from '@domain/repositories/transaction-types.ts';
 import type { CategorizationStatus } from '@domain/value-objects/index.ts';
 import type { SpreadsheetsClient } from '@modules/spreadsheet/SpreadsheetsClient.ts';
 import type { SchemaToRecord } from '@modules/spreadsheet/types.ts';
@@ -371,5 +377,61 @@ export class SpreadsheetTransactionRepository
     };
 
     await this.table.updateRowAt(result.rowIndex, updatedRecord);
+  }
+
+  // Record-based methods - not supported by spreadsheet repository
+  // These are DB-specific operations that use database IDs and filtering
+  findRecordById(_dbId: number): Promise<DomainTransactionRecord | null> {
+    throw new Error(
+      'findRecordById is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  findRecordsFiltered(
+    _filter: TransactionFilterParams,
+    _pagination: PaginationParams,
+  ): Promise<DomainTransactionRecord[]> {
+    throw new Error(
+      'findRecordsFiltered is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  countFiltered(_filter: TransactionFilterParams): Promise<number> {
+    throw new Error(
+      'countFiltered is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  updateRecordCategory(
+    _dbId: number,
+    _categoryId: number | null,
+  ): Promise<DomainTransactionRecord | null> {
+    throw new Error(
+      'updateRecordCategory is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  updateRecordBudget(
+    _dbId: number,
+    _budgetId: number | null,
+  ): Promise<DomainTransactionRecord | null> {
+    throw new Error(
+      'updateRecordBudget is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  updateRecordStatus(
+    _dbId: number,
+    _status: CategorizationStatus,
+  ): Promise<DomainTransactionRecord | null> {
+    throw new Error(
+      'updateRecordStatus is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  findTransactionSummaries(): Promise<TransactionSummary[]> {
+    throw new Error(
+      'findTransactionSummaries is not supported by SpreadsheetTransactionRepository',
+    );
   }
 }
