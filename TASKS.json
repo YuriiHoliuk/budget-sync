@@ -381,7 +381,7 @@
     "phase": "TX: Technical Debt",
     "title": "Refactor resolvers to be injectable classes",
     "description": "Refactor GraphQL resolvers from plain objects to injectable classes. Create base Resolver class (similar to Controller pattern). Resolvers should: be decorated with @injectable(), receive dependencies via constructor, map inputs and invoke use cases (no business logic). Create separate Query/Mutation resolver classes if needed for organization.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["TX-001", "TX-005"]
   },
   {

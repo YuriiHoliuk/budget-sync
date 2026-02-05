@@ -5,9 +5,9 @@ import type { UpdateBudgetRequestDTO } from '@application/use-cases/UpdateBudget
 import { UpdateBudgetUseCase } from '@application/use-cases/UpdateBudget.ts';
 import {
   BUDGET_REPOSITORY_TOKEN,
-  BudgetRepository,
+  type BudgetRepository,
 } from '@domain/repositories/BudgetRepository.ts';
-import type { GraphQLContext } from '@modules/graphql/types.ts';
+import { inject, injectable } from 'tsyringe';
 import {
   GQL_TO_BUDGET_TYPE,
   GQL_TO_CADENCE,
@@ -15,6 +15,7 @@ import {
   mapOptionalGqlEnum,
   toMinorUnits,
 } from '../mappers/index.ts';
+import { Resolver, type ResolverMap } from '../Resolver.ts';
 
 interface CreateBudgetInput {
   name: string;
@@ -41,103 +42,104 @@ interface UpdateBudgetInput {
   endDate?: string | null;
 }
 
-function mapCreateInput(input: CreateBudgetInput): CreateBudgetRequestDTO {
-  return {
-    name: input.name,
-    type: GQL_TO_BUDGET_TYPE[input.type] ?? 'spending',
-    currency: input.currency,
-    targetAmount: toMinorUnits(input.targetAmount),
-    targetCadence: input.targetCadence
-      ? (GQL_TO_CADENCE[input.targetCadence] ?? null)
-      : null,
-    targetCadenceMonths: input.targetCadenceMonths ?? null,
-    targetDate: input.targetDate ?? null,
-    startDate: input.startDate ?? null,
-    endDate: input.endDate ?? null,
-  };
-}
+@injectable()
+export class BudgetsResolver extends Resolver {
+  constructor(
+    @inject(BUDGET_REPOSITORY_TOKEN)
+    private budgetRepository: BudgetRepository,
+    private createBudgetUseCase: CreateBudgetUseCase,
+    private updateBudgetUseCase: UpdateBudgetUseCase,
+    private archiveBudgetUseCase: ArchiveBudgetUseCase,
+  ) {
+    super();
+  }
 
-function mapUpdateInput(input: UpdateBudgetInput): UpdateBudgetRequestDTO {
-  return {
-    id: input.id,
-    name: input.name ?? undefined,
-    type: input.type
-      ? (GQL_TO_BUDGET_TYPE[input.type] ?? undefined)
-      : undefined,
-    currency: input.currency ?? undefined,
-    targetAmount:
-      input.targetAmount != null ? toMinorUnits(input.targetAmount) : undefined,
-    targetCadence: mapOptionalGqlEnum(input.targetCadence, GQL_TO_CADENCE),
-    targetCadenceMonths:
-      input.targetCadenceMonths !== undefined
-        ? input.targetCadenceMonths
+  getResolverMap(): ResolverMap {
+    return {
+      Query: {
+        budgets: (_parent: unknown, args: { activeOnly: boolean }) =>
+          this.getBudgets(args.activeOnly),
+        budget: (_parent: unknown, args: { id: number }) =>
+          this.getBudgetById(args.id),
+      },
+      Mutation: {
+        createBudget: (_parent: unknown, args: { input: CreateBudgetInput }) =>
+          this.createBudget(args.input),
+        updateBudget: (_parent: unknown, args: { input: UpdateBudgetInput }) =>
+          this.updateBudget(args.input),
+        archiveBudget: (_parent: unknown, args: { id: number }) =>
+          this.archiveBudget(args.id),
+      },
+    };
+  }
+
+  private async getBudgets(activeOnly: boolean) {
+    const budgets = activeOnly
+      ? await this.budgetRepository.findActive(new Date())
+      : await this.budgetRepository.findAll();
+    return budgets.map(mapBudgetToGql);
+  }
+
+  private async getBudgetById(id: number) {
+    const budget = await this.budgetRepository.findById(id);
+    return budget ? mapBudgetToGql(budget) : null;
+  }
+
+  private async createBudget(input: CreateBudgetInput) {
+    const budget = await this.createBudgetUseCase.execute(
+      this.mapCreateInput(input),
+    );
+    return mapBudgetToGql(budget);
+  }
+
+  private async updateBudget(input: UpdateBudgetInput) {
+    const budget = await this.updateBudgetUseCase.execute(
+      this.mapUpdateInput(input),
+    );
+    return mapBudgetToGql(budget);
+  }
+
+  private async archiveBudget(id: number) {
+    const budget = await this.archiveBudgetUseCase.execute({ id });
+    return mapBudgetToGql(budget);
+  }
+
+  private mapCreateInput(input: CreateBudgetInput): CreateBudgetRequestDTO {
+    return {
+      name: input.name,
+      type: GQL_TO_BUDGET_TYPE[input.type] ?? 'spending',
+      currency: input.currency,
+      targetAmount: toMinorUnits(input.targetAmount),
+      targetCadence: input.targetCadence
+        ? (GQL_TO_CADENCE[input.targetCadence] ?? null)
+        : null,
+      targetCadenceMonths: input.targetCadenceMonths ?? null,
+      targetDate: input.targetDate ?? null,
+      startDate: input.startDate ?? null,
+      endDate: input.endDate ?? null,
+    };
+  }
+
+  private mapUpdateInput(input: UpdateBudgetInput): UpdateBudgetRequestDTO {
+    return {
+      id: input.id,
+      name: input.name ?? undefined,
+      type: input.type
+        ? (GQL_TO_BUDGET_TYPE[input.type] ?? undefined)
         : undefined,
-    targetDate: input.targetDate !== undefined ? input.targetDate : undefined,
-    startDate: input.startDate !== undefined ? input.startDate : undefined,
-    endDate: input.endDate !== undefined ? input.endDate : undefined,
-  };
+      currency: input.currency ?? undefined,
+      targetAmount:
+        input.targetAmount != null
+          ? toMinorUnits(input.targetAmount)
+          : undefined,
+      targetCadence: mapOptionalGqlEnum(input.targetCadence, GQL_TO_CADENCE),
+      targetCadenceMonths:
+        input.targetCadenceMonths !== undefined
+          ? input.targetCadenceMonths
+          : undefined,
+      targetDate: input.targetDate !== undefined ? input.targetDate : undefined,
+      startDate: input.startDate !== undefined ? input.startDate : undefined,
+      endDate: input.endDate !== undefined ? input.endDate : undefined,
+    };
+  }
 }
-
-export const budgetsResolver = {
-  Query: {
-    budgets: async (
-      _parent: unknown,
-      args: { activeOnly: boolean },
-      context: GraphQLContext,
-    ) => {
-      const repository = context.container.resolve<BudgetRepository>(
-        BUDGET_REPOSITORY_TOKEN,
-      );
-
-      const allBudgets = args.activeOnly
-        ? await repository.findActive(new Date())
-        : await repository.findAll();
-
-      return allBudgets.map(mapBudgetToGql);
-    },
-
-    budget: async (
-      _parent: unknown,
-      args: { id: number },
-      context: GraphQLContext,
-    ) => {
-      const repository = context.container.resolve<BudgetRepository>(
-        BUDGET_REPOSITORY_TOKEN,
-      );
-      const budget = await repository.findById(args.id);
-      return budget ? mapBudgetToGql(budget) : null;
-    },
-  },
-
-  Mutation: {
-    createBudget: async (
-      _parent: unknown,
-      args: { input: CreateBudgetInput },
-      context: GraphQLContext,
-    ) => {
-      const useCase = context.container.resolve(CreateBudgetUseCase);
-      const budget = await useCase.execute(mapCreateInput(args.input));
-      return mapBudgetToGql(budget);
-    },
-
-    updateBudget: async (
-      _parent: unknown,
-      args: { input: UpdateBudgetInput },
-      context: GraphQLContext,
-    ) => {
-      const useCase = context.container.resolve(UpdateBudgetUseCase);
-      const budget = await useCase.execute(mapUpdateInput(args.input));
-      return mapBudgetToGql(budget);
-    },
-
-    archiveBudget: async (
-      _parent: unknown,
-      args: { id: number },
-      context: GraphQLContext,
-    ) => {
-      const useCase = context.container.resolve(ArchiveBudgetUseCase);
-      const budget = await useCase.execute({ id: args.id });
-      return mapBudgetToGql(budget);
-    },
-  },
-};

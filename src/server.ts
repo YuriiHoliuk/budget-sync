@@ -20,7 +20,7 @@ import 'reflect-metadata';
 import { GraphQLServer } from '@modules/graphql/index.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging/index.ts';
 import { setupLocalContainer } from './container.local.ts';
-import { resolvers } from './presentation/graphql/resolvers/index.ts';
+import { buildResolverMaps } from './presentation/graphql/resolvers/index.ts';
 import { typeDefs } from './presentation/graphql/schema/index.ts';
 import { WebhookServer } from './presentation/http/WebhookServer.ts';
 
@@ -31,6 +31,9 @@ async function main() {
 
   const logger = container.resolve<Logger>(LOGGER_TOKEN);
   const webhookServer = container.resolve(WebhookServer);
+
+  // Build resolvers from injectable classes
+  const resolvers = buildResolverMaps(container);
 
   const graphqlServer = new GraphQLServer({
     typeDefs,

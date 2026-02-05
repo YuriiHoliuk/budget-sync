@@ -4,13 +4,23 @@
  * Provides a basic health check query for the GraphQL API.
  */
 
-import type { GraphQLContext } from '@modules/graphql/types.ts';
+import { injectable } from 'tsyringe';
+import { Resolver, type ResolverMap } from '../Resolver.ts';
 
-export const healthResolver = {
-  Query: {
-    health: (_parent: unknown, _args: unknown, _context: GraphQLContext) => ({
+@injectable()
+export class HealthResolver extends Resolver {
+  getResolverMap(): ResolverMap {
+    return {
+      Query: {
+        health: () => this.healthCheck(),
+      },
+    };
+  }
+
+  private healthCheck() {
+    return {
       status: 'healthy',
       timestamp: new Date().toISOString(),
-    }),
-  },
-};
+    };
+  }
+}

@@ -2,6 +2,30 @@
 
 ## 2026-02-05
 
+### TX-006: Refactor resolvers to injectable classes
+
+- Created `Resolver` base class in `src/presentation/graphql/Resolver.ts`:
+  - Abstract `getResolverMap()` method returning resolver map for Apollo
+  - `ResolverMap` and `ResolverFn` types for type safety
+- Refactored all 7 resolvers to injectable classes:
+  - `HealthResolver` - simple health check query
+  - `AccountsResolver` - accounts queries with repository injection
+  - `BudgetsResolver` - queries + mutations, injects repository and use cases
+  - `CategoriesResolver` - queries + mutations + children field resolver
+  - `AllocationsResolver` - queries + mutations + budget field resolver
+  - `TransactionsResolver` - queries + mutations + account/category/budget field resolvers
+  - `MonthlyOverviewResolver` - monthly overview computation
+- Updated resolver registry (`resolvers/index.ts`):
+  - Exports `RESOLVER_CLASSES` array of injection tokens
+  - `buildResolverMaps(container)` function builds resolver maps from DI container
+- Updated `server.ts` to use `buildResolverMaps(container)` instead of importing static resolver objects
+- Benefits achieved:
+  - Dependencies injected via constructor (no more `context.container.resolve()` calls)
+  - Consistent pattern with existing Controller base class
+  - Better testability - resolvers can be unit tested with mocked dependencies
+  - Type-safe dependency injection (compile-time errors for missing dependencies)
+- All 788 tests pass, typecheck and lint clean
+
 ### TX-005: Extract shared GraphQL mapping utilities
 
 - Created `src/presentation/graphql/mappers/` directory with shared mapper utilities:
