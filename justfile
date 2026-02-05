@@ -248,7 +248,7 @@ tf-show resource:
 # Tools
 # ============================================
 
-# Run Ralph Loop (autonomous Claude Code loop)
+# Run Ralph Loop (autonomous Claude Code loop) - TUI mode
 # Usage: just ralph [options]
 # Examples:
 #   just ralph                              # Default: PROMPT.md, opus, 100 iterations
@@ -256,3 +256,7 @@ tf-show resource:
 #   just ralph "--mock"                     # Test with mock Claude
 ralph args='':
     cd tools/ralph && bun run src/index.ts -p "{{justfile_directory()}}/PROMPT.md" --cwd "{{justfile_directory()}}" {{args}}
+
+# Run Ralph Loop in legacy console mode
+ralph-legacy args='':
+    cd tools/ralph && bun run src/legacy.ts -p "{{justfile_directory()}}/PROMPT.md" --cwd "{{justfile_directory()}}" {{args}}

@@ -2,14 +2,13 @@
 
 import { Command } from 'commander';
 import { AVAILABLE_SCENARIOS } from './mock-claude.ts';
-import { renderTui } from './tui/index.tsx';
-import type { TuiConfig } from './tui/types.ts';
+import { RalphLoop } from './ralph-loop.ts';
 
 const program = new Command();
 
 program
-  .name('ralph')
-  .description('Ralph Loop - Autonomous AI development loop for Claude Code (TUI mode)')
+  .name('ralph-legacy')
+  .description('Ralph Loop - Legacy console mode')
   .version('1.0.0')
   .option('-m, --max-iterations <number>', 'Maximum iterations before stopping', '200')
   .option('--model <model>', 'Claude model to use', 'opus')
@@ -21,19 +20,19 @@ program
   .option('--mock', 'Use mock Claude for testing')
   .option('--mock-scenario <name>', `Mock scenario: ${AVAILABLE_SCENARIOS.join(', ')}`)
   .action(async (options) => {
-    const config: TuiConfig = {
+    const ralph = new RalphLoop({
       maxIterations: Number.parseInt(options.maxIterations, 10),
       model: options.model,
       promptFile: options.promptFile,
       exitSignal: options.exitSignal,
       rateLimitDelay: Number.parseInt(options.rateLimitDelay, 10),
       verbose: options.verbose || false,
-      cwd: options.cwd || process.cwd(),
+      cwd: options.cwd,
       mockMode: options.mock || false,
       mockScenario: options.mockScenario,
-    };
+    });
 
-    await renderTui(config);
+    await ralph.run();
   });
 
 program.parse();
