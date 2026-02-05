@@ -13,6 +13,12 @@ extend type Query {
 
 extend type Mutation {
   """
+  Create a transaction on a manual (non-synced) account.
+  Synced accounts can only receive transactions via bank sync.
+  """
+  createTransaction(input: CreateTransactionInput!): Transaction!
+
+  """
   Update the category of a transaction.
   """
   updateTransactionCategory(input: UpdateTransactionCategoryInput!): Transaction!
@@ -104,6 +110,53 @@ input UpdateTransactionBudgetInput {
   Budget database ID. Pass null to remove budget.
   """
   budgetId: Int
+}
+
+input CreateTransactionInput {
+  """
+  Account database ID. Must be a manual (non-synced) account.
+  """
+  accountId: Int!
+
+  """
+  Transaction date as ISO date string (e.g., "2024-01-15").
+  """
+  date: String!
+
+  """
+  Amount in major units (e.g., 100.50). Always positive.
+  """
+  amount: Float!
+
+  """
+  Transaction type: CREDIT for income, DEBIT for expense.
+  """
+  type: TransactionTypeEnum!
+
+  """
+  Description of the transaction.
+  """
+  description: String!
+
+  """
+  Optional counterparty name.
+  """
+  counterpartyName: String
+
+  """
+  Optional counterparty IBAN.
+  """
+  counterpartyIban: String
+
+  """
+  Optional MCC (Merchant Category Code).
+  """
+  mcc: Int
+
+  """
+  Optional notes about the transaction.
+  """
+  notes: String
 }
 
 type TransactionConnection {

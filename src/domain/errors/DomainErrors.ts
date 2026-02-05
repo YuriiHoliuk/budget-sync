@@ -126,3 +126,15 @@ export class AccountNameTakenError extends DomainError {
     super(`Account with name "${accountName}" already exists`);
   }
 }
+
+/**
+ * Thrown when attempting to manually create a transaction on a synced account.
+ * Synced accounts (source = 'bank_sync') can only receive transactions via bank sync.
+ */
+export class ManualTransactionNotAllowedError extends DomainError {
+  constructor(public readonly accountId: number) {
+    super(
+      `Manual transactions are not allowed on synced accounts (id: ${accountId}). Only manual accounts support manually created transactions.`,
+    );
+  }
+}

@@ -126,14 +126,33 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     if (transactionList.length === 0) {
       return [];
     }
+    const accountIdMap = await this.resolveAccountIds(transactionList);
     const insertData = transactionList.map((transaction) =>
-      this.mapper.toInsert(transaction),
+      this.mapper.toInsert(transaction, {
+        accountDbId: accountIdMap.get(transaction.accountId),
+      }),
     );
     const rows = await this.db
       .insert(transactions)
       .values(insertData)
       .returning();
     return rows.map((row) => this.mapper.toEntity(row));
+  }
+
+  private async resolveAccountIds(
+    transactionList: Transaction[],
+  ): Promise<Map<string, number>> {
+    const externalIds = [
+      ...new Set(transactionList.map((txn) => txn.accountId).filter(Boolean)),
+    ];
+    if (externalIds.length === 0) {
+      return new Map();
+    }
+    const accountRows = await this.db
+      .select({ id: accounts.id, externalId: accounts.externalId })
+      .from(accounts)
+      .where(inArray(accounts.externalId, externalIds));
+    return new Map(accountRows.map((row) => [row.externalId ?? '', row.id]));
   }
 
   async update(transaction: Transaction): Promise<void> {

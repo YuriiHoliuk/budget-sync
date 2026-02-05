@@ -1,4 +1,8 @@
 import {
+  type CreateTransactionRequestDTO,
+  CreateTransactionUseCase,
+} from '@application/use-cases/CreateTransaction.ts';
+import {
   ACCOUNT_REPOSITORY_TOKEN,
   type AccountRepository,
 } from '@domain/repositories/AccountRepository.ts';
@@ -52,6 +56,18 @@ interface UpdateBudgetInput {
   budgetId?: number | null;
 }
 
+interface CreateTransactionInput {
+  accountId: number;
+  date: string;
+  amount: number;
+  type: 'CREDIT' | 'DEBIT';
+  description: string;
+  counterpartyName?: string | null;
+  counterpartyIban?: string | null;
+  mcc?: number | null;
+  notes?: string | null;
+}
+
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
@@ -66,6 +82,7 @@ export class TransactionsResolver extends Resolver {
     private categoryRepository: CategoryRepository,
     @inject(BUDGET_REPOSITORY_TOKEN)
     private budgetRepository: BudgetRepository,
+    private createTransactionUseCase: CreateTransactionUseCase,
   ) {
     super();
   }
@@ -81,6 +98,10 @@ export class TransactionsResolver extends Resolver {
           this.getTransactionById(args.id),
       },
       Mutation: {
+        createTransaction: (
+          _parent: unknown,
+          args: { input: CreateTransactionInput },
+        ) => this.createTransaction(args.input),
         updateTransactionCategory: (
           _parent: unknown,
           args: { input: UpdateCategoryInput },
@@ -128,6 +149,34 @@ export class TransactionsResolver extends Resolver {
   private async getTransactionById(id: number) {
     const record = await this.transactionRepository.findRecordById(id);
     return record ? mapTransactionRecordToGql(record) : null;
+  }
+
+  private async createTransaction(input: CreateTransactionInput) {
+    const dto: CreateTransactionRequestDTO = {
+      accountId: input.accountId,
+      date: input.date,
+      amount: input.amount,
+      type: input.type,
+      description: input.description,
+      counterpartyName: input.counterpartyName,
+      counterpartyIban: input.counterpartyIban,
+      mcc: input.mcc,
+      notes: input.notes,
+    };
+
+    const transaction = await this.createTransactionUseCase.execute(dto);
+
+    const dbId = transaction.dbId;
+    if (dbId === null) {
+      throw new Error('Transaction was not assigned a database ID');
+    }
+
+    const record = await this.transactionRepository.findRecordById(dbId);
+    if (!record) {
+      throw new Error(`Failed to retrieve created transaction: ${dbId}`);
+    }
+
+    return mapTransactionRecordToGql(record);
   }
 
   private async updateTransactionCategory(input: UpdateCategoryInput) {
