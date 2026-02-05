@@ -101,7 +101,7 @@
     "phase": "P2: GraphQL API Foundation",
     "title": "Add createTransaction mutation for manual accounts",
     "description": "Add createTransaction mutation for adding transactions to manual (non-synced) accounts. Required fields: accountId, amount, date, description. Optional: categoryId, budgetId. Validate that target account is not synced. Implement CreateTransaction use case.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P2-006", "P2-008"]
   },
   {

@@ -2,6 +2,25 @@
 
 ## 2026-02-05
 
+### P2-009: Add createTransaction mutation for manual accounts
+
+- Implemented `CreateTransactionUseCase` in application layer
+  - Validates target account exists and is manual (not synced)
+  - Converts amount from major units to minor units
+  - Generates unique external ID for each transaction (`manual-txn-{timestamp}-{random}`)
+  - Sets categorization status to `pending` by default
+- Added `ManualTransactionNotAllowedError` domain error
+  - Thrown when attempting to create transaction on synced account
+- Added `createTransaction` mutation to `transactions.graphql` schema
+  - Required fields: `accountId`, `date`, `amount`, `type`, `description`
+  - Optional fields: `counterpartyName`, `counterpartyIban`, `mcc`, `notes`
+- Updated `TransactionsResolver` with mutation handler
+- Fixed `DatabaseTransactionRepository.saveManyAndReturn()` to resolve account DB IDs
+  - Previously left `accountId` null, breaking account field resolution
+  - Now looks up account DB IDs from external IDs before insert
+- 8 new unit tests for CreateTransactionUseCase (776 total pass)
+- Verified mutation via local dev server with manual and synced accounts
+
 ### P2-008: Add Accounts CRUD mutations with sync field protection
 
 - Added `source` enum field to Account entity: `'bank_sync' | 'manual'`
