@@ -15,33 +15,12 @@ import {
   type BudgetRepository,
 } from '@domain/repositories/BudgetRepository.ts';
 import type { GraphQLContext } from '@modules/graphql/types.ts';
-
-interface AllocationGql {
-  id: number | null;
-  budgetId: number;
-  amount: number;
-  currency: string;
-  period: string;
-  date: string;
-  notes: string | null;
-}
-
-function mapAllocationToGql(allocation: Allocation): AllocationGql {
-  return {
-    id: allocation.dbId,
-    budgetId: allocation.budgetId,
-    amount: allocation.amount.toMajorUnits(),
-    currency: allocation.amount.currency.code,
-    period: allocation.period,
-    date: allocation.date.toISOString().slice(0, 10),
-    notes: allocation.notes,
-  };
-}
-
-/** Convert major units (e.g. 100.50 UAH) to minor units (10050 kopecks) */
-function toMinorUnits(majorUnits: number): number {
-  return Math.round(majorUnits * 100);
-}
+import {
+  type AllocationGql,
+  mapAllocationToGql,
+  mapBudgetToGql,
+  toMinorUnits,
+} from '../mappers/index.ts';
 
 interface CreateAllocationInput {
   budgetId: number;
@@ -194,31 +173,7 @@ export const allocationsResolver = {
         BUDGET_REPOSITORY_TOKEN,
       );
       const budget = await repository.findById(parent.budgetId);
-      if (!budget) {
-        return null;
-      }
-      // Return raw budget fields matching Budget type
-      return {
-        id: budget.dbId,
-        name: budget.name,
-        type: budget.type.toUpperCase(),
-        currency: budget.amount.currency.code,
-        targetAmount: budget.amount.toMajorUnits(),
-        targetCadence: budget.targetCadence
-          ? budget.targetCadence.toUpperCase()
-          : null,
-        targetCadenceMonths: budget.targetCadenceMonths,
-        targetDate: budget.targetDate
-          ? budget.targetDate.toISOString().slice(0, 10)
-          : null,
-        startDate: budget.startDate
-          ? budget.startDate.toISOString().slice(0, 10)
-          : null,
-        endDate: budget.endDate
-          ? budget.endDate.toISOString().slice(0, 10)
-          : null,
-        isArchived: budget.isArchived,
-      };
+      return budget ? mapBudgetToGql(budget) : null;
     },
   },
 };

@@ -14,82 +14,16 @@ import {
   TRANSACTION_REPOSITORY_TOKEN,
   type TransactionRepository,
 } from '@domain/repositories/TransactionRepository.ts';
-import type {
-  TransactionFilterParams,
-  TransactionRecord,
-} from '@domain/repositories/transaction-types.ts';
+import type { TransactionFilterParams } from '@domain/repositories/transaction-types.ts';
 import { CategorizationStatus } from '@domain/value-objects/CategorizationStatus.ts';
 import type { GraphQLContext } from '@modules/graphql/types.ts';
-
-const STATUS_TO_GQL: Record<string, string> = {
-  pending: 'PENDING',
-  categorized: 'CATEGORIZED',
-  verified: 'VERIFIED',
-};
-
-const TYPE_TO_GQL: Record<string, string> = {
-  credit: 'CREDIT',
-  debit: 'DEBIT',
-};
-
-interface TransactionGql {
-  id: number;
-  externalId: string;
-  date: string;
-  amount: number;
-  currency: string;
-  type: string;
-  description: string;
-  categorizationStatus: string;
-  categoryReason: string | null;
-  budgetReason: string | null;
-  mcc: number | null;
-  counterpartyName: string | null;
-  counterpartyIban: string | null;
-  hold: boolean;
-  cashbackAmount: number | null;
-  commissionAmount: number | null;
-  receiptId: string | null;
-  notes: string | null;
-  accountId: number | null;
-  categoryId: number | null;
-  budgetId: number | null;
-}
-
-function toMajorUnits(minorUnits: number): number {
-  return minorUnits / 100;
-}
-
-function toMajorUnitsOrNull(minorUnits: number | null): number | null {
-  return minorUnits != null ? toMajorUnits(minorUnits) : null;
-}
-
-function mapRecordToGql(record: TransactionRecord): TransactionGql {
-  return {
-    id: record.id,
-    externalId: record.externalId ?? '',
-    date: record.date.toISOString(),
-    amount: toMajorUnits(Math.abs(record.amount)),
-    currency: record.currency,
-    type: TYPE_TO_GQL[record.type] ?? 'DEBIT',
-    description: record.bankDescription ?? '',
-    categorizationStatus:
-      STATUS_TO_GQL[record.categorizationStatus ?? 'pending'] ?? 'PENDING',
-    categoryReason: record.categoryReason,
-    budgetReason: record.budgetReason,
-    mcc: record.mcc,
-    counterpartyName: record.counterparty,
-    counterpartyIban: record.counterpartyIban,
-    hold: record.hold ?? false,
-    cashbackAmount: toMajorUnitsOrNull(record.cashback),
-    commissionAmount: toMajorUnitsOrNull(record.commission),
-    receiptId: record.receiptId,
-    notes: record.notes,
-    accountId: record.accountId,
-    categoryId: record.categoryId,
-    budgetId: record.budgetId,
-  };
-}
+import {
+  mapAccountToGql,
+  mapBudgetToGql,
+  mapCategoryToGql,
+  mapTransactionRecordToGql,
+  type TransactionGql,
+} from '../mappers/index.ts';
 
 interface TransactionFilter {
   accountId?: number;
@@ -155,7 +89,7 @@ export const transactionsResolver = {
       ]);
 
       return {
-        items: records.map(mapRecordToGql),
+        items: records.map(mapTransactionRecordToGql),
         totalCount,
         hasMore: pagination.offset + pagination.limit < totalCount,
       };
@@ -168,7 +102,7 @@ export const transactionsResolver = {
     ) => {
       const repository = resolveRepository(context);
       const record = await repository.findRecordById(args.id);
-      return record ? mapRecordToGql(record) : null;
+      return record ? mapTransactionRecordToGql(record) : null;
     },
   },
 
@@ -198,7 +132,7 @@ export const transactionsResolver = {
       if (!record) {
         throw new Error(`Transaction not found with id: ${args.input.id}`);
       }
-      return mapRecordToGql(record);
+      return mapTransactionRecordToGql(record);
     },
 
     updateTransactionBudget: async (
@@ -226,7 +160,7 @@ export const transactionsResolver = {
       if (!record) {
         throw new Error(`Transaction not found with id: ${args.input.id}`);
       }
-      return mapRecordToGql(record);
+      return mapTransactionRecordToGql(record);
     },
 
     verifyTransaction: async (
@@ -242,7 +176,7 @@ export const transactionsResolver = {
       if (!record) {
         throw new Error(`Transaction not found with id: ${args.id}`);
       }
-      return mapRecordToGql(record);
+      return mapTransactionRecordToGql(record);
     },
   },
 
@@ -262,27 +196,7 @@ export const transactionsResolver = {
       const account = allAccounts.find(
         (account) => account.dbId === parent.accountId,
       );
-      if (!account) {
-        return null;
-      }
-      return {
-        id: account.dbId,
-        externalId: account.externalId,
-        name: account.name,
-        type: mapAccountType(account.type),
-        role: account.role.toUpperCase(),
-        currency: account.currency.code,
-        balance: account.balance.toMajorUnits(),
-        creditLimit: account.creditLimit
-          ? account.creditLimit.toMajorUnits()
-          : null,
-        iban: account.iban ?? null,
-        bank: account.bank ?? null,
-        lastSyncTime: account.lastSyncTime
-          ? new Date(account.lastSyncTime).toISOString()
-          : null,
-        isCreditAccount: account.isCreditAccount,
-      };
+      return account ? mapAccountToGql(account) : null;
     },
 
     category: async (
@@ -297,16 +211,7 @@ export const transactionsResolver = {
         CATEGORY_REPOSITORY_TOKEN,
       );
       const category = await repository.findById(parent.categoryId);
-      if (!category) {
-        return null;
-      }
-      return {
-        id: category.dbId ?? 0,
-        name: category.name,
-        parentName: category.parent ?? null,
-        status: mapCategoryStatus(category.status),
-        fullPath: category.fullPath,
-      };
+      return category ? mapCategoryToGql(category) : null;
     },
 
     budget: async (
@@ -321,54 +226,7 @@ export const transactionsResolver = {
         BUDGET_REPOSITORY_TOKEN,
       );
       const budget = await repository.findById(parent.budgetId);
-      if (!budget) {
-        return null;
-      }
-      return {
-        id: budget.dbId,
-        name: budget.name,
-        type: budget.type.toUpperCase(),
-        currency: budget.amount.currency.code,
-        targetAmount: budget.amount.toMajorUnits(),
-        targetCadence: budget.targetCadence
-          ? budget.targetCadence.toUpperCase()
-          : null,
-        targetCadenceMonths: budget.targetCadenceMonths,
-        targetDate: budget.targetDate
-          ? budget.targetDate.toISOString().slice(0, 10)
-          : null,
-        startDate: budget.startDate
-          ? budget.startDate.toISOString().slice(0, 10)
-          : null,
-        endDate: budget.endDate
-          ? budget.endDate.toISOString().slice(0, 10)
-          : null,
-        isArchived: budget.isArchived,
-      };
+      return budget ? mapBudgetToGql(budget) : null;
     },
   },
 };
-
-const MONOBANK_TYPE_TO_GQL: Record<string, string> = {
-  black: 'DEBIT',
-  white: 'DEBIT',
-  platinum: 'DEBIT',
-  yellow: 'DEBIT',
-  eAid: 'DEBIT',
-  iron: 'CREDIT',
-  fop: 'FOP',
-};
-
-function mapAccountType(type: string | undefined): string {
-  return MONOBANK_TYPE_TO_GQL[type ?? ''] ?? 'DEBIT';
-}
-
-const CATEGORY_STATUS_TO_GQL: Record<string, string> = {
-  active: 'ACTIVE',
-  suggested: 'SUGGESTED',
-  archived: 'ARCHIVED',
-};
-
-function mapCategoryStatus(status: string): string {
-  return CATEGORY_STATUS_TO_GQL[status] ?? 'ACTIVE';
-}

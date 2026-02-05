@@ -3,83 +3,18 @@ import type { CreateBudgetRequestDTO } from '@application/use-cases/CreateBudget
 import { CreateBudgetUseCase } from '@application/use-cases/CreateBudget.ts';
 import type { UpdateBudgetRequestDTO } from '@application/use-cases/UpdateBudget.ts';
 import { UpdateBudgetUseCase } from '@application/use-cases/UpdateBudget.ts';
-import type {
-  Budget,
-  BudgetType,
-  TargetCadence,
-} from '@domain/entities/Budget.ts';
 import {
   BUDGET_REPOSITORY_TOKEN,
   BudgetRepository,
 } from '@domain/repositories/BudgetRepository.ts';
 import type { GraphQLContext } from '@modules/graphql/types.ts';
-
-const BUDGET_TYPE_TO_GQL: Record<string, string> = {
-  spending: 'SPENDING',
-  savings: 'SAVINGS',
-  goal: 'GOAL',
-  periodic: 'PERIODIC',
-};
-
-const GQL_TO_BUDGET_TYPE: Record<string, BudgetType> = {
-  SPENDING: 'spending',
-  SAVINGS: 'savings',
-  GOAL: 'goal',
-  PERIODIC: 'periodic',
-};
-
-const CADENCE_TO_GQL: Record<string, string> = {
-  monthly: 'MONTHLY',
-  yearly: 'YEARLY',
-  custom: 'CUSTOM',
-};
-
-const GQL_TO_CADENCE: Record<string, TargetCadence> = {
-  MONTHLY: 'monthly',
-  YEARLY: 'yearly',
-  CUSTOM: 'custom',
-};
-
-function mapBudgetToGql(budget: Budget) {
-  return {
-    id: budget.dbId,
-    name: budget.name,
-    type: BUDGET_TYPE_TO_GQL[budget.type] ?? 'SPENDING',
-    currency: budget.amount.currency.code,
-    targetAmount: budget.amount.toMajorUnits(),
-    targetCadence: budget.targetCadence
-      ? (CADENCE_TO_GQL[budget.targetCadence] ?? null)
-      : null,
-    targetCadenceMonths: budget.targetCadenceMonths,
-    targetDate: budget.targetDate
-      ? budget.targetDate.toISOString().slice(0, 10)
-      : null,
-    startDate: budget.startDate
-      ? budget.startDate.toISOString().slice(0, 10)
-      : null,
-    endDate: budget.endDate ? budget.endDate.toISOString().slice(0, 10) : null,
-    isArchived: budget.isArchived,
-  };
-}
-
-/** Convert major units (e.g. 100.50 UAH) to minor units (10050 kopecks) */
-function toMinorUnits(majorUnits: number): number {
-  return Math.round(majorUnits * 100);
-}
-
-/** Convert a nullable GQL enum value to its domain equivalent, or undefined if not provided */
-function mapOptionalGqlEnum<T>(
-  value: string | null | undefined,
-  lookup: Record<string, T>,
-): T | null | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (value === null) {
-    return null;
-  }
-  return lookup[value] ?? null;
-}
+import {
+  GQL_TO_BUDGET_TYPE,
+  GQL_TO_CADENCE,
+  mapBudgetToGql,
+  mapOptionalGqlEnum,
+  toMinorUnits,
+} from '../mappers/index.ts';
 
 interface CreateBudgetInput {
   name: string;

@@ -2,6 +2,26 @@
 
 ## 2026-02-05
 
+### TX-005: Extract shared GraphQL mapping utilities
+
+- Created `src/presentation/graphql/mappers/` directory with shared mapper utilities:
+  - `money.ts`: `toMinorUnits()`, `toMajorUnits()`, `toMajorUnitsOrNull()` for currency conversion
+  - `budget.ts`: `mapBudgetToGql()`, enum constants (`BUDGET_TYPE_TO_GQL`, `GQL_TO_BUDGET_TYPE`, etc.), `mapOptionalGqlEnum()`
+  - `allocation.ts`: `mapAllocationToGql()` and `AllocationGql` type
+  - `account.ts`: `mapAccountToGql()`, `mapAccountType()`, `MONOBANK_TYPE_TO_GQL`
+  - `category.ts`: `mapCategoryToGql()`, `mapCategoryStatus()`, enum constants
+  - `transaction.ts`: `mapTransactionRecordToGql()`, status/type enum constants
+  - `index.ts`: Re-exports all shared utilities
+- Updated all resolvers to import from shared mappers:
+  - `accountsResolver.ts`: removed local `mapAccountToGql`, uses shared
+  - `budgetsResolver.ts`: removed local constants and functions, uses shared
+  - `allocationsResolver.ts`: removed local mapping code, uses shared (including `mapBudgetToGql` for child resolver)
+  - `categoriesResolver.ts`: removed local mapping code, uses shared
+  - `transactionsResolver.ts`: removed local mapping code, uses shared mappers for all entity types
+  - `monthlyOverviewResolver.ts`: removed local `toMajorUnits` and `BUDGET_TYPE_TO_GQL`, uses shared
+- Eliminated ~150 lines of duplicate code across resolvers
+- All 746 tests pass, typecheck and lint clean
+
 ### TX-002: Fix typecasting violations in mappers
 
 - Created type guard utilities in domain layer for safe runtime type narrowing:
@@ -41,6 +61,16 @@
 - Tests `toInsert()` mapping: all fields, date formatting (YYYY-MM-DD), null/empty notes, negative amounts, period preservation
 - Tests roundtrip conversion to ensure data integrity through `toEntity` -> `toInsert` cycle
 - 19 new tests (726 total pass)
+
+### TX-004: Add tests for DualWrite repositories
+
+- Created unit tests for `DualWriteBudgetRepository` in `tests/unit/infrastructure/repositories/DualWriteBudgetRepository.test.ts`
+- Created unit tests for `DualWriteCategoryRepository` in `tests/unit/infrastructure/repositories/DualWriteCategoryRepository.test.ts`
+- Tests read operations: verify DB repo is called, spreadsheet repo is not called
+- Tests write operations (save, saveAndReturn): verify both repos are called, DB first then spreadsheet
+- Tests error handling: spreadsheet failures are logged but don't affect DB operations
+- Tests update: verify only DB repo is called (current implementation doesn't dual-write updates)
+- 20 new tests (746 total pass)
 
 ## 2026-02-02
 

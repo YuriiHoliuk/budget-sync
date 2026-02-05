@@ -3,43 +3,16 @@ import type { CreateCategoryRequestDTO } from '@application/use-cases/CreateCate
 import { CreateCategoryUseCase } from '@application/use-cases/CreateCategory.ts';
 import type { UpdateCategoryRequestDTO } from '@application/use-cases/UpdateCategory.ts';
 import { UpdateCategoryUseCase } from '@application/use-cases/UpdateCategory.ts';
-import type { Category } from '@domain/entities/Category.ts';
 import {
   CATEGORY_REPOSITORY_TOKEN,
   CategoryRepository,
 } from '@domain/repositories/CategoryRepository.ts';
-import type { CategoryStatus } from '@domain/value-objects/index.ts';
 import type { GraphQLContext } from '@modules/graphql/types.ts';
-
-const STATUS_TO_GQL: Record<string, string> = {
-  active: 'ACTIVE',
-  suggested: 'SUGGESTED',
-  archived: 'ARCHIVED',
-};
-
-const GQL_TO_STATUS: Record<string, CategoryStatus> = {
-  ACTIVE: 'active',
-  SUGGESTED: 'suggested',
-  ARCHIVED: 'archived',
-};
-
-interface CategoryGql {
-  id: number;
-  name: string;
-  parentName: string | null;
-  status: string;
-  fullPath: string;
-}
-
-function mapCategoryToGql(category: Category): CategoryGql {
-  return {
-    id: category.dbId ?? 0,
-    name: category.name,
-    parentName: category.parent ?? null,
-    status: STATUS_TO_GQL[category.status] ?? 'ACTIVE',
-    fullPath: category.fullPath,
-  };
-}
+import {
+  type CategoryGql,
+  GQL_TO_CATEGORY_STATUS,
+  mapCategoryToGql,
+} from '../mappers/index.ts';
 
 interface CreateCategoryInput {
   name: string;
@@ -68,7 +41,7 @@ function mapUpdateInput(input: UpdateCategoryInput): UpdateCategoryRequestDTO {
     name: input.name ?? undefined,
     parentName: input.parentName !== undefined ? input.parentName : undefined,
     status: input.status
-      ? (GQL_TO_STATUS[input.status] ?? undefined)
+      ? (GQL_TO_CATEGORY_STATUS[input.status] ?? undefined)
       : undefined,
   };
 }

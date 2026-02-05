@@ -365,7 +365,7 @@
     "phase": "TX: Technical Debt",
     "title": "Add tests for DualWrite repositories",
     "description": "Create tests for DualWriteBudgetRepository and DualWriteCategoryRepository (following pattern from existing DualWriteTransactionRepository.test.ts and DualWriteAccountRepository.test.ts). Test that both database and spreadsheet repositories are called. Test error handling when one write fails.",
-    "status": "todo",
+    "status": "done",
     "dependencies": []
   },
   {
@@ -373,7 +373,7 @@
     "phase": "TX: Technical Debt",
     "title": "Extract shared GraphQL mapping utilities",
     "description": "Consolidate duplicate budget/allocation mapping code across resolvers. Create src/presentation/graphql/mappers/ directory with: BudgetGqlMapper, AllocationGqlMapper, TransactionGqlMapper. Move mapBudgetToGql, toMinorUnits, BUDGET_TYPE_TO_GQL constants to shared location. Update all resolvers to use shared mappers.",
-    "status": "todo",
+    "status": "done",
     "dependencies": []
   },
   {

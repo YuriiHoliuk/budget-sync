@@ -22,17 +22,7 @@ import {
   type TransactionInput,
 } from '@domain/services/BudgetCalculationService.ts';
 import type { GraphQLContext } from '@modules/graphql/types.ts';
-
-const BUDGET_TYPE_TO_GQL: Record<string, string> = {
-  spending: 'SPENDING',
-  savings: 'SAVINGS',
-  goal: 'GOAL',
-  periodic: 'PERIODIC',
-};
-
-function toMajorUnits(minorUnits: number): number {
-  return minorUnits / 100;
-}
+import { BUDGET_TYPE_TO_GQL, toMajorUnits } from '../mappers/index.ts';
 
 const calculationService = new BudgetCalculationService();
 
