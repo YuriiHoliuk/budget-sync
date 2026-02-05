@@ -305,26 +305,34 @@
   {
     "id": "P8-001",
     "phase": "P8: E2E Tests (Playwright)",
-    "title": "Set up Playwright E2E test infrastructure",
-    "description": "Install Playwright. Create e2e/ directory with playwright.config.ts. Set up test environment: docker-compose for test DB, seed fixtures, start API server + Next.js dev server. Create base test fixtures. Mock spreadsheet and Monobank at container level. Add `just test-e2e` command.",
+    "title": "Set up Playwright E2E test infrastructure with structured fixtures",
+    "description": "Install Playwright and configure e2e/ directory. Create docker-compose.e2e.yml that spins up fresh PostgreSQL, runs migrations, seeds test data, starts API server (with mocked Monobank/spreadsheet), and starts Next.js. Configure playwright.config.ts with baseURL, timeout, retries. Create base test fixtures using Playwright's test.extend() for: fresh database state per test file, API client for direct DB manipulation, authenticated page context. Add `just test-e2e` command that orchestrates the full stack. Create e2e/fixtures/ for test data factories and e2e/utils/ for helpers.",
     "status": "todo",
     "dependencies": ["P4-002", "P5-002"]
   },
   {
     "id": "P8-002",
     "phase": "P8: E2E Tests (Playwright)",
-    "title": "Write E2E tests for Budget Overview page",
-    "description": "E2E tests: load budget page, verify metrics display, navigate months, edit allocation inline, move funds between budgets, create new budget, verify Ready to Assign updates. Use seeded test data.",
+    "title": "Create Page Objects and reusable component classes",
+    "description": "Create Page Object Model (POM) pattern in e2e/pages/: BasePage (common selectors, wait utilities), BudgetPage (budget table, metrics, move funds dialog), TransactionsPage (filters, table, pagination), AccountsPage (account groups, CRUD dialogs), CategoriesPage (tree view, CRUD). Create reusable component classes in e2e/components/: Table (row selection, sorting), Dialog (open/close, form submit), MonthSelector (navigate months), InlineEditor (edit/save/cancel). All selectors use data-qa attributes (e.g., [data-qa='budget-table'], [data-qa='move-funds-btn']). Add data-qa attributes to frontend components as needed.",
     "status": "todo",
     "dependencies": ["P8-001"]
   },
   {
     "id": "P8-003",
     "phase": "P8: E2E Tests (Playwright)",
-    "title": "Write E2E tests for Transactions and Accounts pages",
-    "description": "E2E tests: load transactions page, filter by date/category/budget, search, paginate, edit transaction category/budget, verify transaction. Load accounts page, verify accounts display and grouping.",
+    "title": "Write E2E tests for Budget Overview page",
+    "description": "Clean, high-level tests using Page Objects. Tests: verify metrics display correct values (Ready to Assign, Capital, etc.), navigate months and verify data changes, edit allocation inline and verify totals update, move funds between budgets via dialog, create new budget via dialog, archive budget and verify removal from list. Each test uses fixture data and calls high-level methods like budgetPage.editAllocation('Groceries', 500), budgetPage.moveFunds('Groceries', 'Savings', 100). Assert via page object getters like budgetPage.readyToAssign.",
     "status": "todo",
-    "dependencies": ["P8-001"]
+    "dependencies": ["P8-002"]
+  },
+  {
+    "id": "P8-004",
+    "phase": "P8: E2E Tests (Playwright)",
+    "title": "Write E2E tests for Transactions and Accounts pages",
+    "description": "Clean, high-level tests using Page Objects. Transactions tests: load page with default filters, filter by date range, filter by category/budget, search by description, paginate through results, edit transaction category via dropdown, edit transaction budget, verify transaction. Accounts tests: verify accounts grouped by role, create manual account via dialog, edit manual account name, archive manual account, verify synced accounts show read-only badge, verify archived accounts hidden by default.",
+    "status": "todo",
+    "dependencies": ["P8-002"]
   },
 
   {

@@ -83,3 +83,23 @@ IMPORTANT: Not all tests in the end but tests after each task.
 - No business logic in resolvers — only map inputs and invoke use cases
 - Shared mapping utilities in `src/presentation/graphql/mappers/` to avoid duplication
 - Resolvers import only from domain/application layers, never from infrastructure
+
+## Account Source vs Synced Boolean
+
+- Use enum instead of boolean for account source: `source: 'bank_sync' | 'manual'`
+- More extensible than `synced: boolean` — can add more sources later without schema changes
+- Don't hard-code provider names (like 'monobank') in the source field — use generic 'bank_sync'
+- Provider info kept in separate `bank` field
+
+## AccountType vs Monobank Card Types
+
+- Domain uses semantic types: `AccountType = 'debit' | 'credit' | 'fop'`
+- Monobank card types (black, white, platinum, yellow, eAid, iron) are mapped in MonobankMapper
+- This decouples domain model from provider-specific terminology
+- Tests updated to use domain types, not provider types
+
+## Protected Fields Pattern
+
+- Use cases validate protected fields before applying updates
+- Check `account.isSynced` (derived from source !== 'manual') before allowing certain field updates
+- Same-value updates are allowed (no-op check) — prevents spurious errors when user saves without changes
