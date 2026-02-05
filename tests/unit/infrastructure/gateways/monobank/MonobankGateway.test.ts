@@ -110,7 +110,7 @@ describe('MonobankGateway', () => {
       expect(accounts[0]?.externalId).toBe('account-123');
       expect(accounts[0]?.currency.code).toBe('UAH');
       expect(accounts[0]?.balance.amount).toBe(1000000);
-      expect(accounts[0]?.type).toBe('black');
+      expect(accounts[0]?.type).toBe('debit');
       expect(accounts[0]?.bank).toBe('monobank');
     });
   });

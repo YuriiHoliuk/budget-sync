@@ -21,6 +21,8 @@ describe('DatabaseAccountMapper', () => {
         creditLimit: 0,
         iban: 'UA123456789012345678901234',
         bank: 'Monobank',
+        source: 'bank_sync',
+        isArchived: false,
         lastSyncTime: new Date('2024-01-15T10:00:00Z'),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -38,7 +40,7 @@ describe('DatabaseAccountMapper', () => {
       expect(account.dbId).toBe(123);
     });
 
-    test('should map DB debit type to Monobank black type', () => {
+    test('should map DB debit type to debit type', () => {
       const row: AccountRow = {
         id: 1,
         externalId: 'ext-1',
@@ -51,6 +53,8 @@ describe('DatabaseAccountMapper', () => {
         creditLimit: 0,
         iban: null,
         bank: null,
+        source: 'bank_sync',
+        isArchived: false,
         lastSyncTime: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -58,10 +62,10 @@ describe('DatabaseAccountMapper', () => {
 
       const account = mapper.toEntity(row);
 
-      expect(account.type).toBe('black');
+      expect(account.type).toBe('debit');
     });
 
-    test('should map DB credit type to Monobank iron type', () => {
+    test('should map DB credit type to credit type', () => {
       const row: AccountRow = {
         id: 2,
         externalId: 'ext-2',
@@ -74,6 +78,8 @@ describe('DatabaseAccountMapper', () => {
         creditLimit: 30000,
         iban: null,
         bank: null,
+        source: 'bank_sync',
+        isArchived: false,
         lastSyncTime: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -81,10 +87,10 @@ describe('DatabaseAccountMapper', () => {
 
       const account = mapper.toEntity(row);
 
-      expect(account.type).toBe('iron');
+      expect(account.type).toBe('credit');
     });
 
-    test('should map DB fop type to Monobank fop type', () => {
+    test('should map DB fop type to fop type', () => {
       const row: AccountRow = {
         id: 3,
         externalId: 'ext-3',
@@ -97,6 +103,8 @@ describe('DatabaseAccountMapper', () => {
         creditLimit: 0,
         iban: null,
         bank: null,
+        source: 'bank_sync',
+        isArchived: false,
         lastSyncTime: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -120,6 +128,8 @@ describe('DatabaseAccountMapper', () => {
         creditLimit: 50000,
         iban: null,
         bank: null,
+        source: 'bank_sync',
+        isArchived: false,
         lastSyncTime: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -145,6 +155,8 @@ describe('DatabaseAccountMapper', () => {
         creditLimit: 0,
         iban: null,
         bank: null,
+        source: 'bank_sync',
+        isArchived: false,
         lastSyncTime: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -169,6 +181,8 @@ describe('DatabaseAccountMapper', () => {
         creditLimit: 0,
         iban: null,
         bank: null,
+        source: 'bank_sync',
+        isArchived: false,
         lastSyncTime: syncTime,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -192,6 +206,8 @@ describe('DatabaseAccountMapper', () => {
         creditLimit: 0,
         iban: null,
         bank: null,
+        source: 'bank_sync',
+        isArchived: false,
         lastSyncTime: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -227,14 +243,14 @@ describe('DatabaseAccountMapper', () => {
       expect(row.role).toBe('operational');
     });
 
-    test('should map Monobank black type to DB debit type', () => {
+    test('should map debit account type to DB debit type', () => {
       const currency = Currency.UAH;
       const account = Account.create({
         externalId: 'ext-101',
-        name: 'Black Card',
+        name: 'Debit Card',
         currency,
         balance: Money.create(10000, currency),
-        type: 'black',
+        type: 'debit',
       });
 
       const row: NewAccountRow = mapper.toInsert(account);
@@ -242,75 +258,15 @@ describe('DatabaseAccountMapper', () => {
       expect(row.type).toBe('debit');
     });
 
-    test('should map Monobank white type to DB debit type', () => {
-      const currency = Currency.UAH;
-      const account = Account.create({
-        externalId: 'ext-102',
-        name: 'White Card',
-        currency,
-        balance: Money.create(10000, currency),
-        type: 'white',
-      });
-
-      const row: NewAccountRow = mapper.toInsert(account);
-
-      expect(row.type).toBe('debit');
-    });
-
-    test('should map Monobank platinum type to DB debit type', () => {
-      const currency = Currency.UAH;
-      const account = Account.create({
-        externalId: 'ext-103',
-        name: 'Platinum Card',
-        currency,
-        balance: Money.create(10000, currency),
-        type: 'platinum',
-      });
-
-      const row: NewAccountRow = mapper.toInsert(account);
-
-      expect(row.type).toBe('debit');
-    });
-
-    test('should map Monobank yellow type to DB debit type', () => {
-      const currency = Currency.UAH;
-      const account = Account.create({
-        externalId: 'ext-104',
-        name: 'Yellow Card',
-        currency,
-        balance: Money.create(10000, currency),
-        type: 'yellow',
-      });
-
-      const row: NewAccountRow = mapper.toInsert(account);
-
-      expect(row.type).toBe('debit');
-    });
-
-    test('should map Monobank eAid type to DB debit type', () => {
-      const currency = Currency.UAH;
-      const account = Account.create({
-        externalId: 'ext-105',
-        name: 'eAid Card',
-        currency,
-        balance: Money.create(10000, currency),
-        type: 'eAid',
-      });
-
-      const row: NewAccountRow = mapper.toInsert(account);
-
-      expect(row.type).toBe('debit');
-    });
-
-    test('should map Monobank iron type to DB credit type', () => {
+    test('should map credit account type to DB credit type', () => {
       const currency = Currency.UAH;
       const account = Account.create({
         externalId: 'ext-106',
-        name: 'Iron Card',
+        name: 'Credit Card',
         currency,
         balance: Money.create(30000, currency),
         creditLimit: Money.create(30000, currency),
-        type: 'iron',
+        type: 'credit',
       });
 
       const row: NewAccountRow = mapper.toInsert(account);
@@ -319,7 +275,7 @@ describe('DatabaseAccountMapper', () => {
       expect(row.creditLimit).toBe(30000);
     });
 
-    test('should map Monobank fop type to DB fop type', () => {
+    test('should map fop account type to DB fop type', () => {
       const currency = Currency.UAH;
       const account = Account.create({
         externalId: 'ext-107',

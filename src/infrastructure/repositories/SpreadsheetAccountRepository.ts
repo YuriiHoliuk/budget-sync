@@ -81,6 +81,29 @@ export class SpreadsheetAccountRepository
   }
 
   /**
+   * Find an account by its database ID.
+   * Spreadsheet doesn't support DB IDs - returns null.
+   */
+  findByDbId(_dbId: number): Promise<Account | null> {
+    return Promise.resolve(null);
+  }
+
+  /**
+   * Find all active (non-archived) accounts.
+   * Spreadsheet doesn't have isArchived field - returns all accounts.
+   */
+  findActive(): Promise<Account[]> {
+    return this.findAll();
+  }
+
+  /**
+   * Find an account by name.
+   */
+  findByName(name: string): Promise<Account | null> {
+    return this.findBy((record) => record.name === name);
+  }
+
+  /**
    * Find an account by its external ID (e.g., from Monobank).
    */
   findByExternalId(externalId: string): Promise<Account | null> {

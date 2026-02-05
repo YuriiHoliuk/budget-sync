@@ -16,7 +16,7 @@ describe('SpreadsheetAccountMapper', () => {
         name: 'Black Card *4530 (UAH)',
         currency: Currency.UAH,
         balance: Money.create(1000000, Currency.UAH), // 10000.00 UAH
-        type: 'black',
+        type: 'debit',
         iban: 'UA213223130000026201234567890',
         bank: 'monobank',
         lastSyncTime: 1704067200,
@@ -42,7 +42,7 @@ describe('SpreadsheetAccountMapper', () => {
         name: 'Black Card *4530 (UAH)',
         currency: Currency.UAH,
         balance: Money.create(500000, Currency.UAH),
-        type: 'black',
+        type: 'debit',
       });
 
       const record = mapper.toRecord(account, 'My Personal Card');
@@ -58,7 +58,7 @@ describe('SpreadsheetAccountMapper', () => {
         currency: Currency.UAH,
         balance: Money.create(5000000, Currency.UAH), // 50000.00 UAH total
         creditLimit: Money.create(3000000, Currency.UAH), // 30000.00 UAH limit
-        type: 'iron',
+        type: 'credit',
       });
 
       const record = mapper.toRecord(account);
@@ -84,31 +84,13 @@ describe('SpreadsheetAccountMapper', () => {
       expect(record.balance).toBe(100000);
     });
 
-    test('should map various debit card types to Дебетова', () => {
-      const cardTypes = ['black', 'white', 'platinum', 'yellow', 'eAid'];
-
-      for (const cardType of cardTypes) {
-        const account = Account.create({
-          externalId: `${cardType}-123`,
-          name: `${cardType} Card`,
-          currency: Currency.UAH,
-          balance: Money.create(100000, Currency.UAH),
-          type: cardType,
-        });
-
-        const record = mapper.toRecord(account);
-
-        expect(record.type).toBe('Дебетова');
-      }
-    });
-
-    test('should default to Дебетова for unknown account type', () => {
+    test('should map debit account type to Дебетова', () => {
       const account = Account.create({
-        externalId: 'unknown-123',
-        name: 'Unknown Card',
+        externalId: 'debit-123',
+        name: 'Debit Card',
         currency: Currency.UAH,
         balance: Money.create(100000, Currency.UAH),
-        type: 'unknownType',
+        type: 'debit',
       });
 
       const record = mapper.toRecord(account);
@@ -137,7 +119,7 @@ describe('SpreadsheetAccountMapper', () => {
         currency: Currency.UAH,
         balance: Money.create(2500000, Currency.UAH), // 25000 balance
         creditLimit: Money.create(3000000, Currency.UAH), // 30000 limit
-        type: 'iron',
+        type: 'credit',
       });
 
       const record = mapper.toRecord(account);
@@ -168,7 +150,7 @@ describe('SpreadsheetAccountMapper', () => {
       expect(account.name).toBe('Black Card *4530 (UAH)');
       expect(account.currency.code).toBe('UAH');
       expect(account.balance.amount).toBe(1000000); // Minor units
-      expect(account.type).toBe('black');
+      expect(account.type).toBe('debit');
       expect(account.iban).toBe('UA213223130000026201234567890');
       expect(account.bank).toBe('monobank');
       expect(account.lastSyncTime).toBe(1704067200);
@@ -185,7 +167,7 @@ describe('SpreadsheetAccountMapper', () => {
 
       const account = mapper.toEntity(record);
 
-      expect(account.type).toBe('iron');
+      expect(account.type).toBe('credit');
       expect(account.creditLimit?.amount).toBe(3000000); // Minor units
       // Original balance = actual + creditLimit = -5000 + 30000 = 25000 in major units = 2500000 kopecks
       expect(account.balance.amount).toBe(2500000);
@@ -205,7 +187,7 @@ describe('SpreadsheetAccountMapper', () => {
       expect(account.type).toBe('fop');
     });
 
-    test('should default to black for Дебетова type', () => {
+    test('should default to debit for Дебетова type', () => {
       const record: AccountRecord = {
         type: 'Дебетова',
         currency: 'UAH',
@@ -216,7 +198,7 @@ describe('SpreadsheetAccountMapper', () => {
 
       const account = mapper.toEntity(record);
 
-      expect(account.type).toBe('black');
+      expect(account.type).toBe('debit');
     });
 
     test('should fallback to name when externalName is not set', () => {
@@ -314,7 +296,7 @@ describe('SpreadsheetAccountMapper', () => {
         name: 'Black Card *4530 (UAH)',
         currency: Currency.UAH,
         balance: Money.create(1000000, Currency.UAH),
-        type: 'black',
+        type: 'debit',
         iban: 'UA213223130000026201234567890',
         bank: 'monobank',
       });
@@ -337,7 +319,7 @@ describe('SpreadsheetAccountMapper', () => {
         currency: Currency.UAH,
         balance: Money.create(5000000, Currency.UAH),
         creditLimit: Money.create(3000000, Currency.UAH),
-        type: 'iron',
+        type: 'credit',
       });
 
       const record = mapper.toRecord(original);

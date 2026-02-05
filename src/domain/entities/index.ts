@@ -2,8 +2,14 @@ export {
   Account,
   type AccountProps,
   type AccountRole,
+  type AccountSource,
+  type AccountType,
   isAccountRole,
+  isAccountSource,
+  isAccountType,
   parseAccountRole,
+  parseAccountSource,
+  parseAccountType,
 } from './Account.ts';
 export {
   Budget,

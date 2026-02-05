@@ -2,6 +2,49 @@
 
 ## 2026-02-05
 
+### P2-008: Add Accounts CRUD mutations with sync field protection
+
+- Added `source` enum field to Account entity: `'bank_sync' | 'manual'`
+  - `bank_sync`: Accounts synced from external bank APIs (Monobank)
+  - `manual`: Accounts created by user (cash, other banks)
+- Added `isArchived` boolean field to Account for soft deletion
+- Added `AccountType` enum: `'debit' | 'credit' | 'fop'`
+  - Replaces Monobank card types (black, iron, etc.) with semantic types
+  - MonobankMapper converts Monobank types to AccountType during sync
+- Updated database schema (`accounts` table):
+  - Added `source` column (varchar(20), default 'bank_sync')
+  - Added `is_archived` column (boolean, default false)
+  - Generated migration `0001_hard_gargoyle.sql`
+- Extended `AccountRepository` with new methods:
+  - `findByDbId(dbId)`: Find by database serial ID
+  - `findActive()`: Find non-archived accounts only
+  - `findByName(name)`: Find by account name (case-insensitive)
+- Created Account use cases:
+  - `CreateAccountUseCase`: Create manual accounts with unique name validation
+  - `UpdateAccountUseCase`: Update with protected field validation for synced accounts
+  - `ArchiveAccountUseCase`: Soft delete via isArchived flag
+- Added domain errors:
+  - `ProtectedFieldUpdateError`: When modifying protected fields on synced accounts
+  - `AccountNameTakenError`: When creating account with existing name
+- Protected fields for synced accounts: `currency`, `iban`
+  - Attempting to change these throws `ProtectedFieldUpdateError`
+  - Same values are allowed (no-op)
+- Updated GraphQL schema (`accounts.graphql`):
+  - Added `source: AccountSource!` and `isArchived: Boolean!` to Account type
+  - Added `AccountSource` enum (BANK_SYNC, MANUAL)
+  - Added `activeOnly` argument to `accounts` query (default: true)
+  - Added mutations: `createAccount`, `updateAccount`, `archiveAccount`
+  - Added input types: `CreateAccountInput`, `UpdateAccountInput`
+- Updated mappers:
+  - `DatabaseAccountMapper`: Maps `source` and `isArchived`
+  - `MonobankMapper`: Sets `source: 'bank_sync'` for synced accounts
+  - `SpreadsheetAccountMapper`: Updated for new AccountType values
+  - GraphQL account mapper: Added `mapAccountSource()`, updated `mapAccountType()`
+- Updated `AccountsResolver` with mutations and use case injection
+- 27 new unit tests for CreateAccount, UpdateAccount, ArchiveAccount use cases
+- 809 total tests pass (excluding rate-limited integration tests)
+- All GraphQL mutations verified via local dev server
+
 ### TX-006: Refactor resolvers to injectable classes
 
 - Created `Resolver` base class in `src/presentation/graphql/Resolver.ts`:

@@ -19,10 +19,11 @@ const DEFAULT_ACCOUNT_PROPS = {
   name: 'Test Account',
   currency: Currency.UAH,
   balance: Money.create(100000, Currency.UAH),
-  type: 'black',
+  type: 'debit' as const,
   iban: 'UA123456789012345678901234567',
   maskedPan: ['*1234'],
   bank: 'monobank',
+  source: 'bank_sync' as const,
 };
 
 /**

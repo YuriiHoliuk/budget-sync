@@ -295,11 +295,11 @@ describe('SyncAccountsUseCase', () => {
     test('should detect type change', async () => {
       const existingAccount = createAccount({
         externalId: 'acc-123',
-        type: 'black',
+        type: 'debit',
       });
       const incomingAccount = createAccount({
         externalId: 'acc-123',
-        type: 'platinum',
+        type: 'credit',
       });
 
       mockBankGateway.getAccounts = mock(() =>
@@ -474,7 +474,7 @@ describe('SyncAccountsUseCase', () => {
         externalId: 'acc-123',
         name: 'Main Card',
         balance: Money.create(100000, Currency.UAH),
-        type: 'black',
+        type: 'debit',
         iban: 'UA123456789012345678901234567',
         maskedPan: ['*1234', '*5678'],
       });
@@ -482,7 +482,7 @@ describe('SyncAccountsUseCase', () => {
         externalId: 'acc-123',
         name: 'Main Card',
         balance: Money.create(100000, Currency.UAH),
-        type: 'black',
+        type: 'debit',
         iban: 'UA123456789012345678901234567',
         maskedPan: ['*1234', '*5678'],
       });

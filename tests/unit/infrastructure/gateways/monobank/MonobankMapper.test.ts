@@ -27,7 +27,7 @@ describe('MonobankMapper', () => {
       expect(account.externalId).toBe('account-123');
       expect(account.currency.code).toBe('UAH');
       expect(account.balance.amount).toBe(1000000);
-      expect(account.type).toBe('black');
+      expect(account.type).toBe('debit');
       expect(account.iban).toBe('UA213223130000026201234567890');
       expect(account.bank).toBe('monobank');
     });

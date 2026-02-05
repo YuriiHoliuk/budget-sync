@@ -1,11 +1,11 @@
 /**
  * SpreadsheetAccountMapper - Maps between Account entity and spreadsheet records
  *
- * Handles conversion of account types between Monobank format and Ukrainian display names,
+ * Handles conversion of account types between domain format and Ukrainian display names,
  * and converts between minor units (kopecks) and major units (hryvnias).
  */
 
-import { Account } from '@domain/entities/Account.ts';
+import { Account, type AccountType } from '@domain/entities/Account.ts';
 import { Currency } from '@domain/value-objects/Currency.ts';
 import { Money } from '@domain/value-objects/Money.ts';
 
@@ -41,24 +41,20 @@ export interface AccountRecord {
 }
 
 /**
- * Mapping from Monobank account types to spreadsheet display names
+ * Mapping from domain AccountType to spreadsheet display names
  */
-const ACCOUNT_TYPE_TO_DISPLAY: Record<string, string> = {
-  black: 'Дебетова',
-  white: 'Дебетова',
-  platinum: 'Дебетова',
-  yellow: 'Дебетова',
-  eAid: 'Дебетова',
-  iron: 'Кредитка',
+const ACCOUNT_TYPE_TO_DISPLAY: Record<AccountType, string> = {
+  debit: 'Дебетова',
+  credit: 'Кредитка',
   fop: 'ФОП',
 };
 
 /**
- * Reverse mapping from spreadsheet display names to a canonical account type
+ * Reverse mapping from spreadsheet display names to domain AccountType
  */
-const DISPLAY_TO_ACCOUNT_TYPE: Record<string, string> = {
-  Дебетова: 'black',
-  Кредитка: 'iron',
+const DISPLAY_TO_ACCOUNT_TYPE: Record<string, AccountType> = {
+  Дебетова: 'debit',
+  Кредитка: 'credit',
   ФОП: 'fop',
 };
 
@@ -76,8 +72,7 @@ export class SpreadsheetAccountMapper {
    * @returns A record suitable for spreadsheet storage
    */
   toRecord(account: Account, existingName?: string): AccountRecord {
-    const accountType = account.type ?? 'black';
-    const displayType = ACCOUNT_TYPE_TO_DISPLAY[accountType] ?? 'Дебетова';
+    const displayType = ACCOUNT_TYPE_TO_DISPLAY[account.type];
     const creditLimit = account.creditLimit?.toMajorUnits() ?? 0;
 
     return {
@@ -123,7 +118,8 @@ export class SpreadsheetAccountMapper {
     const balance = Money.create(balanceInMinorUnits, currency);
 
     // Map display type back to account type
-    const accountType = DISPLAY_TO_ACCOUNT_TYPE[record.type] ?? 'black';
+    const accountType: AccountType =
+      DISPLAY_TO_ACCOUNT_TYPE[record.type] ?? 'debit';
 
     // Use externalName (bank name) for domain entity, fall back to user name
     const accountName = record.externalName ?? record.name ?? '';

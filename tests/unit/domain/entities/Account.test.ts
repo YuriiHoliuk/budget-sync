@@ -102,10 +102,10 @@ describe('Account', () => {
         name: 'Card',
         currency: Currency.UAH,
         balance: Money.create(0, Currency.UAH),
-        type: 'black',
+        type: 'debit',
       });
 
-      expect(account.type).toBe('black');
+      expect(account.type).toBe('debit');
     });
 
     test('should return iban when provided', () => {
@@ -173,7 +173,7 @@ describe('Account', () => {
   });
 
   describe('optional properties', () => {
-    test('should return undefined for type when not provided', () => {
+    test('should return debit as default type when not provided', () => {
       const account = Account.create({
         externalId: 'ext-1',
         name: 'Main',
@@ -181,7 +181,7 @@ describe('Account', () => {
         balance: Money.create(0, Currency.UAH),
       });
 
-      expect(account.type).toBeUndefined();
+      expect(account.type).toBe('debit');
     });
 
     test('should return undefined for iban when not provided', () => {
@@ -372,7 +372,7 @@ describe('Account', () => {
         currency: Currency.UAH,
         balance: creditLimit,
         creditLimit,
-        type: 'black',
+        type: 'credit',
         maskedPan: ['5375****9999'],
         bank: 'monobank',
       });
@@ -405,7 +405,7 @@ describe('Account', () => {
         name: 'Monobank Black',
         currency: Currency.UAH,
         balance,
-        type: 'black',
+        type: 'debit',
         iban: 'UA213223130000026201234567890',
         maskedPan: ['5375****1234'],
         bank: 'monobank',
@@ -414,7 +414,7 @@ describe('Account', () => {
 
       expect(account.isCreditAccount).toBe(false);
       expect(account.actualBalance.equals(balance)).toBe(true);
-      expect(account.type).toBe('black');
+      expect(account.type).toBe('debit');
       expect(account.iban).toBe('UA213223130000026201234567890');
       expect(account.bank).toBe('monobank');
     });

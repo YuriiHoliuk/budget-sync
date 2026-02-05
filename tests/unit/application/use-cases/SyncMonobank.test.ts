@@ -255,11 +255,11 @@ describe('SyncMonobankUseCase', () => {
       test('should update account when type changed', async () => {
         const existingAccount = createAccount({
           externalId: 'acc-1',
-          type: 'black',
+          type: 'debit',
         });
         const incomingAccount = createAccount({
           externalId: 'acc-1',
-          type: 'platinum',
+          type: 'credit',
         });
 
         mockBankGateway = createMockBankGateway({

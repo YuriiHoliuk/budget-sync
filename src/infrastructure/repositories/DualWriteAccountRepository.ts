@@ -21,12 +21,24 @@ export class DualWriteAccountRepository implements AccountRepository {
     return this.dbRepo.findById(id);
   }
 
+  findByDbId(dbId: number): Promise<Account | null> {
+    return this.dbRepo.findByDbId(dbId);
+  }
+
   findAll(): Promise<Account[]> {
     return this.dbRepo.findAll();
   }
 
+  findActive(): Promise<Account[]> {
+    return this.dbRepo.findActive();
+  }
+
   findByExternalId(externalId: string): Promise<Account | null> {
     return this.dbRepo.findByExternalId(externalId);
+  }
+
+  findByName(name: string): Promise<Account | null> {
+    return this.dbRepo.findByName(name);
   }
 
   findByIban(iban: string): Promise<Account | null> {

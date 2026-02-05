@@ -1,5 +1,6 @@
 import {
   bigint,
+  boolean,
   index,
   pgTable,
   serial,
@@ -21,6 +22,8 @@ export const accounts = pgTable(
     creditLimit: bigint('credit_limit', { mode: 'number' }).default(0),
     iban: varchar('iban', { length: 34 }).unique(),
     bank: varchar('bank', { length: 100 }),
+    source: varchar('source', { length: 20 }).notNull().default('bank_sync'),
+    isArchived: boolean('is_archived').notNull().default(false),
     lastSyncTime: timestamp('last_sync_time', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),

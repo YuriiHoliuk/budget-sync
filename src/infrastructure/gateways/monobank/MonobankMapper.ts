@@ -1,4 +1,4 @@
-import { Account } from '@domain/entities/Account.ts';
+import { Account, type AccountType } from '@domain/entities/Account.ts';
 import { Transaction } from '@domain/entities/Transaction.ts';
 import {
   Currency,
@@ -6,6 +6,16 @@ import {
   TransactionType,
 } from '@domain/value-objects/index.ts';
 import type { MonobankAccount, MonobankStatementItem } from './types.ts';
+
+const MONOBANK_TO_ACCOUNT_TYPE: Record<string, AccountType> = {
+  black: 'debit',
+  white: 'debit',
+  platinum: 'debit',
+  yellow: 'debit',
+  eAid: 'debit',
+  iron: 'credit',
+  fop: 'fop',
+};
 
 export class MonobankMapper {
   toAccount(raw: MonobankAccount): Account {
@@ -20,10 +30,11 @@ export class MonobankMapper {
       currency,
       balance,
       creditLimit,
-      type: raw.type,
+      type: MONOBANK_TO_ACCOUNT_TYPE[raw.type] ?? 'debit',
       iban: raw.iban,
       maskedPan: raw.maskedPan,
       bank: 'monobank',
+      source: 'bank_sync',
     });
   }
 

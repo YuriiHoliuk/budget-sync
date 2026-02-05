@@ -26,17 +26,72 @@ export function parseAccountRole(
   return defaultValue;
 }
 
+export type AccountType = 'debit' | 'credit' | 'fop';
+
+const VALID_ACCOUNT_TYPES: readonly AccountType[] = ['debit', 'credit', 'fop'];
+
+/**
+ * Type guard to check if a string is a valid AccountType.
+ */
+export function isAccountType(value: string): value is AccountType {
+  return VALID_ACCOUNT_TYPES.includes(value as AccountType);
+}
+
+/**
+ * Parse a string to AccountType, returning a default if invalid.
+ */
+export function parseAccountType(
+  value: string | null | undefined,
+  defaultValue: AccountType = 'debit',
+): AccountType {
+  if (value && isAccountType(value)) {
+    return value;
+  }
+  return defaultValue;
+}
+
+/**
+ * Source of the account - indicates where the account data comes from.
+ * - 'bank_sync': Synced from a bank API (protected fields: externalId, IBAN, currency)
+ * - 'manual': Manually created by user (fully editable)
+ */
+export type AccountSource = 'bank_sync' | 'manual';
+
+const VALID_ACCOUNT_SOURCES: readonly AccountSource[] = ['bank_sync', 'manual'];
+
+/**
+ * Type guard to check if a string is a valid AccountSource.
+ */
+export function isAccountSource(value: string): value is AccountSource {
+  return VALID_ACCOUNT_SOURCES.includes(value as AccountSource);
+}
+
+/**
+ * Parse a string to AccountSource, returning a default if invalid.
+ */
+export function parseAccountSource(
+  value: string | null | undefined,
+  defaultValue: AccountSource = 'manual',
+): AccountSource {
+  if (value && isAccountSource(value)) {
+    return value;
+  }
+  return defaultValue;
+}
+
 export interface AccountProps {
   externalId: string;
   name: string;
   currency: Currency;
   balance: Money;
   creditLimit?: Money;
-  type?: string;
+  type?: AccountType;
   role?: AccountRole;
   iban?: string;
   maskedPan?: string[];
   bank?: string;
+  source?: AccountSource;
+  isArchived?: boolean;
   lastSyncTime?: number;
   dbId?: number | null;
 }
@@ -68,8 +123,8 @@ export class Account {
     return this.props.balance;
   }
 
-  get type(): string | undefined {
-    return this.props.type;
+  get type(): AccountType {
+    return this.props.type ?? 'debit';
   }
 
   get role(): AccountRole {
@@ -101,6 +156,29 @@ export class Account {
   }
 
   /**
+   * Returns the source of this account (monobank or manual).
+   * Synced accounts (monobank) have protected fields that cannot be edited.
+   */
+  get source(): AccountSource {
+    return this.props.source ?? 'manual';
+  }
+
+  /**
+   * Returns true if this account is archived (soft deleted).
+   */
+  get isArchived(): boolean {
+    return this.props.isArchived ?? false;
+  }
+
+  /**
+   * Returns true if this account is synced from an external source.
+   * Synced accounts have protected fields (externalId, IBAN, currency).
+   */
+  get isSynced(): boolean {
+    return this.source !== 'manual';
+  }
+
+  /**
    * Returns true if this account has a credit limit (is a credit card).
    */
   get isCreditAccount(): boolean {
@@ -123,5 +201,26 @@ export class Account {
 
   withDbId(dbId: number): Account {
     return Account.create({ ...this.props, dbId }, this.id);
+  }
+
+  /**
+   * Creates a new Account with updated properties.
+   * For synced accounts, protected fields (externalId, iban, currency) are not allowed to change.
+   */
+  withUpdatedProps(updates: Partial<AccountProps>): Account {
+    return Account.create(
+      {
+        ...this.props,
+        ...updates,
+      },
+      this.id,
+    );
+  }
+
+  /**
+   * Creates an archived copy of this account.
+   */
+  archive(): Account {
+    return this.withUpdatedProps({ isArchived: true });
   }
 }

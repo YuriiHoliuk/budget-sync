@@ -1,8 +1,8 @@
 extend type Query {
   """
-  Get all bank accounts.
+  Get all bank accounts (active only by default).
   """
-  accounts: [Account!]!
+  accounts(activeOnly: Boolean = true): [Account!]!
 
   """
   Get a single account by its database ID.
@@ -10,8 +10,25 @@ extend type Query {
   account(id: Int!): Account
 }
 
+extend type Mutation {
+  """
+  Create a new manual account (non-synced).
+  """
+  createAccount(input: CreateAccountInput!): Account!
+
+  """
+  Update an account. For synced accounts, some fields are protected.
+  """
+  updateAccount(input: UpdateAccountInput!): Account!
+
+  """
+  Archive an account (soft delete).
+  """
+  archiveAccount(id: Int!): Account!
+}
+
 """
-Bank account synced from Monobank.
+Bank account (synced from bank or manually created).
 """
 type Account {
   id: Int!
@@ -24,8 +41,89 @@ type Account {
   creditLimit: Float
   iban: String
   bank: String
+  source: AccountSource!
+  isArchived: Boolean!
   lastSyncTime: String
   isCreditAccount: Boolean!
+}
+
+input CreateAccountInput {
+  """
+  Account display name.
+  """
+  name: String!
+
+  """
+  Account type (DEBIT, CREDIT, FOP).
+  """
+  type: AccountType!
+
+  """
+  Account role for budgeting (OPERATIONAL, SAVINGS).
+  """
+  role: AccountRole!
+
+  """
+  Currency code (e.g., UAH, USD, EUR).
+  """
+  currency: String!
+
+  """
+  Initial balance in major units (e.g., 1000.50 for 1000 hryvnias 50 kopecks).
+  """
+  balance: Float!
+
+  """
+  IBAN (optional).
+  """
+  iban: String
+
+  """
+  Credit limit in major units (optional, for credit accounts).
+  """
+  creditLimit: Float
+}
+
+input UpdateAccountInput {
+  """
+  Account database ID.
+  """
+  id: Int!
+
+  """
+  Account display name.
+  """
+  name: String
+
+  """
+  Account type (DEBIT, CREDIT, FOP).
+  """
+  type: AccountType
+
+  """
+  Account role for budgeting (OPERATIONAL, SAVINGS).
+  """
+  role: AccountRole
+
+  """
+  Currency code. Protected for synced accounts.
+  """
+  currency: String
+
+  """
+  Current balance in major units.
+  """
+  balance: Float
+
+  """
+  IBAN. Protected for synced accounts.
+  """
+  iban: String
+
+  """
+  Credit limit in major units. Pass null to remove.
+  """
+  creditLimit: Float
 }
 
 """
@@ -44,4 +142,13 @@ Operational accounts feed into Ready to Assign; savings accounts are tracked sep
 enum AccountRole {
   OPERATIONAL
   SAVINGS
+}
+
+"""
+Source of the account data.
+BANK_SYNC accounts are synced from external bank APIs; MANUAL accounts are created by the user.
+"""
+enum AccountSource {
+  BANK_SYNC
+  MANUAL
 }

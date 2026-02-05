@@ -8,6 +8,13 @@
       "when": 1769962333901,
       "tag": "0000_puzzling_mother_askani",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1770322235511,
+      "tag": "0001_hard_gargoyle",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,8 @@
 export {
   type AccountGql,
-  MONOBANK_TYPE_TO_GQL,
+  GQL_TO_ACCOUNT_ROLE,
+  GQL_TO_ACCOUNT_TYPE,
+  mapAccountSource,
   mapAccountToGql,
   mapAccountType,
 } from './account.ts';

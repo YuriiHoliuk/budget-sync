@@ -4,7 +4,7 @@ import type { AccountRepository } from '@domain/repositories/AccountRepository.t
 import type { Money } from '@domain/value-objects/Money.ts';
 import type { DatabaseClient } from '@modules/database/DatabaseClient.ts';
 import { accounts } from '@modules/database/schema/index.ts';
-import { eq } from 'drizzle-orm';
+import { and, eq, ilike } from 'drizzle-orm';
 import { inject, injectable } from 'tsyringe';
 import { DatabaseAccountMapper } from '../../mappers/DatabaseAccountMapper.ts';
 import { DATABASE_CLIENT_TOKEN } from './tokens.ts';
@@ -25,8 +25,26 @@ export class DatabaseAccountRepository implements AccountRepository {
     return this.findByExternalId(id);
   }
 
+  async findByDbId(dbId: number): Promise<Account | null> {
+    const rows = await this.db
+      .select()
+      .from(accounts)
+      .where(eq(accounts.id, dbId))
+      .limit(1);
+    const row = rows[0];
+    return row ? this.mapper.toEntity(row) : null;
+  }
+
   async findAll(): Promise<Account[]> {
     const rows = await this.db.select().from(accounts);
+    return rows.map((row) => this.mapper.toEntity(row));
+  }
+
+  async findActive(): Promise<Account[]> {
+    const rows = await this.db
+      .select()
+      .from(accounts)
+      .where(eq(accounts.isArchived, false));
     return rows.map((row) => this.mapper.toEntity(row));
   }
 
@@ -35,6 +53,16 @@ export class DatabaseAccountRepository implements AccountRepository {
       .select()
       .from(accounts)
       .where(eq(accounts.externalId, externalId))
+      .limit(1);
+    const row = rows[0];
+    return row ? this.mapper.toEntity(row) : null;
+  }
+
+  async findByName(name: string): Promise<Account | null> {
+    const rows = await this.db
+      .select()
+      .from(accounts)
+      .where(and(ilike(accounts.name, name), eq(accounts.isArchived, false)))
       .limit(1);
     const row = rows[0];
     return row ? this.mapper.toEntity(row) : null;

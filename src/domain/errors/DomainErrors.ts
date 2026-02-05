@@ -102,3 +102,27 @@ export class RateLimitError extends DomainError {
     super(message);
   }
 }
+
+/**
+ * Thrown when attempting to update protected fields on a synced account.
+ * Synced accounts (source = 'bank_sync') have protected fields that cannot be modified.
+ */
+export class ProtectedFieldUpdateError extends DomainError {
+  constructor(
+    public readonly fieldName: string,
+    public readonly accountId: number,
+  ) {
+    super(
+      `Cannot modify protected field "${fieldName}" on synced account (id: ${accountId})`,
+    );
+  }
+}
+
+/**
+ * Thrown when attempting to create an account with a name that already exists.
+ */
+export class AccountNameTakenError extends DomainError {
+  constructor(public readonly accountName: string) {
+    super(`Account with name "${accountName}" already exists`);
+  }
+}
