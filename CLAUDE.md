@@ -436,11 +436,12 @@ DTOs decouple layers and define contracts at boundaries:
    - Use `unknown` as an intermediate type only when absolutely necessary, and document why
    - Exceptions: `as const` for literal types and `satisfies` for type checking are acceptable
 
-2. **Use Zod for validation** - Always use Zod schemas for runtime validation instead of manual type guards:
+2. **Use Zod for validation** - Use Zod schemas for runtime validation at system boundaries:
    - Define schemas alongside DTOs and infer types from them: `type MyDTO = z.infer<typeof myDTOSchema>`
    - Use `schema.safeParse(data)` for validation that returns success/error
    - Use `schema.parse(data)` when invalid data should throw
    - See `src/application/dtos/QueuedWebhookTransactionDTO.ts` and `src/infrastructure/gateways/monobank/webhookPayloadSchema.ts` for examples
+   - **Exception**: GraphQL inputs don't need Zod validation - GraphQL schema validation is sufficient for API boundaries
 
 3. **No one-letter variables** - Use descriptive names:
    - Bad: `(s) => s.title`, `(d) => d.values`, `for (let i = 0; ...)`

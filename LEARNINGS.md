@@ -62,3 +62,24 @@ Even if there are issues - don't break project rules from CLAUDE.md. We should u
 
 Need to test every implemented step, writing unit/integration/e2e test and when we have UI features implemented, also manually.
 IMPORTANT: Not all tests in the end but tests after each task.
+
+## GraphQL Subscriptions (WebSockets)
+
+- Use `graphql-ws` for WebSocket transport with Apollo Server
+- Subscriptions should return full entity types (not custom types) — enables Apollo Client cache normalization
+- Frontend uses split link: HTTP for queries/mutations, WebSocket for subscriptions
+- Cache updates on subscription handled automatically when returning normalized entities
+
+## Optimistic Responses
+
+- Apollo Client `optimisticResponse` provides immediate UI feedback before server confirmation
+- Must match exact shape of mutation response including `__typename` fields
+- On error, Apollo automatically rolls back to server state
+- Essential for inline editing, drag-drop, and other real-time interactions
+
+## Resolver Architecture
+
+- Resolvers should be injectable classes (like Controllers), not plain objects
+- No business logic in resolvers — only map inputs and invoke use cases
+- Shared mapping utilities in `src/presentation/graphql/mappers/` to avoid duplication
+- Resolvers import only from domain/application layers, never from infrastructure

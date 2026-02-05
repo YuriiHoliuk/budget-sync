@@ -17,11 +17,19 @@ init:
 install:
     bun install
 
-# Run in development mode (watch)
+# Start full stack (db + api + web) via Docker Compose
 dev:
-    bun run dev
+    docker compose up -d
 
-# Start local PostgreSQL database
+# Stop all services
+dev-down:
+    docker compose down
+
+# View logs for a service (api, web, db)
+dev-logs service='api':
+    docker compose logs -f {{service}}
+
+# Start local PostgreSQL database only
 db-up:
     docker compose up -d db
 
@@ -29,7 +37,11 @@ db-up:
 db-down:
     docker compose down
 
-# Reset local database (destroy and recreate)
+# Initialize database (migrate + seed) — run after first db-up or db-reset
+db-init:
+    just db-migrate && just db-seed
+
+# Reset local database (destroy volume, recreate, migrate)
 db-reset:
     docker compose down -v && docker compose up -d db && sleep 2 && just db-migrate
 
@@ -37,11 +49,11 @@ db-reset:
 db-seed:
     bun run scripts/seed-local-db.ts
 
-# Run local dev server (API + GraphQL)
+# Run local dev server (API + GraphQL) without Docker
 dev-server:
     bun run --watch src/server.ts
 
-# Start Next.js frontend dev server
+# Start Next.js frontend dev server without Docker
 dev-web:
     cd web && bun run dev
 

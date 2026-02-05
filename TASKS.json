@@ -88,6 +88,38 @@
     "status": "done",
     "dependencies": ["P2-005", "P2-006"]
   },
+  {
+    "id": "P2-008",
+    "phase": "P2: GraphQL API Foundation",
+    "title": "Add Accounts CRUD mutations with sync field protection",
+    "description": "Add mutations: createAccount, updateAccount, archiveAccount. Accounts can be created manually (for non-Monobank banks, cash accounts, etc.). Add 'synced' boolean field to Account. For synced accounts (from bank sync), disallow editing synced fields (externalId, IBAN, currency). Manual accounts can be fully edited. Implement CreateAccount, UpdateAccount, ArchiveAccount use cases with appropriate validation.",
+    "status": "todo",
+    "dependencies": ["P2-002", "TX-001"]
+  },
+  {
+    "id": "P2-009",
+    "phase": "P2: GraphQL API Foundation",
+    "title": "Add createTransaction mutation for manual accounts",
+    "description": "Add createTransaction mutation for adding transactions to manual (non-synced) accounts. Required fields: accountId, amount, date, description. Optional: categoryId, budgetId. Validate that target account is not synced. Implement CreateTransaction use case.",
+    "status": "todo",
+    "dependencies": ["P2-006", "P2-008"]
+  },
+  {
+    "id": "P2-010",
+    "phase": "P2: GraphQL API Foundation",
+    "title": "Add WebSocket subscriptions infrastructure",
+    "description": "Set up GraphQL subscriptions using graphql-ws. Add subscriptions for: monthlyOverviewUpdated, budgetUpdated, allocationUpdated, transactionUpdated. Return full entity types (not custom types) for cache updates. Configure Apollo Server with WebSocket support. Update frontend Apollo Client to use WebSocket link.",
+    "status": "todo",
+    "dependencies": ["P2-007", "TX-006"]
+  },
+  {
+    "id": "P2-011",
+    "phase": "P2: GraphQL API Foundation",
+    "title": "Research and improve GraphQL schema management",
+    "description": "Current schema uses readFileSync to load .graphql files. Research best practices for schema management (code-first vs schema-first, type generation, schema stitching). Consider if current approach is optimal or needs refactoring. Document decision in ADR.",
+    "status": "todo",
+    "dependencies": []
+  },
 
   {
     "id": "P3-001",
@@ -121,6 +153,54 @@
     "status": "todo",
     "dependencies": ["P3-003"]
   },
+  {
+    "id": "P3-005",
+    "phase": "P3: Next.js Frontend Setup",
+    "title": "Update Next.js to v16",
+    "description": "Upgrade Next.js from 15.3.0 to latest v16.1.x. Use `npx @next/codemod@canary upgrade latest`. Update eslint-config-next accordingly. Test build and dev server. Handle any breaking changes (routing, caching, React 19.2 features). Verify all pages work correctly after upgrade.",
+    "status": "todo",
+    "dependencies": ["TX-007"]
+  },
+  {
+    "id": "P3-006",
+    "phase": "P3: Next.js Frontend Setup",
+    "title": "Remove GraphQL proxy and use direct API",
+    "description": "Remove the Next.js rewrite that proxies /api/graphql to localhost:4001. Configure Apollo Client to connect directly to the API server. Update CORS configuration on backend to allow frontend origin. Update any documentation referencing the proxy.",
+    "status": "todo",
+    "dependencies": ["TX-007"]
+  },
+  {
+    "id": "P3-007",
+    "phase": "P3: Next.js Frontend Setup",
+    "title": "Add frontend to just check command",
+    "description": "Update justfile `check` command to include frontend type checking and linting: run `cd web && bun run lint && tsc --noEmit`. Ensure both backend and frontend quality checks run together. Consider adding parallel execution for speed.",
+    "status": "todo",
+    "dependencies": ["TX-007"]
+  },
+  {
+    "id": "P3-008",
+    "phase": "P3: Next.js Frontend Setup",
+    "title": "Document frontend environment configuration",
+    "description": "Create web/.env.example with all required environment variables (API URL, etc.). Document frontend configuration in README or CLAUDE.md. Update local setup instructions to include frontend env setup.",
+    "status": "todo",
+    "dependencies": ["TX-007"]
+  },
+  {
+    "id": "P3-009",
+    "phase": "P3: Next.js Frontend Setup",
+    "title": "Add codegen to onboarding workflow",
+    "description": "Update CLAUDE.md and any setup documentation to mention `just codegen` as part of the initial setup process. Add to REVIEW-SUMMARY.md 'How to Run Locally' section. Consider running codegen automatically as part of `just dev-web`.",
+    "status": "todo",
+    "dependencies": ["TX-007"]
+  },
+  {
+    "id": "P3-010",
+    "phase": "P3: Next.js Frontend Setup",
+    "title": "Research Biome for frontend",
+    "description": "Research migrating frontend from ESLint to Biome for consistency with backend. Key requirements: cyclomatic complexity rule (noExcessiveCognitiveComplexity), JSX support with sensible defaults. Evaluate trade-offs. If viable, create follow-up task to migrate. Document decision.",
+    "status": "todo",
+    "dependencies": ["TX-007"]
+  },
 
   {
     "id": "P4-001",
@@ -152,7 +232,7 @@
     "title": "Build Budget CRUD dialogs (create, edit, archive)",
     "description": "Create dialogs for: New Budget (name, type, target amount, cadence, dates), Edit Budget, Archive Budget (with confirmation). Use ShadCN Dialog, Form, Select components. Validate inputs with Zod on client side.",
     "status": "todo",
-    "dependencies": ["P4-002"]
+    "dependencies": ["P4-002", "TX-006"]
   },
   {
     "id": "P4-005",
@@ -160,16 +240,24 @@
     "title": "Build Unbudgeted Transactions warning section",
     "description": "Below the budget table, show a warning section listing expense transactions from operational accounts that have no budget assigned for the selected month. Show date, amount, description, account. Allow quick budget assignment from this list.",
     "status": "todo",
-    "dependencies": ["P4-002", "P2-006"]
+    "dependencies": ["P4-002", "P2-006", "TX-006"]
+  },
+  {
+    "id": "P4-006",
+    "phase": "P4: Budget Overview Page (Main Feature)",
+    "title": "Add optimistic responses to mutations",
+    "description": "Implement optimistic responses for all frontend mutations: createAllocation, updateAllocation, moveFunds, createBudget, updateBudget. Use Apollo Client optimisticResponse option. Ensure immediate UI feedback before server confirmation. Handle rollback on errors gracefully.",
+    "status": "todo",
+    "dependencies": ["P4-003", "TX-006"]
   },
 
   {
     "id": "P5-001",
     "phase": "P5: Accounts & Transactions Pages",
-    "title": "Build Accounts page",
-    "description": "Create Accounts page showing all bank accounts grouped by role (Operational, Savings). For each account: name, type badge, currency, balance, IBAN (truncated), last sync time. Show total balance per group. No CRUD needed (accounts come from bank sync).",
+    "title": "Build Accounts page with CRUD for manual accounts",
+    "description": "Create Accounts page showing all accounts grouped by role (Operational, Savings). For each account: name, type badge, currency, balance, IBAN (truncated), last sync time, synced indicator. Show total balance per group. Add 'Add Account' button for creating manual accounts. Synced accounts show read-only details. Manual accounts can be edited/archived.",
     "status": "todo",
-    "dependencies": ["P3-003", "P2-002"]
+    "dependencies": ["P3-003", "P2-008", "TX-006"]
   },
   {
     "id": "P5-002",
@@ -177,15 +265,15 @@
     "title": "Build Transactions page with filtering and pagination",
     "description": "Create Transactions page with: filterable table (date range, account, category, budget, search text, status), pagination, sortable columns. Show: date, description, amount (color by type), category, budget, status badge. Click row to expand details.",
     "status": "todo",
-    "dependencies": ["P3-003", "P2-006"]
+    "dependencies": ["P3-003", "P2-006", "TX-006"]
   },
   {
     "id": "P5-003",
     "phase": "P5: Accounts & Transactions Pages",
     "title": "Build Transaction detail/edit panel",
-    "description": "When a transaction is clicked, show a side panel or expanded row with full details. Allow editing: category (dropdown with search), budget (dropdown with search), notes. Show AI reasoning if available. Add Verify button to confirm categorization.",
+    "description": "When a transaction is clicked, show a side panel or expanded row with full details. Allow editing: category (dropdown with search), budget (dropdown with search), notes. Show AI reasoning if available. Add Verify button to confirm categorization. For manual account transactions, allow full editing including amount and date.",
     "status": "todo",
-    "dependencies": ["P5-002", "P2-004"]
+    "dependencies": ["P5-002", "P2-004", "P2-009"]
   },
 
   {
@@ -194,7 +282,7 @@
     "title": "Build Categories management page",
     "description": "Create Categories page showing hierarchical category tree. Support: create category (with optional parent), rename, archive. Show transaction count per category. Tree view with expand/collapse. ShadCN Tree or custom accordion component.",
     "status": "todo",
-    "dependencies": ["P3-003", "P2-004"]
+    "dependencies": ["P3-003", "P2-004", "TX-006"]
   },
 
   {
@@ -246,5 +334,62 @@
     "description": "Update Terraform to deploy the web server as a Cloud Run Service (alongside existing webhook service). Configure: Dockerfile multi-stage build for Next.js + API, env vars, secrets, IAM. Set up custom domain or Cloud Run URL. Update CI/CD pipeline.",
     "status": "todo",
     "dependencies": ["P4-005", "P5-003"]
+  },
+
+  {
+    "id": "TX-001",
+    "phase": "TX: Technical Debt",
+    "title": "Fix architecture dependency rule violations",
+    "description": "Fix presentation layer importing from infrastructure. In transactionsResolver.ts and monthlyOverviewResolver.ts: create domain-level TransactionRepository methods (e.g., findTransactionSummaries, findByFilters) instead of importing DatabaseTransactionRepository directly. Move TransactionFilterParams to domain layer. Resolvers should only import from domain/application layers.",
+    "status": "todo",
+    "dependencies": []
+  },
+  {
+    "id": "TX-002",
+    "phase": "TX: Technical Debt",
+    "title": "Fix typecasting violations in mappers",
+    "description": "Replace `as SomeType` assertions with proper type guards or Zod validation in: DatabaseBudgetMapper.ts (BudgetType, TargetCadence casts), DatabaseAccountMapper.ts (AccountRole cast), GraphQLServer.ts (double cast through unknown). Use Zod schemas or type guard functions for safe runtime type narrowing.",
+    "status": "todo",
+    "dependencies": []
+  },
+  {
+    "id": "TX-003",
+    "phase": "TX: Technical Debt",
+    "title": "Add tests for DatabaseAllocationMapper",
+    "description": "Create tests/unit/infrastructure/mappers/DatabaseAllocationMapper.test.ts. Test toDomain() mapping from DB row to Allocation entity. Test toRow() mapping from entity to DB row. Test edge cases: null values, boundary dates, various amount values.",
+    "status": "todo",
+    "dependencies": []
+  },
+  {
+    "id": "TX-004",
+    "phase": "TX: Technical Debt",
+    "title": "Add tests for DualWrite repositories",
+    "description": "Create tests for DualWriteBudgetRepository and DualWriteCategoryRepository (following pattern from existing DualWriteTransactionRepository.test.ts and DualWriteAccountRepository.test.ts). Test that both database and spreadsheet repositories are called. Test error handling when one write fails.",
+    "status": "todo",
+    "dependencies": []
+  },
+  {
+    "id": "TX-005",
+    "phase": "TX: Technical Debt",
+    "title": "Extract shared GraphQL mapping utilities",
+    "description": "Consolidate duplicate budget/allocation mapping code across resolvers. Create src/presentation/graphql/mappers/ directory with: BudgetGqlMapper, AllocationGqlMapper, TransactionGqlMapper. Move mapBudgetToGql, toMinorUnits, BUDGET_TYPE_TO_GQL constants to shared location. Update all resolvers to use shared mappers.",
+    "status": "todo",
+    "dependencies": []
+  },
+  {
+    "id": "TX-006",
+    "phase": "TX: Technical Debt",
+    "title": "Refactor resolvers to be injectable classes",
+    "description": "Refactor GraphQL resolvers from plain objects to injectable classes. Create base Resolver class (similar to Controller pattern). Resolvers should: be decorated with @injectable(), receive dependencies via constructor, map inputs and invoke use cases (no business logic). Create separate Query/Mutation resolver classes if needed for organization.",
+    "status": "todo",
+    "dependencies": ["TX-001", "TX-005"]
+  },
+  {
+    "id": "TX-007",
+    "phase": "TX: Technical Debt",
+    "title": "Frontend infrastructure improvements",
+    "description": "Meta-task for frontend infrastructure. Completed when P3-005 through P3-010 are done. This ensures frontend tooling is solid before building more UI features.",
+    "status": "todo",
+    "dependencies": []
   }
 ]
