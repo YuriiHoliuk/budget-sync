@@ -349,7 +349,7 @@
     "phase": "TX: Technical Debt",
     "title": "Fix typecasting violations in mappers",
     "description": "Replace `as SomeType` assertions with proper type guards or Zod validation in: DatabaseBudgetMapper.ts (BudgetType, TargetCadence casts), DatabaseAccountMapper.ts (AccountRole cast), GraphQLServer.ts (double cast through unknown). Use Zod schemas or type guard functions for safe runtime type narrowing.",
-    "status": "todo",
+    "status": "done",
     "dependencies": []
   },
   {

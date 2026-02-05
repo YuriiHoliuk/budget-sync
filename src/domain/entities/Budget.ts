@@ -3,6 +3,61 @@ import type { Money } from '../value-objects/index.ts';
 export type BudgetType = 'spending' | 'savings' | 'goal' | 'periodic';
 export type TargetCadence = 'monthly' | 'yearly' | 'custom';
 
+const VALID_BUDGET_TYPES: readonly BudgetType[] = [
+  'spending',
+  'savings',
+  'goal',
+  'periodic',
+];
+const VALID_CADENCES: readonly TargetCadence[] = [
+  'monthly',
+  'yearly',
+  'custom',
+];
+
+/**
+ * Type guard to check if a string is a valid BudgetType.
+ * Returns true if the value is one of: 'spending', 'savings', 'goal', 'periodic'
+ */
+export function isBudgetType(value: string): value is BudgetType {
+  return VALID_BUDGET_TYPES.includes(value as BudgetType);
+}
+
+/**
+ * Type guard to check if a string is a valid TargetCadence.
+ * Returns true if the value is one of: 'monthly', 'yearly', 'custom'
+ */
+export function isTargetCadence(value: string): value is TargetCadence {
+  return VALID_CADENCES.includes(value as TargetCadence);
+}
+
+/**
+ * Parse a string to BudgetType, returning a default if invalid.
+ * Use this when you need a guaranteed BudgetType value.
+ */
+export function parseBudgetType(
+  value: string | null | undefined,
+  defaultValue: BudgetType = 'spending',
+): BudgetType {
+  if (value && isBudgetType(value)) {
+    return value;
+  }
+  return defaultValue;
+}
+
+/**
+ * Parse a string to TargetCadence, returning null if invalid.
+ * Use this when cadence is optional.
+ */
+export function parseTargetCadence(
+  value: string | null | undefined,
+): TargetCadence | null {
+  if (value && isTargetCadence(value)) {
+    return value;
+  }
+  return null;
+}
+
 export interface BudgetProps {
   name: string;
   type: BudgetType;

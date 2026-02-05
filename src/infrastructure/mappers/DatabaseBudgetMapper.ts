@@ -1,25 +1,17 @@
 import {
   Budget,
-  type BudgetType,
-  type TargetCadence,
+  parseBudgetType,
+  parseTargetCadence,
 } from '@domain/entities/Budget.ts';
 import { Currency, Money } from '@domain/value-objects/index.ts';
 import type { BudgetRow, NewBudgetRow } from '@modules/database/types.ts';
-
-const VALID_BUDGET_TYPES = new Set(['spending', 'savings', 'goal', 'periodic']);
-const VALID_CADENCES = new Set(['monthly', 'yearly', 'custom']);
 
 export class DatabaseBudgetMapper {
   toEntity(row: BudgetRow): Budget {
     const currency = Currency.fromCode(row.currency);
     const amount = Money.create(row.targetAmount, currency);
-    const budgetType = VALID_BUDGET_TYPES.has(row.type)
-      ? (row.type as BudgetType)
-      : 'spending';
-    const cadence =
-      row.targetCadence && VALID_CADENCES.has(row.targetCadence)
-        ? (row.targetCadence as TargetCadence)
-        : null;
+    const budgetType = parseBudgetType(row.type);
+    const cadence = parseTargetCadence(row.targetCadence);
 
     return Budget.create(
       {

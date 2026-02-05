@@ -2,6 +2,30 @@ import type { Currency, Money } from '../value-objects/index.ts';
 
 export type AccountRole = 'operational' | 'savings';
 
+const VALID_ACCOUNT_ROLES: readonly AccountRole[] = ['operational', 'savings'];
+
+/**
+ * Type guard to check if a string is a valid AccountRole.
+ * Returns true if the value is one of: 'operational', 'savings'
+ */
+export function isAccountRole(value: string): value is AccountRole {
+  return VALID_ACCOUNT_ROLES.includes(value as AccountRole);
+}
+
+/**
+ * Parse a string to AccountRole, returning a default if invalid.
+ * Use this when you need a guaranteed AccountRole value.
+ */
+export function parseAccountRole(
+  value: string | null | undefined,
+  defaultValue: AccountRole = 'operational',
+): AccountRole {
+  if (value && isAccountRole(value)) {
+    return value;
+  }
+  return defaultValue;
+}
+
 export interface AccountProps {
   externalId: string;
   name: string;

@@ -70,10 +70,14 @@ export class GraphQLServer {
     headers?: Record<string, string>;
     body?: unknown;
   }> {
+    if (!this.contextFactory) {
+      throw new Error(
+        'GraphQL context factory not set. Ensure register() is called before handling requests.',
+      );
+    }
+
     const httpGraphQLRequest = this.buildGraphQLRequest(request);
-    const context =
-      this.contextFactory?.() ??
-      ({ container: null } as unknown as GraphQLContext);
+    const context = this.contextFactory();
 
     const result = await this.apollo.executeHTTPGraphQLRequest({
       httpGraphQLRequest,

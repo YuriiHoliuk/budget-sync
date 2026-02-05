@@ -1,4 +1,4 @@
-import { Account, type AccountRole } from '@domain/entities/Account.ts';
+import { Account, parseAccountRole } from '@domain/entities/Account.ts';
 import { Currency, Money } from '@domain/value-objects/index.ts';
 import type { AccountRow, NewAccountRow } from '@modules/database/types.ts';
 
@@ -36,7 +36,7 @@ export class DatabaseAccountMapper {
         balance,
         creditLimit,
         type: accountType,
-        role: row.role as AccountRole,
+        role: parseAccountRole(row.role),
         iban: row.iban ?? undefined,
         bank: row.bank ?? undefined,
         lastSyncTime: row.lastSyncTime ? row.lastSyncTime.getTime() : undefined,

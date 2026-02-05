@@ -2,6 +2,18 @@
 
 ## 2026-02-05
 
+### TX-002: Fix typecasting violations in mappers
+
+- Created type guard utilities in domain layer for safe runtime type narrowing:
+  - `isBudgetType()`, `parseBudgetType()` in `Budget.ts` for BudgetType validation
+  - `isTargetCadence()`, `parseTargetCadence()` in `Budget.ts` for TargetCadence validation
+  - `isAccountRole()`, `parseAccountRole()` in `Account.ts` for AccountRole validation
+- Updated `DatabaseBudgetMapper` to use `parseBudgetType()` and `parseTargetCadence()` instead of `as` casts
+- Updated `DatabaseAccountMapper` to use `parseAccountRole()` instead of `as AccountRole` cast
+- Fixed `GraphQLServer` double cast (`as unknown as GraphQLContext`) by throwing an error for invalid state
+- Exported new type guards and parse functions from `src/domain/entities/index.ts`
+- All 726 tests pass, typecheck and lint clean
+
 ### TX-001: Fix architecture dependency rule violations
 
 - Created domain-level types for transaction queries in `src/domain/repositories/transaction-types.ts`:
