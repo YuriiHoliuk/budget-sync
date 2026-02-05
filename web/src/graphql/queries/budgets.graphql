@@ -1,0 +1,31 @@
+query GetBudget($id: Int!) {
+  budget(id: $id) {
+    id
+    name
+    type
+    currency
+    targetAmount
+    targetCadence
+    targetCadenceMonths
+    targetDate
+    startDate
+    endDate
+    isArchived
+  }
+}
+
+query GetBudgets($activeOnly: Boolean = false) {
+  budgets(activeOnly: $activeOnly) {
+    id
+    name
+    type
+    currency
+    targetAmount
+    targetCadence
+    targetCadenceMonths
+    targetDate
+    startDate
+    endDate
+    isArchived
+  }
+}

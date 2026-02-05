@@ -1,0 +1,39 @@
+mutation CreateBudget($input: CreateBudgetInput!) {
+  createBudget(input: $input) {
+    id
+    name
+    type
+    currency
+    targetAmount
+    targetCadence
+    targetCadenceMonths
+    targetDate
+    startDate
+    endDate
+    isArchived
+  }
+}
+
+mutation UpdateBudget($input: UpdateBudgetInput!) {
+  updateBudget(input: $input) {
+    id
+    name
+    type
+    currency
+    targetAmount
+    targetCadence
+    targetCadenceMonths
+    targetDate
+    startDate
+    endDate
+    isArchived
+  }
+}
+
+mutation ArchiveBudget($id: Int!) {
+  archiveBudget(id: $id) {
+    id
+    name
+    isArchived
+  }
+}

@@ -1,9 +1,22 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation } from "@apollo/client";
-import { ArrowLeftRight } from "lucide-react";
+import { useMutation, useQuery } from "@apollo/client";
+import {
+  ArrowLeftRight,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Archive,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -15,14 +28,19 @@ import {
 import {
   CreateAllocationDocument,
   GetMonthlyOverviewDocument,
+  GetBudgetDocument,
   type BudgetSummary,
   BudgetType,
+  type TargetCadence,
 } from "@/graphql/generated/graphql";
 import { useMonth } from "@/hooks/use-month";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { InlineAllocationEditor } from "./inline-allocation-editor";
 import { MoveFundsDialog } from "./move-funds-dialog";
+import { CreateBudgetDialog } from "./create-budget-dialog";
+import { EditBudgetDialog } from "./edit-budget-dialog";
+import { ArchiveBudgetDialog } from "./archive-budget-dialog";
 
 interface BudgetTableProps {
   budgetSummaries: BudgetSummary[];
@@ -53,6 +71,16 @@ function getProgressPercentage(spent: number, targetAmount: number): number {
   return Math.min(Math.round((Math.abs(spent) / targetAmount) * 100), 100);
 }
 
+interface BudgetForDialog {
+  id: number;
+  name: string;
+  type: BudgetType;
+  targetAmount: number;
+  targetCadence: TargetCadence | null;
+  targetCadenceMonths: number | null;
+  targetDate: string | null;
+}
+
 export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
   const { month } = useMonth();
   const [editingBudgetId, setEditingBudgetId] = useState<number | null>(null);
@@ -60,6 +88,15 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
   const [moveFundsSourceId, setMoveFundsSourceId] = useState<
     number | undefined
   >(undefined);
+  const [createBudgetOpen, setCreateBudgetOpen] = useState(false);
+  const [editBudgetDialogOpen, setEditBudgetDialogOpen] = useState(false);
+  const [archiveBudgetDialogOpen, setArchiveBudgetDialogOpen] = useState(false);
+  const [selectedBudgetId, setSelectedBudgetId] = useState<number | null>(null);
+
+  const { data: budgetData } = useQuery(GetBudgetDocument, {
+    variables: { id: selectedBudgetId ?? 0 },
+    skip: selectedBudgetId === null,
+  });
 
   const [createAllocation] = useMutation(CreateAllocationDocument, {
     refetchQueries: [
@@ -70,6 +107,16 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
   const handleMoveFunds = (sourceBudgetId?: number) => {
     setMoveFundsSourceId(sourceBudgetId);
     setMoveFundsOpen(true);
+  };
+
+  const handleEditBudget = (budgetId: number) => {
+    setSelectedBudgetId(budgetId);
+    setEditBudgetDialogOpen(true);
+  };
+
+  const handleArchiveBudget = (budgetId: number) => {
+    setSelectedBudgetId(budgetId);
+    setArchiveBudgetDialogOpen(true);
   };
 
   const groupedBudgets = useMemo(() => {
@@ -103,19 +150,46 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
     setEditingBudgetId(null);
   };
 
+  const selectedBudget = budgetSummaries.find(
+    (budget) => budget.budgetId === selectedBudgetId,
+  );
+
+  const budgetForEdit: BudgetForDialog | null =
+    selectedBudgetId && budgetData?.budget
+      ? {
+          id: budgetData.budget.id,
+          name: budgetData.budget.name,
+          type: budgetData.budget.type,
+          targetAmount: budgetData.budget.targetAmount,
+          targetCadence: budgetData.budget.targetCadence ?? null,
+          targetCadenceMonths: budgetData.budget.targetCadenceMonths ?? null,
+          targetDate: budgetData.budget.targetDate ?? null,
+        }
+      : null;
+
   if (budgetSummaries.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed p-8 text-center">
-        <p className="text-sm text-muted-foreground">
-          No budgets yet. Create your first budget to start tracking spending.
-        </p>
-      </div>
+      <>
+        <div className="rounded-xl border border-dashed p-8 text-center">
+          <p className="text-sm text-muted-foreground mb-4">
+            No budgets yet. Create your first budget to start tracking spending.
+          </p>
+          <Button onClick={() => setCreateBudgetOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Budget
+          </Button>
+        </div>
+        <CreateBudgetDialog
+          open={createBudgetOpen}
+          onOpenChange={setCreateBudgetOpen}
+        />
+      </>
     );
   }
 
   return (
     <>
-      <div className="flex items-center justify-end mb-2">
+      <div className="flex items-center justify-end gap-2 mb-2">
         <Button
           variant="outline"
           size="sm"
@@ -124,6 +198,10 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
           <ArrowLeftRight className="mr-2 h-4 w-4" />
           Move Funds
         </Button>
+        <Button size="sm" onClick={() => setCreateBudgetOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Budget
+        </Button>
       </div>
       <div className="rounded-xl border">
         <Table>
@@ -131,14 +209,11 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[200px]">Budget</TableHead>
               <TableHead className="w-[100px] text-right">Target</TableHead>
-              <TableHead className="w-[140px] text-right">
-                Allocated
-              </TableHead>
+              <TableHead className="w-[140px] text-right">Allocated</TableHead>
               <TableHead className="w-[100px] text-right">Spent</TableHead>
-              <TableHead className="w-[100px] text-right">
-                Available
-              </TableHead>
+              <TableHead className="w-[100px] text-right">Available</TableHead>
               <TableHead className="w-[120px]">Progress</TableHead>
+              <TableHead className="w-[48px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -153,6 +228,8 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
                   onSave={handleAllocationSave}
                   onCancel={handleAllocationCancel}
                   onMoveFunds={handleMoveFunds}
+                  onEditBudget={handleEditBudget}
+                  onArchiveBudget={handleArchiveBudget}
                 />
               ),
             )}
@@ -165,6 +242,27 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
         budgetSummaries={budgetSummaries}
         initialSourceBudgetId={moveFundsSourceId}
       />
+      <CreateBudgetDialog
+        open={createBudgetOpen}
+        onOpenChange={setCreateBudgetOpen}
+      />
+      {budgetForEdit && (
+        <EditBudgetDialog
+          open={editBudgetDialogOpen}
+          onOpenChange={setEditBudgetDialogOpen}
+          budget={budgetForEdit}
+        />
+      )}
+      {selectedBudget && (
+        <ArchiveBudgetDialog
+          open={archiveBudgetDialogOpen}
+          onOpenChange={setArchiveBudgetDialogOpen}
+          budget={{
+            id: selectedBudget.budgetId,
+            name: selectedBudget.name,
+          }}
+        />
+      )}
     </>
   );
 }
@@ -177,6 +275,8 @@ interface BudgetGroupProps {
   onSave: (budgetId: number, amount: number) => Promise<void>;
   onCancel: () => void;
   onMoveFunds: (sourceBudgetId: number) => void;
+  onEditBudget: (budgetId: number) => void;
+  onArchiveBudget: (budgetId: number) => void;
 }
 
 function BudgetGroup({
@@ -187,6 +287,8 @@ function BudgetGroup({
   onSave,
   onCancel,
   onMoveFunds,
+  onEditBudget,
+  onArchiveBudget,
 }: BudgetGroupProps) {
   const groupAllocated = summaries.reduce(
     (sum, summary) => sum + summary.allocated,
@@ -223,6 +325,7 @@ function BudgetGroup({
           {formatCurrency(groupAvailable)}
         </TableCell>
         <TableCell />
+        <TableCell />
       </TableRow>
       {summaries.map((summary) => (
         <BudgetRow
@@ -233,6 +336,8 @@ function BudgetGroup({
           onSave={(amount) => onSave(summary.budgetId, amount)}
           onCancel={onCancel}
           onMoveFunds={() => onMoveFunds(summary.budgetId)}
+          onEditBudget={() => onEditBudget(summary.budgetId)}
+          onArchiveBudget={() => onArchiveBudget(summary.budgetId)}
         />
       ))}
     </>
@@ -246,6 +351,8 @@ interface BudgetRowProps {
   onSave: (amount: number) => Promise<void>;
   onCancel: () => void;
   onMoveFunds: () => void;
+  onEditBudget: () => void;
+  onArchiveBudget: () => void;
 }
 
 function BudgetRow({
@@ -255,6 +362,8 @@ function BudgetRow({
   onSave,
   onCancel,
   onMoveFunds,
+  onEditBudget,
+  onArchiveBudget,
 }: BudgetRowProps) {
   const progressPercentage = getProgressPercentage(
     summary.spent,
@@ -317,6 +426,31 @@ function BudgetRow({
         {summary.targetAmount > 0 ? (
           <BudgetProgressBar percentage={progressPercentage} />
         ) : null}
+      </TableCell>
+      <TableCell>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onEditBudget}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onMoveFunds}>
+              <ArrowLeftRight className="mr-2 h-4 w-4" />
+              Move Funds
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onArchiveBudget} variant="destructive">
+              <Archive className="mr-2 h-4 w-4" />
+              Archive
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
     </TableRow>
   );

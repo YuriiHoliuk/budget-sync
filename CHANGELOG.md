@@ -2,6 +2,30 @@
 
 ## 2026-02-05
 
+### P4-004: Build Budget CRUD dialogs (create, edit, archive)
+
+- Created `CreateBudgetDialog` component with form fields:
+  - Name input, Type dropdown (Spending/Savings/Goal/Periodic)
+  - Target amount input with contextual help text per budget type
+  - Conditional cadence selector for Savings/Periodic budgets
+  - Target date picker for Goal budgets
+- Created `EditBudgetDialog` component:
+  - Pre-populates form with existing budget data via GetBudget query
+  - Same form fields as create, with update logic
+- Created `ArchiveBudgetDialog` component:
+  - Confirmation dialog with warning icon
+  - Shows budget name and explains archival behavior
+  - Destructive-styled Archive button
+- Added GraphQL operations to frontend:
+  - `budgets.graphql` mutations: CreateBudget, UpdateBudget, ArchiveBudget
+  - `budgets.graphql` queries: GetBudget, GetBudgets
+- Integrated dialogs into BudgetTable:
+  - "New Budget" button in table header
+  - Row action dropdown menu (Edit, Move Funds, Archive)
+  - Added column for action menu
+- All dialogs follow existing patterns (MoveFundsDialog)
+- Tested Create, Edit, and Archive flows in browser
+
 ### P2-009: Add createTransaction mutation for manual accounts
 
 - Implemented `CreateTransactionUseCase` in application layer

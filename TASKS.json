@@ -231,7 +231,7 @@
     "phase": "P4: Budget Overview Page (Main Feature)",
     "title": "Build Budget CRUD dialogs (create, edit, archive)",
     "description": "Create dialogs for: New Budget (name, type, target amount, cadence, dates), Edit Budget, Archive Budget (with confirmation). Use ShadCN Dialog, Form, Select components. Validate inputs with Zod on client side.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P4-002", "TX-006"]
   },
   {
