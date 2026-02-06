@@ -74,9 +74,10 @@ export function UnbudgetedTransactionsWarning() {
     ],
   });
 
+  const transactionItems = data?.transactions.items;
   const transactions = useMemo(
-    () => data?.transactions.items ?? [],
-    [data?.transactions.items]
+    () => transactionItems ?? [],
+    [transactionItems]
   );
   const totalCount = data?.transactions.totalCount ?? 0;
   const totalAmount = useMemo(
@@ -84,12 +85,13 @@ export function UnbudgetedTransactionsWarning() {
     [transactions]
   );
 
+  const budgets = budgetsData?.budgets;
   const activeBudgets = useMemo(() => {
-    if (!budgetsData?.budgets) return [];
-    return budgetsData.budgets
+    if (!budgets) return [];
+    return budgets
       .filter((budget) => !budget.isArchived)
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [budgetsData?.budgets]);
+  }, [budgets]);
 
   const handleBudgetAssign = async (transactionId: number, budgetId: number) => {
     await updateBudget({

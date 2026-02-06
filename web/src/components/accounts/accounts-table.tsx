@@ -112,21 +112,22 @@ export function AccountsTable({ showArchived = false }: AccountsTableProps) {
     skip: selectedAccountId === null,
   });
 
+  const accounts = data?.accounts;
   const groupedAccounts = useMemo(() => {
-    if (!data?.accounts) return new Map<AccountRole, Account[]>();
+    if (!accounts) return new Map<AccountRole, Account[]>();
 
     const groups = new Map<AccountRole, Account[]>();
     const roleOrder: AccountRole[] = [AccountRole.Operational, AccountRole.Savings];
 
     for (const role of roleOrder) {
-      const accounts = data.accounts.filter((account) => account.role === role);
-      if (accounts.length > 0) {
-        groups.set(role, accounts);
+      const roleAccounts = accounts.filter((account) => account.role === role);
+      if (roleAccounts.length > 0) {
+        groups.set(role, roleAccounts);
       }
     }
 
     return groups;
-  }, [data?.accounts]);
+  }, [accounts]);
 
   const totalsByRole = useMemo(() => {
     const totals = new Map<AccountRole, number>();
@@ -160,10 +161,10 @@ export function AccountsTable({ showArchived = false }: AccountsTableProps) {
     );
   }
 
-  const accounts = data?.accounts ?? [];
-  const selectedAccount = accounts.find((acc) => acc.id === selectedAccountId);
+  const allAccounts = accounts ?? [];
+  const selectedAccount = allAccounts.find((acc) => acc.id === selectedAccountId);
 
-  if (accounts.length === 0) {
+  if (allAccounts.length === 0) {
     return (
       <>
         <div className="rounded-xl border border-dashed p-8 text-center">

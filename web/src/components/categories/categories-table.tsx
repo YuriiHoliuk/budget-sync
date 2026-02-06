@@ -88,11 +88,13 @@ export function CategoriesTable({
     skip: selectedCategoryId === null,
   });
 
+  const categories = data?.categories;
+
   // Build flat list with parent categories first, then their children (grouped)
   const flattenedCategories = useMemo(() => {
-    if (!data?.categories) return [];
+    if (!categories) return [];
 
-    const rootCategories = data.categories.filter((cat) => !cat.parentName);
+    const rootCategories = categories.filter((cat) => !cat.parentName);
     const result: Array<Category & { isChild: boolean; parentId?: number }> =
       [];
 
@@ -103,7 +105,7 @@ export function CategoriesTable({
       if (expandedCategories.has(root.id) && root.children) {
         for (const child of root.children) {
           // Find full child data from categories list (children array is shallow)
-          const fullChild = data.categories.find((c) => c.id === child.id);
+          const fullChild = categories.find((c) => c.id === child.id);
           if (fullChild) {
             result.push({ ...fullChild, isChild: true, parentId: root.id });
           }
@@ -112,7 +114,7 @@ export function CategoriesTable({
     }
 
     return result;
-  }, [data?.categories, expandedCategories]);
+  }, [categories, expandedCategories]);
 
   const handleEditCategory = (categoryId: number) => {
     setSelectedCategoryId(categoryId);
@@ -150,12 +152,12 @@ export function CategoriesTable({
     );
   }
 
-  const categories = data?.categories ?? [];
-  const selectedCategory = categories.find(
+  const allCategories = categories ?? [];
+  const selectedCategory = allCategories.find(
     (cat) => cat.id === selectedCategoryId,
   );
 
-  if (categories.length === 0) {
+  if (allCategories.length === 0) {
     return (
       <>
         <div className="rounded-xl border border-dashed p-8 text-center">

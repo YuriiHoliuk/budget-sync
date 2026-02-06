@@ -1,28 +1,41 @@
 "use client";
 
 import { MoonIcon, SunIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 
+function getThemeSnapshot(): boolean {
+  return document.documentElement.classList.contains("dark");
+}
+
+function getServerSnapshot(): boolean {
+  return false;
+}
+
+function subscribeToTheme(callback: () => void): () => void {
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.attributeName === "class") {
+        callback();
+      }
+    }
+  });
+  observer.observe(document.documentElement, { attributes: true });
+  return () => observer.disconnect();
+}
+
 export function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false);
+  const isDark = useSyncExternalStore(
+    subscribeToTheme,
+    getThemeSnapshot,
+    getServerSnapshot,
+  );
 
-  useEffect(() => {
-    const stored = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    ).matches;
-    const dark = stored === "dark" || (!stored && prefersDark);
-    setIsDark(dark);
-    document.documentElement.classList.toggle("dark", dark);
-  }, []);
-
-  const toggle = () => {
-    const newDark = !isDark;
-    setIsDark(newDark);
+  const toggle = useCallback(() => {
+    const newDark = !document.documentElement.classList.contains("dark");
     document.documentElement.classList.toggle("dark", newDark);
     localStorage.setItem("theme", newDark ? "dark" : "light");
-  };
+  }, []);
 
   return (
     <Button

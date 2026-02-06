@@ -2,7 +2,26 @@
 
 ## 2026-02-06
 
+### Changed
+- Upgraded Next.js from 15.3.0 to 16.1.6 (P3-005)
+  - Updated eslint-config-next to 16.1.6
+  - Migrated from `next lint` (removed in v16) to `eslint .` directly
+  - Migrated ESLint config to new flat config format (required by v16)
+  - Fixed React Compiler ESLint errors:
+    - Refactored dialogs to use key prop pattern for state reset
+    - Converted theme-toggle and use-auth to use useSyncExternalStore
+    - Fixed useMemo dependencies by extracting nested property access
+    - Used useId for deterministic random values in sidebar skeleton
+
 ### Added
+- Frontend environment documentation in CLAUDE.md (P3-008)
+  - Added "Frontend Development" section with tech stack, configuration, and commands
+  - Updated REVIEW-SUMMARY.md with codegen step in setup instructions
+
+- ADR for frontend linting strategy (P3-010)
+  - Decision: Keep ESLint for frontend (next/core-web-vitals provides Next.js-specific rules)
+  - Documented in docs/decisions/ADR-001-frontend-linting.md
+
 - Frontend quality checks to `just check` command (P3-007)
   - Now runs `tsc --noEmit` and `bun run lint` in web/ directory
   - Fixed TypeScript errors in cache-utils.test.ts (added non-null assertions)

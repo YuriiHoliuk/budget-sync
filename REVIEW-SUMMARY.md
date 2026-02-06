@@ -90,8 +90,15 @@ just db-seed
 # 4. Start the backend API server (port 4001, with GraphQL at /graphql)
 just dev-server
 
-# 5. In a separate terminal, install web dependencies and start frontend
+# 5. In a separate terminal, install web dependencies and set up environment
 just web-install
+cp web/.env.example web/.env.local
+# Edit web/.env.local - set NEXT_PUBLIC_ALLOWED_EMAIL and NEXT_PUBLIC_ALLOWED_PASSWORD
+
+# 6. Generate GraphQL types (required before first run or after schema changes)
+just codegen
+
+# 7. Start the frontend
 just dev-web
 ```
 

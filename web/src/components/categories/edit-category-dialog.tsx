@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "@apollo/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,11 +41,14 @@ const STATUS_OPTIONS = [
   { value: CategoryStatus.Archived, label: "Archived" },
 ];
 
-export function EditCategoryDialog({
-  open,
-  onOpenChange,
+// Inner component that resets when category.id changes via key prop
+function EditCategoryDialogContent({
   category,
-}: EditCategoryDialogProps) {
+  onOpenChange,
+}: {
+  category: Category;
+  onOpenChange: (open: boolean) => void;
+}) {
   const [name, setName] = useState(category.name);
   const [parentName, setParentName] = useState<string | null>(
     category.parentName ?? null,
@@ -57,14 +60,6 @@ export function EditCategoryDialog({
   const { data: categoriesData } = useQuery(GetCategoriesDocument, {
     variables: { activeOnly: false },
   });
-
-  // Reset form when category changes
-  useEffect(() => {
-    setName(category.name);
-    setParentName(category.parentName ?? null);
-    setStatus(category.status);
-    setError("");
-  }, [category]);
 
   const [updateCategory, { loading }] = useMutation(UpdateCategoryDocument, {
     refetchQueries: [
@@ -109,106 +104,115 @@ export function EditCategoryDialog({
     }
   };
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      setError("");
-    }
-    onOpenChange(nextOpen);
-  };
-
   // Check if this is a parent category (has children)
   const hasChildren = category.children && category.children.length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Edit Category</DialogTitle>
-          <DialogDescription>
-            Update category details. Changes will affect how transactions are
-            classified.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <DialogHeader>
+        <DialogTitle>Edit Category</DialogTitle>
+        <DialogDescription>
+          Update category details. Changes will affect how transactions are
+          classified.
+        </DialogDescription>
+      </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="edit-category-name">Name</Label>
-            <Input
-              id="edit-category-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && canSubmit) {
-                  handleSubmit();
-                }
-              }}
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="edit-category-parent">Parent Category</Label>
-            <Select
-              value={parentName ?? "none"}
-              onValueChange={(value) =>
-                setParentName(value === "none" ? null : value)
+      <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label htmlFor="edit-category-name">Name</Label>
+          <Input
+            id="edit-category-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && canSubmit) {
+                handleSubmit();
               }
-              disabled={hasChildren}
-            >
-              <SelectTrigger id="edit-category-parent" className="w-full">
-                <SelectValue placeholder="No parent (root category)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No parent (root category)</SelectItem>
-                {rootCategories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.name}>
-                    {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {hasChildren && (
-              <p className="text-xs text-muted-foreground">
-                Cannot change parent for categories with children.
-              </p>
-            )}
-          </div>
+            }}
+          />
+        </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="edit-category-status">Status</Label>
-            <Select
-              value={status}
-              onValueChange={(value) => setStatus(value as CategoryStatus)}
-            >
-              <SelectTrigger id="edit-category-status" className="w-full">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {error && (
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <div className="grid gap-2">
+          <Label htmlFor="edit-category-parent">Parent Category</Label>
+          <Select
+            value={parentName ?? "none"}
+            onValueChange={(value) =>
+              setParentName(value === "none" ? null : value)
+            }
+            disabled={hasChildren}
+          >
+            <SelectTrigger id="edit-category-parent" className="w-full">
+              <SelectValue placeholder="No parent (root category)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No parent (root category)</SelectItem>
+              {rootCategories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.name}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {hasChildren && (
+            <p className="text-xs text-muted-foreground">
+              Cannot change parent for categories with children.
+            </p>
           )}
         </div>
 
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={loading}
+        <div className="grid gap-2">
+          <Label htmlFor="edit-category-status">Status</Label>
+          <Select
+            value={status}
+            onValueChange={(value) => setStatus(value as CategoryStatus)}
           >
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
-            {loading ? "Saving..." : "Save Changes"}
-          </Button>
-        </DialogFooter>
+            <SelectTrigger id="edit-category-status" className="w-full">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        )}
+      </div>
+
+      <DialogFooter>
+        <Button
+          variant="outline"
+          onClick={() => onOpenChange(false)}
+          disabled={loading}
+        >
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} disabled={!canSubmit}>
+          {loading ? "Saving..." : "Save Changes"}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+export function EditCategoryDialog({
+  open,
+  onOpenChange,
+  category,
+}: EditCategoryDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <EditCategoryDialogContent
+          key={category.id}
+          category={category}
+          onOpenChange={onOpenChange}
+        />
       </DialogContent>
     </Dialog>
   );

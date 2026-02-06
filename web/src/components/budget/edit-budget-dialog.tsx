@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useMutation } from "@apollo/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,19 +29,21 @@ import {
 } from "@/graphql/generated/graphql";
 import { useMonth } from "@/hooks/use-month";
 
+type BudgetData = Pick<
+  Budget,
+  | "id"
+  | "name"
+  | "type"
+  | "targetAmount"
+  | "targetCadence"
+  | "targetCadenceMonths"
+  | "targetDate"
+>;
+
 interface EditBudgetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  budget: Pick<
-    Budget,
-    | "id"
-    | "name"
-    | "type"
-    | "targetAmount"
-    | "targetCadence"
-    | "targetCadenceMonths"
-    | "targetDate"
-  >;
+  budget: BudgetData;
 }
 
 const BUDGET_TYPE_OPTIONS = [
@@ -73,11 +75,14 @@ const CADENCE_OPTIONS = [
   { value: TargetCadence.Custom, label: "Custom" },
 ];
 
-export function EditBudgetDialog({
-  open,
-  onOpenChange,
+// Inner component that resets when budget.id changes via key prop
+function EditBudgetDialogContent({
   budget,
-}: EditBudgetDialogProps) {
+  onOpenChange,
+}: {
+  budget: BudgetData;
+  onOpenChange: (open: boolean) => void;
+}) {
   const { month } = useMonth();
 
   const [name, setName] = useState(budget.name);
@@ -93,18 +98,6 @@ export function EditBudgetDialog({
   );
   const [targetDate, setTargetDate] = useState(budget.targetDate ?? "");
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (open) {
-      setName(budget.name);
-      setBudgetType(budget.type);
-      setTargetAmount(budget.targetAmount.toString());
-      setTargetCadence(budget.targetCadence ?? "");
-      setTargetCadenceMonths(budget.targetCadenceMonths?.toString() ?? "");
-      setTargetDate(budget.targetDate ?? "");
-      setError("");
-    }
-  }, [open, budget]);
 
   const [updateBudget, { loading }] = useMutation(UpdateBudgetDocument, {
     refetchQueries: [
@@ -165,160 +158,164 @@ export function EditBudgetDialog({
     }
   };
 
-  const handleClose = () => {
-    onOpenChange(false);
-  };
-
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      handleClose();
-    } else {
-      onOpenChange(true);
-    }
-  };
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Edit Budget</DialogTitle>
-          <DialogDescription>
-            Update the budget details. Changes will apply to all periods.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <DialogHeader>
+        <DialogTitle>Edit Budget</DialogTitle>
+        <DialogDescription>
+          Update the budget details. Changes will apply to all periods.
+        </DialogDescription>
+      </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="budget-name">Name</Label>
-            <Input
-              id="budget-name"
-              placeholder="e.g., Groceries, Rent, Vacation Fund"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && canSubmit) {
-                  handleSubmit();
-                }
-              }}
-            />
-          </div>
+      <div className="grid gap-4 py-4">
+        <div className="grid gap-2">
+          <Label htmlFor="budget-name">Name</Label>
+          <Input
+            id="budget-name"
+            placeholder="e.g., Groceries, Rent, Vacation Fund"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && canSubmit) {
+                handleSubmit();
+              }
+            }}
+          />
+        </div>
 
+        <div className="grid gap-2">
+          <Label htmlFor="budget-type">Type</Label>
+          <Select
+            value={budgetType}
+            onValueChange={(value) => {
+              setBudgetType(value as BudgetType);
+              if (
+                value !== BudgetType.Periodic &&
+                value !== BudgetType.Savings
+              ) {
+                setTargetCadence("");
+                setTargetCadenceMonths("");
+              }
+              if (value !== BudgetType.Goal) {
+                setTargetDate("");
+              }
+            }}
+          >
+            <SelectTrigger id="budget-type" className="w-full">
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              {BUDGET_TYPE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            {BUDGET_TYPE_OPTIONS.find((opt) => opt.value === budgetType)
+              ?.description}
+          </p>
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="target-amount">Target Amount (UAH)</Label>
+          <Input
+            id="target-amount"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+            value={targetAmount}
+            onChange={(event) => setTargetAmount(event.target.value)}
+            className="tabular-nums"
+          />
+        </div>
+
+        {needsCadence && (
           <div className="grid gap-2">
-            <Label htmlFor="budget-type">Type</Label>
+            <Label htmlFor="cadence">Cadence</Label>
             <Select
-              value={budgetType}
+              value={targetCadence}
               onValueChange={(value) => {
-                setBudgetType(value as BudgetType);
-                if (
-                  value !== BudgetType.Periodic &&
-                  value !== BudgetType.Savings
-                ) {
-                  setTargetCadence("");
+                setTargetCadence(value as TargetCadence);
+                if (value !== TargetCadence.Custom) {
                   setTargetCadenceMonths("");
-                }
-                if (value !== BudgetType.Goal) {
-                  setTargetDate("");
                 }
               }}
             >
-              <SelectTrigger id="budget-type" className="w-full">
-                <SelectValue placeholder="Select type" />
+              <SelectTrigger id="cadence" className="w-full">
+                <SelectValue placeholder="Select cadence" />
               </SelectTrigger>
               <SelectContent>
-                {BUDGET_TYPE_OPTIONS.map((option) => (
+                {CADENCE_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              {BUDGET_TYPE_OPTIONS.find((opt) => opt.value === budgetType)
-                ?.description}
-            </p>
           </div>
+        )}
 
+        {needsCustomMonths && (
           <div className="grid gap-2">
-            <Label htmlFor="target-amount">Target Amount (UAH)</Label>
+            <Label htmlFor="cadence-months">Every X Months</Label>
             <Input
-              id="target-amount"
+              id="cadence-months"
               type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              value={targetAmount}
-              onChange={(event) => setTargetAmount(event.target.value)}
+              min="1"
+              step="1"
+              placeholder="e.g., 3 for quarterly"
+              value={targetCadenceMonths}
+              onChange={(event) => setTargetCadenceMonths(event.target.value)}
               className="tabular-nums"
             />
           </div>
+        )}
 
-          {needsCadence && (
-            <div className="grid gap-2">
-              <Label htmlFor="cadence">Cadence</Label>
-              <Select
-                value={targetCadence}
-                onValueChange={(value) => {
-                  setTargetCadence(value as TargetCadence);
-                  if (value !== TargetCadence.Custom) {
-                    setTargetCadenceMonths("");
-                  }
-                }}
-              >
-                <SelectTrigger id="cadence" className="w-full">
-                  <SelectValue placeholder="Select cadence" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CADENCE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+        {needsTargetDate && (
+          <div className="grid gap-2">
+            <Label htmlFor="target-date">Target Date</Label>
+            <Input
+              id="target-date"
+              type="date"
+              value={targetDate}
+              onChange={(event) => setTargetDate(event.target.value)}
+            />
+          </div>
+        )}
 
-          {needsCustomMonths && (
-            <div className="grid gap-2">
-              <Label htmlFor="cadence-months">Every X Months</Label>
-              <Input
-                id="cadence-months"
-                type="number"
-                min="1"
-                step="1"
-                placeholder="e.g., 3 for quarterly"
-                value={targetCadenceMonths}
-                onChange={(event) => setTargetCadenceMonths(event.target.value)}
-                className="tabular-nums"
-              />
-            </div>
-          )}
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        )}
+      </div>
 
-          {needsTargetDate && (
-            <div className="grid gap-2">
-              <Label htmlFor="target-date">Target Date</Label>
-              <Input
-                id="target-date"
-                type="date"
-                value={targetDate}
-                onChange={(event) => setTargetDate(event.target.value)}
-              />
-            </div>
-          )}
+      <DialogFooter>
+        <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} disabled={!canSubmit}>
+          {loading ? "Saving..." : "Save Changes"}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
 
-          {error && (
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={loading}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
-            {loading ? "Saving..." : "Save Changes"}
-          </Button>
-        </DialogFooter>
+export function EditBudgetDialog({
+  open,
+  onOpenChange,
+  budget,
+}: EditBudgetDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <EditBudgetDialogContent
+          key={budget.id}
+          budget={budget}
+          onOpenChange={onOpenChange}
+        />
       </DialogContent>
     </Dialog>
   );

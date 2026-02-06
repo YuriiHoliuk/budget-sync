@@ -4,8 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -23,17 +22,40 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [email, setEmail] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+// Store for auth state - provides subscription and snapshot for useSyncExternalStore
+let listeners: Array<() => void> = [];
 
-  useEffect(() => {
-    const storedEmail = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (storedEmail && storedEmail === ALLOWED_EMAIL) {
-      setEmail(storedEmail);
-    }
-    setIsLoading(false);
-  }, []);
+function emitChange() {
+  for (const listener of listeners) {
+    listener();
+  }
+}
+
+function subscribeToAuth(callback: () => void): () => void {
+  listeners = [...listeners, callback];
+  return () => {
+    listeners = listeners.filter((listener) => listener !== callback);
+  };
+}
+
+function getAuthSnapshot(): string | null {
+  const storedEmail = localStorage.getItem(AUTH_STORAGE_KEY);
+  if (storedEmail && storedEmail === ALLOWED_EMAIL) {
+    return storedEmail;
+  }
+  return null;
+}
+
+function getServerSnapshot(): string | null {
+  return null;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const email = useSyncExternalStore(
+    subscribeToAuth,
+    getAuthSnapshot,
+    getServerSnapshot,
+  );
 
   const login = useCallback(
     (inputEmail: string, inputPassword: string): { success: boolean; error?: string } => {
@@ -61,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       localStorage.setItem(AUTH_STORAGE_KEY, normalizedEmail);
-      setEmail(normalizedEmail);
+      emitChange();
       return { success: true };
     },
     []
@@ -69,14 +91,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
-    setEmail(null);
+    emitChange();
   }, []);
 
   return (
     <AuthContext.Provider
       value={{
         isAuthenticated: !!email,
-        isLoading,
+        isLoading: false,
         email,
         login,
         logout,

@@ -120,6 +120,56 @@ just gcp-logs              # View recent executions
 just gcp-scheduler          # View scheduled jobs
 ```
 
+## Frontend Development
+
+The web frontend is a Next.js application in `web/` with its own dependencies.
+
+### Frontend Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **UI Components**: ShadCN UI (new-york style)
+- **Styling**: Tailwind CSS v4
+- **State/Data**: Apollo Client with GraphQL
+- **Code Generation**: `@graphql-codegen/client-preset`
+- **Linting**: ESLint (`eslint-config-next`)
+
+### Frontend Configuration
+
+Environment variables in `web/.env.local` (copy from `web/.env.example`):
+
+| Variable | Description |
+|----------|-------------|
+| `API_URL` | Backend API URL (default: `http://localhost:4001`) |
+| `NEXT_PUBLIC_ALLOWED_EMAIL` | Email allowed for single-user authentication |
+| `NEXT_PUBLIC_ALLOWED_PASSWORD` | Password for authentication |
+
+### Frontend Commands
+
+```bash
+# Install dependencies
+just web-install
+
+# Generate GraphQL types (required before first run and after schema changes)
+just codegen
+
+# Start development server (port 3000)
+just dev-web
+```
+
+### Full Stack Development
+
+```bash
+# Start everything (recommended for development)
+just db-up           # Start PostgreSQL
+just db-migrate      # Run migrations (first time or after schema changes)
+just db-seed         # Seed test data (first time)
+just dev-server      # Start backend API (port 4001)
+
+# In another terminal:
+just codegen         # Generate GraphQL types
+just dev-web         # Start frontend (port 3000)
+```
+
 ## Resources
 
 - Spreadsheet: https://docs.google.com/spreadsheets/d/135dmcPNwvPA8tEuND4-UlUwMmPqpiNZBINoQJH1qJCw/edit

@@ -19,6 +19,7 @@ interface MockWriteQueryArgs {
 
 // Helper to create a mock cache
 function createMockCache(existingData: unknown) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const writeQueryMock = mock((_args: MockWriteQueryArgs) => {});
   return {
     readQuery: mock(() => existingData),

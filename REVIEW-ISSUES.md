@@ -178,11 +178,11 @@ The `toMinorUnits` helper is also duplicated in `allocationsResolver.ts` and `bu
 
 2. **`just dev` command exists but doesn't start full stack** - The `justfile` has `dev: bun run dev` (line 24), but it is unclear what `bun run dev` actually does (it may only start the backend watcher).
 
-3. **No frontend build/check in `just check`** - The `check` command only runs backend typecheck and Biome lint. Frontend linting and typechecking are not included. Developers could push frontend code with type errors without catching them.
+3. **No frontend build/check in `just check`** - ~~The `check` command only runs backend typecheck and Biome lint. Frontend linting and typechecking are not included. Developers could push frontend code with type errors without catching them.~~ **RESOLVED**: P3-007 added frontend type checking and linting to `just check`.
 
-4. **No `just codegen` mentioned in onboarding** - GraphQL codegen (`web/codegen.ts`) must be run manually, but there is no mention in the init workflow.
+4. **No `just codegen` mentioned in onboarding** - ~~GraphQL codegen (`web/codegen.ts`) must be run manually, but there is no mention in the init workflow.~~ **RESOLVED**: P3-009 added codegen to CLAUDE.md and REVIEW-SUMMARY.md setup instructions.
 
-5. **Frontend env configuration undocumented** - The Apollo client in `web/src/lib/apollo-client.ts` likely needs a backend URL, but there is no `.env.example` or documentation for frontend environment variables.
+5. **Frontend env configuration undocumented** - ~~The Apollo client in `web/src/lib/apollo-client.ts` likely needs a backend URL, but there is no `.env.example` or documentation for frontend environment variables.~~ **RESOLVED**: P3-008 - `web/.env.example` exists and frontend configuration documented in CLAUDE.md.
 
 ---
 

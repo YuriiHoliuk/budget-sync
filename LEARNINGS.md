@@ -103,3 +103,38 @@ IMPORTANT: Not all tests in the end but tests after each task.
 - Use cases validate protected fields before applying updates
 - Check `account.isSynced` (derived from source !== 'manual') before allowing certain field updates
 - Same-value updates are allowed (no-op check) — prevents spurious errors when user saves without changes
+
+## ShadCN Select Component (v4+)
+
+- `<SelectItem value="">` is NOT allowed — empty string causes runtime error
+- For "All" or "None" options, use sentinel values: `value="all"` or `value="none"`
+- Handle in onValueChange: `value === "all" ? null : parseInt(value, 10)`
+- Set Select value prop accordingly: `value={filter ?? "all"}`
+
+## Next.js 16 Migration
+
+- `next lint` command was removed in Next.js 16 — use `eslint .` directly
+- ESLint config must use new flat config format (eslint.config.mjs with `defineConfig` and `globalIgnores`)
+- Import from `eslint-config-next/core-web-vitals` and `eslint-config-next/typescript` for Next.js rules
+- React Compiler is enabled by default and has strict rules:
+  - `react-hooks/set-state-in-effect` — don't call setState directly in useEffect
+  - `react-hooks/preserve-manual-memoization` — useMemo deps must match what compiler infers
+  - `react-hooks/purity` — no impure functions like Math.random() in render
+
+## React Compiler Patterns
+
+- **Dialog state reset**: Use key prop pattern instead of useEffect with setState
+  - Extract inner content component, pass key={entity.id} to force remount when entity changes
+- **localStorage/external state**: Use `useSyncExternalStore` instead of useEffect + useState
+  - Eliminates isLoading state — value is read synchronously
+  - Requires subscribe function and getSnapshot function
+- **useMemo dependencies**: Extract nested property access to separate variable first
+  - Bad: `useMemo(() => ..., [data?.accounts])`
+  - Good: `const accounts = data?.accounts; useMemo(() => ..., [accounts])`
+- **Deterministic random values**: Use `useId()` + hash function instead of Math.random()
+
+## Library Updates (Future Tasks)
+
+Major version upgrades available (require migration):
+- Apollo Client 3.x → 4.x: New RxJS dependency, import structure changes, error handling redesign
+- graphql-codegen 5.x → 6.x: Drops Node 18, dependency bumps, new flags
