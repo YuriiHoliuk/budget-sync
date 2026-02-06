@@ -5,6 +5,7 @@ import { useMonth } from "@/hooks/use-month";
 import { GetMonthlyOverviewDocument } from "@/graphql/generated/graphql";
 import { MonthlyOverviewHeader } from "@/components/budget/monthly-overview-header";
 import { BudgetTable } from "@/components/budget/budget-table";
+import { UnbudgetedTransactionsWarning } from "@/components/budget/unbudgeted-transactions-warning";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function BudgetPage() {
@@ -33,6 +34,8 @@ export default function BudgetPage() {
       ) : data ? (
         <BudgetTable budgetSummaries={data.monthlyOverview.budgetSummaries} />
       ) : null}
+
+      <UnbudgetedTransactionsWarning />
     </div>
   );
 }

@@ -51,6 +51,17 @@ input TransactionFilter {
   budgetId: Int
 
   """
+  If true, filter for transactions with no budget assigned (budgetId IS NULL).
+  Takes precedence over budgetId filter.
+  """
+  unbudgetedOnly: Boolean
+
+  """
+  Filter by account role (operational or savings).
+  """
+  accountRole: AccountRole
+
+  """
   Filter by transaction type (CREDIT or DEBIT).
   """
   type: TransactionTypeEnum

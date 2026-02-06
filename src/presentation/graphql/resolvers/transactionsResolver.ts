@@ -34,6 +34,8 @@ interface TransactionFilter {
   accountId?: number;
   categoryId?: number;
   budgetId?: number;
+  unbudgetedOnly?: boolean;
+  accountRole?: 'OPERATIONAL' | 'SAVINGS';
   type?: string;
   categorizationStatus?: string;
   dateFrom?: string;
@@ -263,12 +265,23 @@ export class TransactionsResolver extends Resolver {
       accountId: filter.accountId ?? undefined,
       categoryId: filter.categoryId ?? undefined,
       budgetId: filter.budgetId ?? undefined,
+      unbudgetedOnly: filter.unbudgetedOnly ?? undefined,
+      accountRole: this.mapAccountRole(filter.accountRole),
       type: filter.type ?? undefined,
       categorizationStatus: filter.categorizationStatus ?? undefined,
       dateFrom: filter.dateFrom ?? undefined,
       dateTo: filter.dateTo ?? undefined,
       search: filter.search ?? undefined,
     };
+  }
+
+  private mapAccountRole(
+    role?: 'OPERATIONAL' | 'SAVINGS',
+  ): 'operational' | 'savings' | undefined {
+    if (!role) {
+      return undefined;
+    }
+    return role.toLowerCase() as 'operational' | 'savings';
   }
 
   private resolvePagination(pagination?: PaginationInput) {

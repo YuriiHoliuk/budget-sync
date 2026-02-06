@@ -1,0 +1,34 @@
+query GetUnbudgetedTransactions(
+  $dateFrom: String!
+  $dateTo: String!
+  $pagination: PaginationInput
+) {
+  transactions(
+    filter: {
+      unbudgetedOnly: true
+      accountRole: OPERATIONAL
+      type: DEBIT
+      dateFrom: $dateFrom
+      dateTo: $dateTo
+    }
+    pagination: $pagination
+  ) {
+    items {
+      id
+      date
+      amount
+      description
+      counterpartyName
+      category {
+        id
+        name
+      }
+      account {
+        id
+        name
+      }
+    }
+    totalCount
+    hasMore
+  }
+}

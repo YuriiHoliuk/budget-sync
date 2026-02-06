@@ -239,7 +239,7 @@
     "phase": "P4: Budget Overview Page (Main Feature)",
     "title": "Build Unbudgeted Transactions warning section",
     "description": "Below the budget table, show a warning section listing expense transactions from operational accounts that have no budget assigned for the selected month. Show date, amount, description, account. Allow quick budget assignment from this list.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P4-002", "P2-006", "TX-006"]
   },
   {

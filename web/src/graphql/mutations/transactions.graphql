@@ -1,0 +1,9 @@
+mutation UpdateTransactionBudget($input: UpdateTransactionBudgetInput!) {
+  updateTransactionBudget(input: $input) {
+    id
+    budget {
+      id
+      name
+    }
+  }
+}

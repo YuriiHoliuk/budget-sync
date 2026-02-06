@@ -233,22 +233,38 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     pagination: PaginationParams,
   ): Promise<TransactionRecord[]> {
     const conditions = this.buildFilterConditions(filter);
-    const rows = await this.db
-      .select()
-      .from(transactions)
+    const needsAccountJoin = filter.accountRole !== undefined;
+
+    const baseQuery = this.db.select().from(transactions);
+    const queryWithJoin = needsAccountJoin
+      ? baseQuery.innerJoin(accounts, eq(transactions.accountId, accounts.id))
+      : baseQuery;
+
+    const rows = await queryWithJoin
       .where(and(...conditions))
       .orderBy(desc(transactions.date), desc(transactions.id))
       .limit(pagination.limit)
       .offset(pagination.offset);
-    return rows.map((row) => this.rowToRecord(row));
+
+    return rows.map((row) => {
+      // With join, row has both tables; without join, row is just transactions
+      const txnRow = needsAccountJoin
+        ? (row as { transactions: TransactionRow }).transactions
+        : (row as TransactionRow);
+      return this.rowToRecord(txnRow);
+    });
   }
 
   async countFiltered(filter: TransactionFilterParams): Promise<number> {
     const conditions = this.buildFilterConditions(filter);
-    const result = await this.db
-      .select({ total: count() })
-      .from(transactions)
-      .where(and(...conditions));
+    const needsAccountJoin = filter.accountRole !== undefined;
+
+    const baseQuery = this.db.select({ total: count() }).from(transactions);
+    const queryWithJoin = needsAccountJoin
+      ? baseQuery.innerJoin(accounts, eq(transactions.accountId, accounts.id))
+      : baseQuery;
+
+    const result = await queryWithJoin.where(and(...conditions));
     return result[0]?.total ?? 0;
   }
 
@@ -347,8 +363,15 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     if (filter.categoryId !== undefined) {
       conditions.push(eq(transactions.categoryId, filter.categoryId));
     }
-    if (filter.budgetId !== undefined) {
+    // unbudgetedOnly takes precedence over budgetId filter
+    if (filter.unbudgetedOnly) {
+      conditions.push(isNull(transactions.budgetId));
+    } else if (filter.budgetId !== undefined) {
       conditions.push(eq(transactions.budgetId, filter.budgetId));
+    }
+    // accountRole filter needs to reference the joined accounts table
+    if (filter.accountRole) {
+      conditions.push(eq(accounts.role, filter.accountRole));
     }
     if (filter.type) {
       conditions.push(eq(transactions.type, filter.type.toLowerCase()));

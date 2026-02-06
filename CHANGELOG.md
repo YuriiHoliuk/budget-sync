@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-02-06
+
+### P4-005: Build Unbudgeted Transactions warning section
+
+- Added `unbudgetedOnly` and `accountRole` filters to GraphQL TransactionFilter
+- Implemented IS NULL filter for budgetId in DatabaseTransactionRepository
+- Added account role filter with proper join to accounts table
+- Created `UnbudgetedTransactionsWarning` frontend component:
+  - Shows amber warning box below budget table when unbudgeted expenses exist
+  - Displays count and total amount of unbudgeted transactions
+  - Expandable table showing: date, description, account, amount
+  - Quick budget assignment dropdown for each transaction
+  - Automatically updates budget table when transaction is assigned
+- Added GraphQL operations:
+  - `GetUnbudgetedTransactions` query (filters by unbudgetedOnly, operational accounts, debit type)
+  - `UpdateTransactionBudget` mutation
+- Tested feature end-to-end with browser testing
+
 ## 2026-02-05
 
 ### P4-004: Build Budget CRUD dialogs (create, edit, archive)
