@@ -281,7 +281,7 @@
     "phase": "P6: Categories Management",
     "title": "Build Categories management page",
     "description": "Create Categories page showing hierarchical category tree. Support: create category (with optional parent), rename, archive. Show transaction count per category. Tree view with expand/collapse. ShadCN Tree or custom accordion component.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P3-003", "P2-004", "TX-006"]
   },
 

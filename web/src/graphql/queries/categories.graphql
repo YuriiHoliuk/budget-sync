@@ -1,0 +1,31 @@
+query GetCategories($activeOnly: Boolean = false) {
+  categories(activeOnly: $activeOnly) {
+    id
+    name
+    parentName
+    fullPath
+    status
+    children {
+      id
+      name
+      fullPath
+      status
+    }
+  }
+}
+
+query GetCategory($id: Int!) {
+  category(id: $id) {
+    id
+    name
+    parentName
+    fullPath
+    status
+    children {
+      id
+      name
+      fullPath
+      status
+    }
+  }
+}

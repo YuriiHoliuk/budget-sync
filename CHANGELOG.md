@@ -2,6 +2,31 @@
 
 ## 2026-02-06
 
+### P6-001: Build Categories management page
+
+- Created Categories page (`/categories`) with full CRUD functionality
+- Created GraphQL mutations for categories: CreateCategory, UpdateCategory, ArchiveCategory
+- Built `CategoriesTable` component:
+  - Displays hierarchical category tree with expand/collapse for parent categories
+  - Shows children categories indented under their parents with full path display
+  - Status badges (Active/Suggested/Archived) for each category
+  - Children count column for parent categories
+  - "Show archived" toggle to include/exclude archived categories
+- Created `CreateCategoryDialog`:
+  - Name input field
+  - Optional parent category selector (dropdown of root categories)
+  - Status selector (Active/Suggested)
+- Created `EditCategoryDialog`:
+  - Pre-populated with current category values
+  - Parent category selector (disabled for categories with children)
+  - Status selector including Archived option
+- Created `ArchiveCategoryDialog`:
+  - Confirmation dialog with clear messaging
+  - Shows full category path in confirmation message
+- Added ShadCN Switch component for "Show archived" toggle
+- Categories link already existed in sidebar navigation
+- All mutations refetch both active and all categories lists
+
 ### P5-003: Build Transaction detail/edit panel
 
 - Created `TransactionDetailPanel` component using Sheet UI from ShadCN

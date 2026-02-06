@@ -1,0 +1,39 @@
+mutation CreateCategory($input: CreateCategoryInput!) {
+  createCategory(input: $input) {
+    id
+    name
+    parentName
+    fullPath
+    status
+    children {
+      id
+      name
+      fullPath
+      status
+    }
+  }
+}
+
+mutation UpdateCategory($input: UpdateCategoryInput!) {
+  updateCategory(input: $input) {
+    id
+    name
+    parentName
+    fullPath
+    status
+    children {
+      id
+      name
+      fullPath
+      status
+    }
+  }
+}
+
+mutation ArchiveCategory($id: Int!) {
+  archiveCategory(id: $id) {
+    id
+    name
+    status
+  }
+}
