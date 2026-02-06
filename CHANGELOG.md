@@ -20,3 +20,9 @@
   - Logout button in sidebar footer showing user email
   - Loading skeleton during auth state initialization
   - Created web/.env.example with auth configuration
+
+- Password protection for auth gate
+  - Added NEXT_PUBLIC_ALLOWED_PASSWORD environment variable
+  - Login now requires both email and password
+  - Generic "Invalid email or password" error message for security
+  - Updated .env.example with password configuration

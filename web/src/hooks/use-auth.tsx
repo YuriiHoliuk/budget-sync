@@ -11,12 +11,13 @@ import {
 
 const AUTH_STORAGE_KEY = "budget-sync-auth-email";
 const ALLOWED_EMAIL = process.env.NEXT_PUBLIC_ALLOWED_EMAIL || "";
+const ALLOWED_PASSWORD = process.env.NEXT_PUBLIC_ALLOWED_PASSWORD || "";
 
 interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   email: string | null;
-  login: (email: string) => { success: boolean; error?: string };
+  login: (email: string, password: string) => { success: boolean; error?: string };
   logout: () => void;
 }
 
@@ -35,20 +36,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(
-    (inputEmail: string): { success: boolean; error?: string } => {
+    (inputEmail: string, inputPassword: string): { success: boolean; error?: string } => {
       const normalizedEmail = inputEmail.trim().toLowerCase();
 
-      if (!ALLOWED_EMAIL) {
+      if (!ALLOWED_EMAIL || !ALLOWED_PASSWORD) {
         return {
           success: false,
-          error: "Authentication is not configured. Please set NEXT_PUBLIC_ALLOWED_EMAIL.",
+          error: "Authentication is not configured. Please set NEXT_PUBLIC_ALLOWED_EMAIL and NEXT_PUBLIC_ALLOWED_PASSWORD.",
         };
       }
 
       if (normalizedEmail !== ALLOWED_EMAIL.toLowerCase()) {
         return {
           success: false,
-          error: "Access denied. This email is not authorized.",
+          error: "Invalid email or password.",
+        };
+      }
+
+      if (inputPassword !== ALLOWED_PASSWORD) {
+        return {
+          success: false,
+          error: "Invalid email or password.",
         };
       }
 

@@ -18,6 +18,7 @@ import { AlertCircle, Wallet } from "lucide-react";
 export function LoginScreen() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -26,7 +27,7 @@ export function LoginScreen() {
     setError(null);
     setIsSubmitting(true);
 
-    const result = login(email);
+    const result = login(email, password);
 
     if (!result.success) {
       setError(result.error || "Login failed");
@@ -65,6 +66,19 @@ export function LoginScreen() {
                 onChange={(event) => setEmail(event.target.value)}
                 autoComplete="email"
                 autoFocus
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
                 required
               />
             </div>
