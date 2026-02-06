@@ -545,3 +545,108 @@ resource "google_cloud_run_service_iam_member" "pubsub_invoker" {
   role     = "roles/run.invoker"
   member   = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
 }
+
+# =============================================================================
+# Secrets for Web App Authentication
+# =============================================================================
+
+resource "google_secret_manager_secret" "allowed_email" {
+  secret_id = "allowed-email"
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+
+  labels = {
+    app = "budget-sync"
+  }
+}
+
+resource "google_secret_manager_secret" "allowed_password" {
+  secret_id = "allowed-password"
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+
+  labels = {
+    app = "budget-sync"
+  }
+}
+
+# =============================================================================
+# Cloud Run Service - Web Application (Next.js Frontend)
+# =============================================================================
+
+resource "google_cloud_run_v2_service" "web" {
+  name     = "web"
+  location = var.region
+  project  = var.project_id
+
+  template {
+    service_account = google_service_account.runner.email
+
+    containers {
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker.repository_id}/budget-sync-web:${var.image_tag}"
+
+      # Next.js port
+      ports {
+        container_port = 3000
+      }
+
+      # Cloud Run sets PORT automatically, but we also set HOSTNAME
+      env {
+        name  = "HOSTNAME"
+        value = "0.0.0.0"
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "512Mi"
+        }
+      }
+
+      startup_probe {
+        http_get {
+          path = "/"
+          port = 3000
+        }
+        initial_delay_seconds = 5
+        period_seconds        = 10
+        failure_threshold     = 6
+      }
+
+      liveness_probe {
+        http_get {
+          path = "/"
+          port = 3000
+        }
+        period_seconds = 30
+      }
+    }
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 2
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      # Image tag is managed by CI/CD, not Terraform
+      template[0].containers[0].image
+    ]
+  }
+}
+
+# Allow unauthenticated access to web app (public - auth is handled by the app)
+resource "google_cloud_run_v2_service_iam_member" "web_public" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.web.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}

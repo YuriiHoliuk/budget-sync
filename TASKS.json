@@ -109,15 +109,15 @@
     "phase": "P2: GraphQL API Foundation",
     "title": "Add WebSocket subscriptions infrastructure",
     "description": "Set up GraphQL subscriptions using graphql-ws. Add subscriptions for: monthlyOverviewUpdated, budgetUpdated, allocationUpdated, transactionUpdated. Return full entity types (not custom types) for cache updates. Configure Apollo Server with WebSocket support. Update frontend Apollo Client to use WebSocket link.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P2-007", "TX-006"]
   },
   {
     "id": "P2-011",
     "phase": "P2: GraphQL API Foundation",
     "title": "Research and improve GraphQL schema management",
-    "description": "Current schema uses readFileSync to load .graphql files. Research best practices for schema management (code-first vs schema-first, type generation, schema stitching). Consider if current approach is optimal or needs refactoring. Document decision in ADR.",
-    "status": "todo",
+    "description": "Researched schema-first vs code-first approaches. Compared Pothos, TypeGraphQL, and Nexus. Decision: Keep current SDL-first approach. Schema is stable, codegen pipeline works well, migration cost not justified. Documented in ADR-002.",
+    "status": "done",
     "dependencies": []
   },
 
@@ -323,7 +323,7 @@
     "phase": "P8: E2E Tests (Playwright)",
     "title": "Write E2E tests for Budget Overview page",
     "description": "Clean, high-level tests using Page Objects. Tests: verify metrics display correct values (Ready to Assign, Capital, etc.), navigate months and verify data changes, edit allocation inline and verify totals update, move funds between budgets via dialog, create new budget via dialog, archive budget and verify removal from list. Each test uses fixture data and calls high-level methods like budgetPage.editAllocation('Groceries', 500), budgetPage.moveFunds('Groceries', 'Savings', 100). Assert via page object getters like budgetPage.readyToAssign.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P8-002"]
   },
   {
@@ -331,7 +331,7 @@
     "phase": "P8: E2E Tests (Playwright)",
     "title": "Write E2E tests for Transactions and Accounts pages",
     "description": "Clean, high-level tests using Page Objects. Transactions tests: load page with default filters, filter by date range, filter by category/budget, search by description, paginate through results, edit transaction category via dropdown, edit transaction budget, verify transaction. Accounts tests: verify accounts grouped by role, create manual account via dialog, edit manual account name, archive manual account, verify synced accounts show read-only badge, verify archived accounts hidden by default.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P8-002"]
   },
   {
@@ -339,17 +339,65 @@
     "phase": "P8: E2E Tests (Playwright)",
     "title": "Refactor E2E tests to one scenario per file",
     "description": "Refactor existing smoke.spec.ts to follow one-scenario-per-file pattern. Split into separate files: e2e/tests/smoke/authentication.spec.ts, e2e/tests/smoke/navigation.spec.ts, e2e/tests/smoke/graphql-api.spec.ts. Each file should have a single test scenario for easier debugging, better parallelization, and clearer test reports. Update any future test files to follow this pattern.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P8-002"]
   },
 
   {
     "id": "P9-001",
     "phase": "P9: GCP Deployment",
-    "title": "Configure Cloud Run Service for web app",
-    "description": "Update Terraform to deploy the web server as a Cloud Run Service (alongside existing webhook service). Configure: Dockerfile multi-stage build for Next.js + API, env vars, secrets, IAM. Set up custom domain or Cloud Run URL. Update CI/CD pipeline.",
-    "status": "todo",
+    "title": "Configure Cloud Run Service for web app (Meta-task)",
+    "description": "Meta-task for GCP deployment. Completed when all P9-0XX subtasks are done.",
+    "status": "in_progress",
     "dependencies": ["P4-005", "P5-003"]
+  },
+  {
+    "id": "P9-002",
+    "phase": "P9: GCP Deployment",
+    "title": "Create multi-stage Dockerfile for Next.js frontend",
+    "description": "Created Dockerfile.web that builds Next.js frontend in standalone mode. Multi-stage build: 1) Install deps, 2) Run codegen and build Next.js, 3) Production runtime with Node.js. Frontend proxies GraphQL requests to existing webhook service via Next.js rewrites. Auth credentials baked in at build time via NEXT_PUBLIC_ env vars.",
+    "status": "done",
+    "dependencies": []
+  },
+  {
+    "id": "P9-003",
+    "phase": "P9: GCP Deployment",
+    "title": "Enable Next.js standalone output",
+    "description": "Updated next.config.ts to enable standalone output mode for Docker deployment. This creates a minimal Node.js server that can run without the full node_modules.",
+    "status": "done",
+    "dependencies": ["P9-002"]
+  },
+  {
+    "id": "P9-004",
+    "phase": "P9: GCP Deployment",
+    "title": "Add auth secrets to Secret Manager (Terraform)",
+    "description": "Added google_secret_manager_secret resources for allowed-email and allowed-password in main.tf. These are passed as build args during CI/CD (baked into Next.js build).",
+    "status": "done",
+    "dependencies": []
+  },
+  {
+    "id": "P9-005",
+    "phase": "P9: GCP Deployment",
+    "title": "Add Cloud Run Service for web app in Terraform",
+    "description": "Added google_cloud_run_v2_service 'web' resource to main.tf. Configured: Dockerfile.web image, port 3000, health check at /, scaling (0-2 instances), 512Mi memory. Made publicly accessible (allUsers invoker role). Separate from webhook service - frontend proxies to webhook for GraphQL.",
+    "status": "done",
+    "dependencies": ["P9-002", "P9-004"]
+  },
+  {
+    "id": "P9-006",
+    "phase": "P9: GCP Deployment",
+    "title": "Update CI/CD pipeline for web service",
+    "description": "Updated .github/workflows/deploy.yml to: 1) Separate change detection for backend vs web, 2) Build Dockerfile.web with auth build args and webhook URL, 3) Deploy web service, 4) Parallel builds for backend and web, 5) Cleanup old images for both.",
+    "status": "done",
+    "dependencies": ["P9-005"]
+  },
+  {
+    "id": "P9-007",
+    "phase": "P9: GCP Deployment",
+    "title": "Test deployment on GCP (user verification)",
+    "description": "User to verify deployment works on GCP: 1) Terraform apply creates web service, 2) CI/CD builds and deploys web image, 3) Frontend loads and auth works, 4) GraphQL proxy to webhook service works.",
+    "status": "todo",
+    "dependencies": ["P9-006"]
   },
 
   {

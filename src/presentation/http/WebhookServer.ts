@@ -6,7 +6,11 @@
  * Designed for deployment as a Cloud Run Service.
  */
 
-import { type HttpRequest, HttpServer } from '@modules/http/index.ts';
+import {
+  type HttpRequest,
+  HttpServer,
+  type WebSocketHandler,
+} from '@modules/http/index.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging/index.ts';
 import type { DependencyContainer } from 'tsyringe';
 import { inject, injectable } from 'tsyringe';
@@ -18,6 +22,8 @@ export interface WebhookServerStartOptions {
   container: DependencyContainer;
   /** Async hook called after controllers are registered but before server starts listening */
   beforeStart?: (server: HttpServer) => Promise<void>;
+  /** WebSocket handler for subscription support */
+  websocket?: WebSocketHandler;
 }
 
 /**
@@ -56,7 +62,7 @@ export class WebhookServer {
       await options.beforeStart(this.server);
     }
 
-    this.server.start({ port: options.port });
+    this.server.start({ port: options.port, websocket: options.websocket });
 
     this.logger.info(`Server started on port ${options.port}`);
 

@@ -21,6 +21,16 @@
 
 export { GraphQLServer } from './GraphQLServer.ts';
 export type {
+  GraphQLSubscriptionServerConfig,
+  SubscriptionContextFactory,
+} from './GraphQLSubscriptionServer.ts';
+export {
+  createSubscriptionServer,
+  GraphQLSubscriptionServer,
+} from './GraphQLSubscriptionServer.ts';
+export type { SubscriptionTopicType } from './subscriptionTopics.ts';
+export { SubscriptionTopic } from './subscriptionTopics.ts';
+export type {
   GraphQLContext,
   GraphQLServerConfig,
 } from './types.ts';

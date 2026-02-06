@@ -133,6 +133,34 @@ IMPORTANT: Not all tests in the end but tests after each task.
   - Good: `const accounts = data?.accounts; useMemo(() => ..., [accounts])`
 - **Deterministic random values**: Use `useId()` + hash function instead of Math.random()
 
+## Budget Carryover Logic
+
+For **spending budgets**:
+- Only negative balance (overspending) carries forward to the next month
+- Positive leftover does NOT carry forward — it resets each month
+- This is by design per YNAB-style budgeting principles
+
+For **savings/goal budgets**:
+- Available = total allocated (all time) - total spent (all time)
+- Funds accumulate over time, no carryover concept needed
+
+## API Integration Tests
+
+- Use `TestHarness` class with `beforeAll/afterAll` for setup/teardown
+- Clear data in `beforeEach/afterEach` with `clearAllTestData(harness.getDb())`
+- Factory functions (`createTestAccount`, etc.) generate unique IDs using timestamp + counter
+- Tests run against real PostgreSQL database (from docker-compose)
+- `bun test tests/integration/api/` to run all API tests
+
+## Playwright E2E Tests
+
+- E2E environment uses separate docker-compose.e2e.yml with isolated services (ports 5433, 4002, 3001)
+- oven/bun:1 image doesn't have curl — use `bun --eval "fetch(...)"` for health checks
+- Test fixtures use Playwright's `test.extend()` pattern for authentication and API access
+- GraphQL factories call API directly rather than database — tests full stack
+- Use exact matchers when multiple elements match: `getByRole('link', { name: 'Budget', exact: true })`
+- E2E environment should not share volumes with dev environment to avoid lock conflicts
+
 ## Apollo Client 4.x Migration (Completed)
 
 Key changes from 3.x to 4.x:
@@ -143,3 +171,26 @@ Key changes from 3.x to 4.x:
 - `ApolloError` replaced with `ErrorLike` type
 - RxJS is a required peer dependency
 - Apollo's codemod (`@apollo/client-codemod-migrate-3-to-4`) has issues with TSX files - manual migration is more reliable
+
+## GraphQL WebSocket Subscriptions
+
+- Use `graphql-ws` (not deprecated `subscriptions-transport-ws`) for WebSocket subscriptions
+- `graphql-ws` has native Bun support via `graphql-ws/use/bun` — use `makeHandler` and `handleProtocols`
+- Bun.serve() requires `websocket` handler at creation time — can't add dynamically
+- WebSocket upgrades need explicit handling in fetch handler via `server.upgrade(req, { data: {} })`
+- `server.upgrade()` requires second argument with `data` property (can be empty object)
+- Apollo Client uses split link for HTTP (queries/mutations) and WebSocket (subscriptions)
+- GraphQL file-level descriptions (`"""..."""` at file start) cause syntax errors — use `#` comments instead
+- `graphql-subscriptions` PubSub is for in-memory dev only — use Redis-backed for production
+- Subscription resolvers use `asyncIterableIterator` (renamed from `asyncIterator` in newer versions)
+
+## GCP Deployment - Web Frontend
+
+- Next.js standalone mode (`output: "standalone"` in next.config.ts) creates minimal server for Docker
+- Standalone output goes to `.next/standalone/` — includes server.js that runs with pure Node.js
+- Static files from `.next/static/` and `public/` must be copied separately to standalone output
+- `NEXT_PUBLIC_` env vars are baked at build time — for secrets, pass as Docker build args
+- Next.js rewrites can proxy to backend services (e.g., `/api/graphql` → `https://webhook.run.app/graphql`)
+- Cloud Run services can communicate via their internal URLs (fetched via gcloud in CI/CD)
+- For NEXT_PUBLIC_ secrets, pass them as build args in CI/CD rather than runtime env vars
+- Separate Cloud Run services (web + webhook) is cleaner than running multiple processes in one container

@@ -12,6 +12,13 @@ type Mutation {
   _empty: Boolean
 }
 
+type Subscription {
+  """
+  Placeholder subscription. Will be extended by feature schemas.
+  """
+  _empty: Boolean
+}
+
 type HealthStatus {
   status: String!
   timestamp: String!

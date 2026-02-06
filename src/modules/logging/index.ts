@@ -43,4 +43,5 @@ export { BaseLogger } from './BaseLogger.ts';
 export { ConsoleLogger } from './ConsoleLogger.ts';
 // Abstract class and token
 export { LOGGER_TOKEN, Logger, type LogLevel } from './Logger.ts';
+export { SilentLogger } from './SilentLogger.ts';
 export { StructuredLogger } from './StructuredLogger.ts';

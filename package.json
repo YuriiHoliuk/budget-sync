@@ -23,10 +23,12 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",
+    "@playwright/test": "^1.58.1",
     "@types/bun": "latest",
     "drizzle-kit": "^0.31.8",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
+    "playwright": "^1.58.1",
     "tsx": "^4.21.0",
     "typescript": "^5"
   },
@@ -40,7 +42,9 @@
     "drizzle-orm": "^0.45.1",
     "googleapis": "^169.0.0",
     "graphql": "^16.12.0",
+    "graphql-subscriptions": "^3.0.0",
     "graphql-tag": "^2.12.6",
+    "graphql-ws": "^6.0.7",
     "postgres": "^3.4.8",
     "reflect-metadata": "^0.2.2",
     "tsyringe": "^4.8.0",

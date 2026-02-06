@@ -18,7 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     outputs:
-      should_deploy: ${{ steps.filter.outputs.should_deploy }}
+      should_deploy_backend: ${{ steps.filter.outputs.should_deploy_backend }}
+      should_deploy_web: ${{ steps.filter.outputs.should_deploy_web }}
       sha: ${{ steps.get-sha.outputs.sha }}
     steps:
       - name: Get SHA
@@ -35,23 +36,34 @@ jobs:
           ref: ${{ steps.get-sha.outputs.sha }}
           fetch-depth: 2
 
-      - name: Check for app changes
+      - name: Check for changes
         id: filter
         run: |
           CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
-          if echo "$CHANGED" | grep -qE '^(src/|package\.json|bun\.lock|docker/|Dockerfile|tsconfig\.json)'; then
-            echo "should_deploy=true" >> $GITHUB_OUTPUT
-            echo "App files changed, will deploy"
+
+          # Backend changes (existing Dockerfile)
+          if echo "$CHANGED" | grep -qE '^(src/|package\.json|bun\.lock|Dockerfile|tsconfig\.json)'; then
+            echo "should_deploy_backend=true" >> $GITHUB_OUTPUT
+            echo "Backend files changed, will deploy"
           else
-            echo "should_deploy=false" >> $GITHUB_OUTPUT
-            echo "No app files changed, skipping deploy"
+            echo "should_deploy_backend=false" >> $GITHUB_OUTPUT
+            echo "No backend files changed"
           fi
 
-  build:
-    name: Build
+          # Web app changes (Dockerfile.web)
+          if echo "$CHANGED" | grep -qE '^(src/|web/|package\.json|bun\.lock|docker/|Dockerfile\.web|tsconfig\.json)'; then
+            echo "should_deploy_web=true" >> $GITHUB_OUTPUT
+            echo "Web app files changed, will deploy"
+          else
+            echo "should_deploy_web=false" >> $GITHUB_OUTPUT
+            echo "No web app files changed"
+          fi
+
+  build-backend:
+    name: Build Backend
     runs-on: ubuntu-latest
     needs: check
-    if: needs.check.outputs.should_deploy == 'true'
+    if: needs.check.outputs.should_deploy_backend == 'true'
     outputs:
       image: ${{ steps.meta.outputs.image }}
     steps:
@@ -79,10 +91,65 @@ jobs:
           docker build -t ${{ steps.meta.outputs.image }} .
           docker push ${{ steps.meta.outputs.image }}
 
-  deploy:
-    name: Deploy
+  build-web:
+    name: Build Web App
     runs-on: ubuntu-latest
-    needs: [check, build]
+    needs: check
+    if: needs.check.outputs.should_deploy_web == 'true'
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check.outputs.sha }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Get webhook service URL
+        id: webhook
+        run: |
+          WEBHOOK_URL=$(gcloud run services describe webhook \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --format='value(status.url)' 2>/dev/null || echo "")
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "Warning: webhook service not found, using placeholder URL"
+            WEBHOOK_URL="http://localhost:4001"
+          fi
+          echo "url=${WEBHOOK_URL}" >> $GITHUB_OUTPUT
+
+      - name: Set image tag
+        id: meta
+        run: |
+          REGISTRY="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}"
+          SHA="${{ needs.check.outputs.sha }}"
+          echo "image=${REGISTRY}/budget-sync-web:${SHA}" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        run: |
+          docker build \
+            -f Dockerfile.web \
+            --build-arg NEXT_PUBLIC_ALLOWED_EMAIL="${{ secrets.ALLOWED_EMAIL }}" \
+            --build-arg NEXT_PUBLIC_ALLOWED_PASSWORD="${{ secrets.ALLOWED_PASSWORD }}" \
+            --build-arg API_URL="${{ steps.webhook.outputs.url }}" \
+            -t ${{ steps.meta.outputs.image }} \
+            .
+          docker push ${{ steps.meta.outputs.image }}
+
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    needs: [check, build-backend]
+    if: needs.check.outputs.should_deploy_backend == 'true'
     steps:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -95,23 +162,56 @@ jobs:
       - name: Deploy sync-accounts job
         run: |
           gcloud run jobs update sync-accounts \
-            --image=${{ needs.build.outputs.image }} \
+            --image=${{ needs.build-backend.outputs.image }} \
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }}
 
       - name: Deploy webhook service
         run: |
           gcloud run services update webhook \
-            --image=${{ needs.build.outputs.image }} \
+            --image=${{ needs.build-backend.outputs.image }} \
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }}
 
-      - name: Cleanup old images
-        run: |
-          # Keep only the 2 most recent images
-          REPO="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/budget-sync"
+  deploy-web:
+    name: Deploy Web App
+    runs-on: ubuntu-latest
+    needs: [check, build-web]
+    if: needs.check.outputs.should_deploy_web == 'true'
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-          # List all images sorted by creation time (oldest first), skip the 2 newest
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy web service
+        run: |
+          gcloud run services update web \
+            --image=${{ needs.build-web.outputs.image }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }}
+
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [check, deploy-backend, deploy-web]
+    if: always() && (needs.deploy-backend.result == 'success' || needs.deploy-web.result == 'success')
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Cleanup old backend images
+        if: needs.deploy-backend.result == 'success'
+        run: |
+          REPO="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/budget-sync"
           gcloud artifacts docker images list "$REPO" \
             --sort-by=CREATE_TIME \
             --format="value(version)" | \
@@ -123,14 +223,54 @@ jobs:
             fi
           done
 
+      - name: Cleanup old web images
+        if: needs.deploy-web.result == 'success'
+        run: |
+          REPO="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/budget-sync-web"
+          gcloud artifacts docker images list "$REPO" \
+            --sort-by=CREATE_TIME \
+            --format="value(version)" | \
+          head -n -2 | \
+          while read -r digest; do
+            if [ -n "$digest" ]; then
+              echo "Deleting old image: $digest"
+              gcloud artifacts docker images delete "${REPO}@${digest}" --delete-tags --quiet || true
+            fi
+          done
+
+  summary:
+    name: Summary
+    runs-on: ubuntu-latest
+    needs: [check, build-backend, build-web, deploy-backend, deploy-web]
+    if: always()
+    steps:
       - name: Deployment Summary
         run: |
-          echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Image" >> $GITHUB_STEP_SUMMARY
-          echo "- **budget-sync:** ${{ needs.build.outputs.image }}" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Backend" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.deploy-backend.result }}" = "success" ]; then
+            echo "- **Image:** ${{ needs.build-backend.outputs.image }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** ✅ Deployed" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.check.outputs.should_deploy_backend }}" = "false" ]; then
+            echo "- **Status:** ⏭️ Skipped (no changes)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Status:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Deployed Resources" >> $GITHUB_STEP_SUMMARY
-          echo "- **Job:** sync-accounts" >> $GITHUB_STEP_SUMMARY
-          echo "- **Service:** webhook" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Web App" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.deploy-web.result }}" = "success" ]; then
+            echo "- **Image:** ${{ needs.build-web.outputs.image }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** ✅ Deployed" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.check.outputs.should_deploy_web }}" = "false" ]; then
+            echo "- **Status:** ⏭️ Skipped (no changes)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Status:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Resources" >> $GITHUB_STEP_SUMMARY
           echo "- **Region:** ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Project:** ${{ env.PROJECT_ID }}" >> $GITHUB_STEP_SUMMARY

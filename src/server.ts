@@ -3,7 +3,7 @@
  *
  * Entry point for the local dev web server.
  * Uses local DI container (real DB, mocked external services).
- * Hosts both webhook endpoints and GraphQL API.
+ * Hosts both webhook endpoints and GraphQL API with subscription support.
  *
  * Usage:
  *   bun run --watch src/server.ts
@@ -17,8 +17,11 @@
 import 'dotenv/config';
 import 'reflect-metadata';
 
+import { makeExecutableSchema } from '@graphql-tools/schema';
 import { GraphQLServer } from '@modules/graphql/index.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging/index.ts';
+import { PubSub } from 'graphql-subscriptions';
+import { makeHandler } from 'graphql-ws/use/bun';
 import { setupLocalContainer } from './container.local.ts';
 import { buildResolverMaps } from './presentation/graphql/resolvers/index.ts';
 import { typeDefs } from './presentation/graphql/schema/index.ts';
@@ -32,13 +35,28 @@ async function main() {
   const logger = container.resolve<Logger>(LOGGER_TOKEN);
   const webhookServer = container.resolve(WebhookServer);
 
+  // Create PubSub instance for GraphQL subscriptions
+  const pubsub = new PubSub();
+
   // Build resolvers from injectable classes
   const resolvers = buildResolverMaps(container);
+
+  // Create executable schema for both HTTP and WebSocket
+  const schema = makeExecutableSchema({
+    typeDefs,
+    resolvers,
+  });
 
   const graphqlServer = new GraphQLServer({
     typeDefs,
     resolvers,
     introspection: true,
+  });
+
+  // Create WebSocket handler for GraphQL subscriptions
+  const websocketHandler = makeHandler({
+    schema,
+    context: () => ({ container, pubsub }),
   });
 
   const port = getPort();
@@ -47,8 +65,9 @@ async function main() {
     await webhookServer.start({
       port,
       container,
+      websocket: websocketHandler,
       beforeStart: async (httpServer) => {
-        await graphqlServer.register(httpServer, () => ({ container }));
+        await graphqlServer.register(httpServer, () => ({ container, pubsub }));
         logger.info('GraphQL endpoint registered at /graphql');
       },
     });
@@ -59,6 +78,7 @@ async function main() {
     logger.info('Health check: GET /health');
     logger.info('Webhook: GET/POST /webhook');
     logger.info(`GraphQL: POST http://localhost:${port}/graphql`);
+    logger.info(`GraphQL Subscriptions: WS ws://localhost:${port}/graphql`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to start dev server', { error: message });

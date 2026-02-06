@@ -47,10 +47,24 @@ export interface Route {
   handler: RouteHandler;
 }
 
+/**
+ * Re-export Bun's WebSocket types for better module isolation.
+ * Consumers of this module don't need to import from 'bun' directly.
+ */
+export type WebSocketHandler<DataType = unknown> =
+  import('bun').WebSocketHandler<DataType>;
+
+export type ServerWebSocket<DataType = unknown> =
+  import('bun').ServerWebSocket<DataType>;
+
 /** Server configuration */
 export interface HttpServerConfig {
   /** Port to listen on */
   port: number;
   /** Host to bind to (default: '0.0.0.0') */
   host?: string;
+  /** WebSocket handler configuration (optional) */
+  websocket?: WebSocketHandler;
+  /** Path for WebSocket upgrades (default: '/graphql') */
+  websocketPath?: string;
 }

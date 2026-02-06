@@ -145,15 +145,13 @@ export class AccountsPage extends BasePage {
     name: string,
     type: 'Debit' | 'Credit' | 'FOP',
     role: 'Operational' | 'Savings',
-    bankName?: string
+    balance = '0'
   ): Promise<void> {
     const dialog = await this.openCreateAccountDialog();
     await dialog.fillName(name);
     await dialog.selectType(type);
     await dialog.selectRole(role);
-    if (bankName) {
-      await dialog.fillBankName(bankName);
-    }
+    await dialog.fillBalance(balance);
     await dialog.submit();
     await dialog.waitForClose();
   }
@@ -231,8 +229,10 @@ class CreateAccountDialog extends Dialog {
     await this.selectOption('select-account-role', role);
   }
 
-  async fillBankName(bankName: string): Promise<void> {
-    await this.fillInput('input-bank-name', bankName);
+  async fillBalance(balance: string): Promise<void> {
+    // Fill the balance input using the id since it doesn't have a data-qa
+    const input = this.locator.locator('#account-balance');
+    await input.fill(balance);
   }
 
   async fillIban(iban: string): Promise<void> {

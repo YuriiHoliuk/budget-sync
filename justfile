@@ -118,9 +118,49 @@ test-watch:
 test-integration:
     bun test tests/integration
 
+# Run API integration tests (requires local PostgreSQL)
+test-api:
+    bun test tests/integration/api
+
 # Run tests with coverage
 test-coverage:
     bun test --coverage tests/unit
+
+# ============================================
+# E2E Tests (Playwright)
+# ============================================
+
+# Start E2E test environment (PostgreSQL + API + Web)
+e2e-up:
+    docker compose -f docker-compose.e2e.yml up -d
+
+# Stop E2E test environment
+e2e-down:
+    docker compose -f docker-compose.e2e.yml down -v
+
+# View E2E service logs
+e2e-logs service='api-e2e':
+    docker compose -f docker-compose.e2e.yml logs -f {{service}}
+
+# Run E2E tests (starts environment automatically)
+test-e2e:
+    bunx playwright test
+
+# Run E2E tests with Playwright UI
+test-e2e-ui:
+    bunx playwright test --ui
+
+# Run E2E tests in headed mode (see the browser)
+test-e2e-headed:
+    bunx playwright test --headed
+
+# Run a specific E2E test file
+test-e2e-file file:
+    bunx playwright test {{file}}
+
+# Generate Playwright test report
+e2e-report:
+    bunx playwright show-report e2e/playwright-report
 
 # ============================================
 # Database Commands

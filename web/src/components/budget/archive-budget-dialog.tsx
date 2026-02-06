@@ -67,7 +67,7 @@ export function ArchiveBudgetDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" data-qa="dialog-archive-budget">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-yellow-500" />
@@ -93,13 +93,14 @@ export function ArchiveBudgetDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={loading}>
+          <Button variant="outline" onClick={handleClose} disabled={loading} data-qa="btn-archive-cancel">
             Cancel
           </Button>
           <Button
             variant="destructive"
             onClick={handleArchive}
             disabled={loading}
+            data-qa="btn-archive-confirm"
           >
             {loading ? "Archiving..." : "Archive"}
           </Button>

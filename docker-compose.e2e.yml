@@ -1,0 +1,109 @@
+# Docker Compose for E2E testing
+#
+# This configuration creates an isolated test environment with:
+# - Fresh PostgreSQL database
+# - API server with mocked external services
+# - Next.js frontend
+#
+# Usage:
+#   docker compose -f docker-compose.e2e.yml up -d    # Start test environment
+#   docker compose -f docker-compose.e2e.yml down -v  # Stop and reset
+#
+# The environment is designed for Playwright E2E tests that run against
+# the full stack with real database but mocked Monobank/Spreadsheet APIs.
+
+services:
+  db-e2e:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: budget_sync_test
+      POSTGRES_PASSWORD: budget_sync_test
+      POSTGRES_DB: budget_sync_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U budget_sync_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  db-migrate-e2e:
+    image: oven/bun:1
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgresql://budget_sync_test:budget_sync_test@db-e2e:5432/budget_sync_test
+    depends_on:
+      db-e2e:
+        condition: service_healthy
+    command: ["sh", "-c", "bun install --frozen-lockfile && bunx drizzle-kit migrate"]
+
+  db-seed-e2e:
+    image: oven/bun:1
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgresql://budget_sync_test:budget_sync_test@db-e2e:5432/budget_sync_test
+    depends_on:
+      db-migrate-e2e:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "bun scripts/seed-local-db.ts"]
+
+  api-e2e:
+    image: oven/bun:1
+    working_dir: /app
+    ports:
+      - "4002:4002"
+    volumes:
+      - .:/app
+      - api_e2e_node_modules:/app/node_modules
+    environment:
+      DATABASE_URL: postgresql://budget_sync_test:budget_sync_test@db-e2e:5432/budget_sync_test
+      PORT: "4002"
+      NODE_ENV: test
+      # These are required but will use mock implementations
+      MONOBANK_TOKEN: mock-token
+      SPREADSHEET_ID: mock-spreadsheet-id
+      GEMINI_API_KEY: mock-gemini-key
+    depends_on:
+      db-seed-e2e:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "bun", "--eval", "const r = await fetch('http://localhost:4002/health'); process.exit(r.ok ? 0 : 1)"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+    command: ["sh", "-c", "bun install --frozen-lockfile && bun run src/server.ts"]
+
+  web-e2e:
+    image: oven/bun:1
+    working_dir: /app/web
+    ports:
+      - "3001:3000"
+    volumes:
+      - .:/app
+      - web_e2e_node_modules:/app/web/node_modules
+    environment:
+      API_URL: http://api-e2e:4002
+      NEXT_PUBLIC_ALLOWED_EMAIL: test@example.com
+      NEXT_PUBLIC_ALLOWED_PASSWORD: testpassword123
+      NODE_ENV: test
+    depends_on:
+      api-e2e:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bun", "--eval", "const r = await fetch('http://localhost:3000'); process.exit(r.ok ? 0 : 1)"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+      start_period: 20s
+    command: ["sh", "-c", "bun install --frozen-lockfile && rm -rf .next/dev && bun run dev"]
+
+volumes:
+  api_e2e_node_modules:
+  web_e2e_node_modules:

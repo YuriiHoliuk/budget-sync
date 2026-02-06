@@ -28,6 +28,7 @@ export class HttpServer {
   private routes: Route[] = [];
   private server: BunServer | null = null;
   private readonly options: HttpServerOptions;
+  private websocketPath: string | null = null;
 
   constructor(options: HttpServerOptions = {}) {
     this.options = options;
@@ -82,12 +83,36 @@ export class HttpServer {
   start(config: HttpServerConfig): BunServer {
     const host = config.host ?? '0.0.0.0';
 
-    this.server = Bun.serve({
-      port: config.port,
-      hostname: host,
-      fetch: (request) => this.handleRequest(request),
-    });
+    // Store WebSocket path for upgrade detection in handleRequest
+    this.websocketPath = config.websocketPath ?? '/graphql';
 
+    const fetchHandler = (request: Request, server: BunServer) =>
+      this.handleRequest(request, server, config.websocket !== undefined);
+
+    // Bun.serve has different signatures based on whether websocket is provided
+    // We need to call it differently to satisfy TypeScript
+    if (config.websocket) {
+      this.server = Bun.serve({
+        port: config.port,
+        hostname: host,
+        fetch: fetchHandler,
+        websocket: config.websocket,
+      });
+    } else {
+      this.server = Bun.serve({
+        port: config.port,
+        hostname: host,
+        fetch: fetchHandler,
+      });
+    }
+
+    return this.server;
+  }
+
+  /**
+   * Get the underlying Bun server instance (for WebSocket upgrades)
+   */
+  getBunServer(): BunServer | null {
     return this.server;
   }
 
@@ -117,8 +142,34 @@ export class HttpServer {
 
   /**
    * Handle an incoming request
+   * @param rawRequest - The raw request object from Bun
+   * @param bunServer - The Bun server instance for WebSocket upgrades
+   * @param hasWebSocket - Whether WebSocket support is enabled
    */
-  private async handleRequest(rawRequest: Request): Promise<Response> {
+  private handleRequest(
+    rawRequest: Request,
+    bunServer: BunServer,
+    hasWebSocket: boolean,
+  ): Response | Promise<Response> {
+    // Handle WebSocket upgrade requests
+    if (hasWebSocket && this.shouldUpgradeToWebSocket(rawRequest)) {
+      const upgraded = bunServer.upgrade(rawRequest, { data: {} });
+      if (upgraded) {
+        // For successful WebSocket upgrade, return an empty Response
+        // The actual WebSocket handling is done by the websocket handler
+        return new Response();
+      }
+      // Upgrade failed - return error response
+      return new Response('WebSocket upgrade failed', { status: 500 });
+    }
+
+    return this.handleHttpRequest(rawRequest);
+  }
+
+  /**
+   * Handle a regular HTTP request (non-WebSocket).
+   */
+  private async handleHttpRequest(rawRequest: Request): Promise<Response> {
     try {
       const httpRequest = await this.parseRequest(rawRequest);
 
@@ -131,6 +182,20 @@ export class HttpServer {
     } catch (error) {
       return this.handleError(error, rawRequest);
     }
+  }
+
+  /**
+   * Check if a request should be upgraded to a WebSocket connection.
+   */
+  private shouldUpgradeToWebSocket(request: Request): boolean {
+    // Check if it's an upgrade request
+    if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') {
+      return false;
+    }
+
+    // Check if the path matches the WebSocket path
+    const url = new URL(request.url);
+    return url.pathname === this.websocketPath;
   }
 
   /**

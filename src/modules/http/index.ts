@@ -73,4 +73,6 @@ export type {
   HttpServerConfig,
   Route,
   RouteHandler,
+  ServerWebSocket,
+  WebSocketHandler,
 } from './types.ts';

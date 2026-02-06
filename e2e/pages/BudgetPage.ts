@@ -118,6 +118,7 @@ export class BudgetPage extends BasePage {
 
   /**
    * Edit allocation for a budget inline
+   * Note: The inline editor saves on Enter key or blur
    */
   async editAllocation(budgetId: number, newAmount: string): Promise<void> {
     // Click on the allocated cell to enter edit mode
@@ -128,8 +129,11 @@ export class BudgetPage extends BasePage {
     await input.waitFor({ state: 'visible' });
     await input.fill(newAmount);
 
-    // Save
-    await this.byQa('btn-allocation-save').click();
+    // Press Enter to save (the component saves on Enter or blur)
+    await input.press('Enter');
+
+    // Wait for the input to disappear (edit mode closed)
+    await input.waitFor({ state: 'hidden', timeout: 5000 });
   }
 
   /**

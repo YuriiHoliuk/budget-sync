@@ -1,0 +1,71 @@
+# Subscription types for real-time updates.
+# Uses the graphql-ws protocol.
+
+extend type Subscription {
+  """
+  Emitted when monthly overview metrics change (allocation created/updated,
+  transaction categorized, etc.). Returns the affected month.
+  """
+  monthlyOverviewUpdated: MonthlyOverviewUpdateEvent!
+
+  """
+  Emitted when a budget is created, updated, or archived.
+  Returns the full Budget entity for cache normalization.
+  """
+  budgetUpdated: Budget!
+
+  """
+  Emitted when an allocation is created, updated, or deleted.
+  Returns the full Allocation entity for cache normalization.
+  """
+  allocationUpdated: AllocationUpdateEvent!
+
+  """
+  Emitted when a transaction is created, updated, or categorized.
+  Returns the full Transaction entity for cache normalization.
+  """
+  transactionUpdated: Transaction!
+}
+
+"""
+Event emitted when monthly overview changes.
+Contains the affected month for query refetching.
+"""
+type MonthlyOverviewUpdateEvent {
+  """
+  The month affected (format: YYYY-MM)
+  """
+  month: String!
+}
+
+"""
+Event emitted when an allocation changes.
+Contains both the allocation and context for cache updates.
+"""
+type AllocationUpdateEvent {
+  """
+  The updated allocation entity
+  """
+  allocation: Allocation!
+
+  """
+  The budget ID for the allocation
+  """
+  budgetId: Int!
+
+  """
+  The month affected (format: YYYY-MM)
+  """
+  month: String!
+
+  """
+  Type of change: CREATED, UPDATED, or DELETED
+  """
+  changeType: AllocationChangeType!
+}
+
+enum AllocationChangeType {
+  CREATED
+  UPDATED
+  DELETED
+}

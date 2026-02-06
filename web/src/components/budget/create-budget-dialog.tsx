@@ -303,10 +303,10 @@ export function CreateBudgetDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={loading}>
+          <Button variant="outline" onClick={handleClose} disabled={loading} data-qa="btn-create-cancel">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
+          <Button onClick={handleSubmit} disabled={!canSubmit} data-qa="btn-create-submit">
             {loading ? "Creating..." : "Create Budget"}
           </Button>
         </DialogFooter>
