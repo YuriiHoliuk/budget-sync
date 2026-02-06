@@ -150,7 +150,7 @@
     "phase": "P3: Next.js Frontend Setup",
     "title": "Create basic auth gate (single user, email-only)",
     "description": "Implement a simple auth gate: on first load, check localStorage for authenticated email. If not present, show login form that accepts only the owner's email (configured via env var ALLOWED_EMAIL). No password - just email verification for now. Store in localStorage. Protect all routes.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P3-003"]
   },
   {

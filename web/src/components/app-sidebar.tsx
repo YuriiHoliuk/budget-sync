@@ -8,6 +8,7 @@ import {
   ArrowLeftRightIcon,
   TagsIcon,
   SettingsIcon,
+  LogOutIcon,
 } from "lucide-react";
 
 import {
@@ -22,7 +23,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/hooks/use-auth";
 
 const navigationItems = [
   {
@@ -49,6 +52,7 @@ const navigationItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { email, logout } = useAuth();
 
   return (
     <Sidebar collapsible="icon">
@@ -111,6 +115,19 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          <SidebarSeparator />
+          {email && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={logout}
+                tooltip="Sign out"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <LogOutIcon />
+                <span className="truncate text-xs">{email}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
