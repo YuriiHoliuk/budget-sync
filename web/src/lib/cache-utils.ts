@@ -14,7 +14,7 @@ import {
  * @param allocationDelta - The change in allocation (positive = add, negative = subtract)
  */
 export function updateMonthlyOverviewCache(
-  cache: ApolloCache<unknown>,
+  cache: ApolloCache,
   month: string,
   budgetId: number,
   allocationDelta: number,
@@ -66,7 +66,7 @@ export function updateMonthlyOverviewCache(
  * @param amount - The amount to move (always positive)
  */
 export function updateMonthlyOverviewCacheForMoveFunds(
-  cache: ApolloCache<unknown>,
+  cache: ApolloCache,
   month: string,
   sourceBudgetId: number,
   destBudgetId: number,

@@ -1,0 +1,75 @@
+query GetTransactions(
+  $filter: TransactionFilter
+  $pagination: PaginationInput
+) {
+  transactions(filter: $filter, pagination: $pagination) {
+    items {
+      id
+      date
+      amount
+      currency
+      type
+      description
+      counterpartyName
+      counterpartyIban
+      mcc
+      categorizationStatus
+      categoryReason
+      budgetReason
+      hold
+      notes
+      category {
+        id
+        name
+        fullPath
+      }
+      budget {
+        id
+        name
+      }
+      account {
+        id
+        name
+      }
+    }
+    totalCount
+    hasMore
+  }
+}
+
+query GetTransaction($id: Int!) {
+  transaction(id: $id) {
+    id
+    externalId
+    date
+    amount
+    currency
+    type
+    description
+    counterpartyName
+    counterpartyIban
+    mcc
+    categorizationStatus
+    categoryReason
+    budgetReason
+    hold
+    cashbackAmount
+    commissionAmount
+    receiptId
+    notes
+    category {
+      id
+      name
+      fullPath
+    }
+    budget {
+      id
+      name
+    }
+    account {
+      id
+      name
+      source
+    }
+  }
+}

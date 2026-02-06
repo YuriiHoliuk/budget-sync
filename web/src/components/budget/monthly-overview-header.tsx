@@ -1,6 +1,6 @@
 "use client";
 
-import type { ApolloError } from "@apollo/client";
+import type { ErrorLike } from "@apollo/client";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -18,7 +18,7 @@ type MonthlyOverview = GetMonthlyOverviewQuery["monthlyOverview"];
 interface MonthlyOverviewHeaderProps {
   overview: MonthlyOverview | undefined;
   loading: boolean;
-  error: ApolloError | undefined;
+  error: ErrorLike | undefined;
 }
 
 function getReadyToAssignStatus(amount: number) {

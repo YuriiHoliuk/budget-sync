@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@apollo/client";
+import { useQuery } from "@apollo/client/react";
 import { useMonth } from "@/hooks/use-month";
 import { GetMonthlyOverviewDocument } from "@/graphql/generated/graphql";
 import { MonthlyOverviewHeader } from "@/components/budget/monthly-overview-header";

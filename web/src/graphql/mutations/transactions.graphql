@@ -1,3 +1,14 @@
+mutation UpdateTransactionCategory($input: UpdateTransactionCategoryInput!) {
+  updateTransactionCategory(input: $input) {
+    id
+    category {
+      id
+      name
+    }
+    categorizationStatus
+  }
+}
+
 mutation UpdateTransactionBudget($input: UpdateTransactionBudgetInput!) {
   updateTransactionBudget(input: $input) {
     id
@@ -5,5 +16,13 @@ mutation UpdateTransactionBudget($input: UpdateTransactionBudgetInput!) {
       id
       name
     }
+    categorizationStatus
+  }
+}
+
+mutation VerifyTransaction($id: Int!) {
+  verifyTransaction(id: $id) {
+    id
+    categorizationStatus
   }
 }

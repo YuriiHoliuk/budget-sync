@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "@apollo/client";
+import { useMutation, useQuery } from "@apollo/client/react";
 import { AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import {
   GetUnbudgetedTransactionsDocument,

@@ -133,8 +133,13 @@ IMPORTANT: Not all tests in the end but tests after each task.
   - Good: `const accounts = data?.accounts; useMemo(() => ..., [accounts])`
 - **Deterministic random values**: Use `useId()` + hash function instead of Math.random()
 
-## Library Updates (Future Tasks)
+## Apollo Client 4.x Migration (Completed)
 
-Major version upgrades available (require migration):
-- Apollo Client 3.x → 4.x: New RxJS dependency, import structure changes, error handling redesign
-- graphql-codegen 5.x → 6.x: Drops Node 18, dependency bumps, new flags
+Key changes from 3.x to 4.x:
+- React hooks (useQuery, useMutation, etc.) import from `@apollo/client/react`
+- ApolloProvider imports from `@apollo/client/react`
+- Core utilities (ApolloClient, HttpLink, InMemoryCache) stay in `@apollo/client`
+- Types like ApolloCache are no longer generic (use `ApolloCache` instead of `ApolloCache<unknown>`)
+- `ApolloError` replaced with `ErrorLike` type
+- RxJS is a required peer dependency
+- Apollo's codemod (`@apollo/client-codemod-migrate-3-to-4`) has issues with TSX files - manual migration is more reliable

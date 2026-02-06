@@ -1,6 +1,6 @@
 "use client";
 
-import { ApolloProvider } from "@apollo/client";
+import { ApolloProvider } from "@apollo/client/react";
 import { useMemo } from "react";
 import { createApolloClient } from "./apollo-client";
 

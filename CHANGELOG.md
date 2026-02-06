@@ -3,6 +3,36 @@
 ## 2026-02-06
 
 ### Changed
+- Upgraded Apollo Client from 3.14.0 to 4.1.4
+  - React hooks now imported from `@apollo/client/react` instead of `@apollo/client`
+  - ApolloProvider moved to `@apollo/client/react`
+  - Replaced `ApolloError` type with `ErrorLike` (new error handling in v4)
+  - `ApolloCache` is no longer generic (removed type parameter)
+  - Added RxJS as peer dependency (required by Apollo Client 4)
+
+- Upgraded GraphQL Codegen from 5.0.7 to 6.1.1
+  - Updated client-preset from 4.8.3 to 5.2.2
+  - No breaking changes for our usage
+
+- Added missing transaction mutations to frontend
+  - Added `UpdateTransactionCategory` mutation
+  - Added `VerifyTransaction` mutation
+  - These were referenced in components but missing from .graphql files
+
+### Fixed
+- Wired up TransactionsTable component to transactions page
+  - Page was showing placeholder only, now shows full transactions table with filters
+
+### Added
+- API integration test infrastructure (P7-001)
+  - Created `tests/integration/api/` directory with test harness
+  - `TestHarness` class for setting up Apollo Server with test DI container
+  - Test factories for creating accounts, categories, budgets, allocations, transactions
+  - `SilentLogger` for quiet test output
+  - `just test-api` command for running API integration tests
+  - First API integration tests for accounts queries and mutations
+
+### Changed
 - Upgraded Next.js from 15.3.0 to 16.1.6 (P3-005)
   - Updated eslint-config-next to 16.1.6
   - Migrated from `next lint` (removed in v16) to `eslint .` directly
