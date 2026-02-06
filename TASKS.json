@@ -256,7 +256,7 @@
     "phase": "P5: Accounts & Transactions Pages",
     "title": "Build Accounts page with CRUD for manual accounts",
     "description": "Create Accounts page showing all accounts grouped by role (Operational, Savings). For each account: name, type badge, currency, balance, IBAN (truncated), last sync time, synced indicator. Show total balance per group. Add 'Add Account' button for creating manual accounts. Synced accounts show read-only details. Manual accounts can be edited/archived.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P3-003", "P2-008", "TX-006"]
   },
   {

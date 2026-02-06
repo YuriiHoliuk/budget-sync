@@ -1,5 +1,5 @@
-query GetAccounts($activeOnly: Boolean = true) {
-  accounts(activeOnly: $activeOnly) {
+mutation CreateAccount($input: CreateAccountInput!) {
+  createAccount(input: $input) {
     id
     externalId
     name
@@ -17,8 +17,8 @@ query GetAccounts($activeOnly: Boolean = true) {
   }
 }
 
-query GetAccount($id: Int!) {
-  account(id: $id) {
+mutation UpdateAccount($input: UpdateAccountInput!) {
+  updateAccount(input: $input) {
     id
     externalId
     name
@@ -33,5 +33,16 @@ query GetAccount($id: Int!) {
     isArchived
     lastSyncTime
     isCreditAccount
+  }
+}
+
+mutation ArchiveAccount($id: Int!) {
+  archiveAccount(id: $id) {
+    id
+    externalId
+    name
+    type
+    role
+    isArchived
   }
 }

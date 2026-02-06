@@ -2,6 +2,32 @@
 
 ## 2026-02-06
 
+### P5-001: Build Accounts page with CRUD for manual accounts
+
+- Created full Accounts page showing all accounts grouped by role (Operational, Savings)
+- Added GraphQL mutations for accounts: CreateAccount, UpdateAccount, ArchiveAccount
+- Updated GetAccounts query to include all account fields (source, lastSyncTime, creditLimit, etc.)
+- Created `AccountsTable` component:
+  - Groups accounts by role with subtotals
+  - Shows account icon based on type (Debit/Credit/FOP)
+  - Displays name, bank, type badge, currency, balance, truncated IBAN with tooltip
+  - Source badge (Synced/Manual) with link icon
+  - Last sync time indicator for synced accounts
+  - Row action dropdown (Edit, Archive for manual accounts)
+- Created `CreateAccountDialog`:
+  - Form fields: name, type, role, currency, balance, credit limit (for credit accounts), IBAN
+  - Contextual descriptions for each field
+  - Input validation and error handling
+- Created `EditAccountDialog`:
+  - Pre-populates with existing account data
+  - Shows info alert for synced accounts (protected fields warning)
+  - Currency and IBAN are disabled for synced accounts
+- Created `ArchiveAccountDialog`:
+  - Confirmation dialog with clear explanation
+  - Destructive-styled Archive button
+- Added ShadCN Alert component for protected fields warning
+- Tested all CRUD operations end-to-end with browser
+
 ### P4-005: Build Unbudgeted Transactions warning section
 
 - Added `unbudgetedOnly` and `accountRole` filters to GraphQL TransactionFilter
