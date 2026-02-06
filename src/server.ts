@@ -1,9 +1,15 @@
 /**
  * Local Development Server
  *
- * Entry point for the local dev web server.
- * Uses local DI container (real DB, mocked external services).
- * Hosts both webhook endpoints and GraphQL API with subscription support.
+ * Entry point for local development. Uses local DI container
+ * with real database but mocked external services (Monobank, Spreadsheet).
+ *
+ * Endpoints:
+ * - GET /webhook - Validation endpoint
+ * - POST /webhook - Receives transaction notifications
+ * - POST /graphql - GraphQL API endpoint
+ * - WS /graphql - GraphQL subscriptions (WebSocket)
+ * - GET /health - Health check
  *
  * Usage:
  *   bun run --watch src/server.ts
@@ -17,68 +23,30 @@
 import 'dotenv/config';
 import 'reflect-metadata';
 
-import { makeExecutableSchema } from '@graphql-tools/schema';
-import { GraphQLServer } from '@modules/graphql/index.ts';
+import { ConsoleLogger } from '@modules/logging/ConsoleLogger.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging/index.ts';
-import { PubSub } from 'graphql-subscriptions';
-import { makeHandler } from 'graphql-ws/use/bun';
 import { setupLocalContainer } from './container.local.ts';
-import { buildResolverMaps } from './presentation/graphql/resolvers/index.ts';
-import { typeDefs } from './presentation/graphql/schema/index.ts';
-import { WebhookServer } from './presentation/http/WebhookServer.ts';
+import { startServer } from './presentation/http/startServer.ts';
 
 const DEFAULT_PORT = 4001;
 
 async function main() {
   const container = setupLocalContainer();
+  container.register(LOGGER_TOKEN, { useClass: ConsoleLogger });
 
   const logger = container.resolve<Logger>(LOGGER_TOKEN);
-  const webhookServer = container.resolve(WebhookServer);
-
-  // Create PubSub instance for GraphQL subscriptions
-  const pubsub = new PubSub();
-
-  // Build resolvers from injectable classes
-  const resolvers = buildResolverMaps(container);
-
-  // Create executable schema for both HTTP and WebSocket
-  const schema = makeExecutableSchema({
-    typeDefs,
-    resolvers,
-  });
-
-  const graphqlServer = new GraphQLServer({
-    typeDefs,
-    resolvers,
-    introspection: true,
-  });
-
-  // Create WebSocket handler for GraphQL subscriptions
-  const websocketHandler = makeHandler({
-    schema,
-    context: () => ({ container, pubsub }),
-  });
-
   const port = getPort();
 
   try {
-    await webhookServer.start({
-      port,
-      container,
-      websocket: websocketHandler,
-      beforeStart: async (httpServer) => {
-        await graphqlServer.register(httpServer, () => ({ container, pubsub }));
-        logger.info('GraphQL endpoint registered at /graphql');
-      },
-    });
+    const { stop } = await startServer({ container, port });
 
-    setupGracefulShutdown(webhookServer, graphqlServer, logger);
+    setupGracefulShutdown(stop, logger);
 
-    logger.info(`Dev server started on http://localhost:${port}`);
-    logger.info('Health check: GET /health');
-    logger.info('Webhook: GET/POST /webhook');
-    logger.info(`GraphQL: POST http://localhost:${port}/graphql`);
-    logger.info(`GraphQL Subscriptions: WS ws://localhost:${port}/graphql`);
+    logger.info(`Dev server running at http://localhost:${port}`);
+    logger.info(`  GraphQL:      POST http://localhost:${port}/graphql`);
+    logger.info(`  Subscriptions: WS  ws://localhost:${port}/graphql`);
+    logger.info(`  Webhook:       GET/POST http://localhost:${port}/webhook`);
+    logger.info(`  Health:        GET http://localhost:${port}/health`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to start dev server', { error: message });
@@ -98,14 +66,12 @@ function getPort(): number {
 }
 
 function setupGracefulShutdown(
-  server: WebhookServer,
-  graphqlServer: GraphQLServer,
+  stop: () => Promise<void>,
   logger: Logger,
 ): void {
   const shutdown = async () => {
     logger.info('Shutting down dev server...');
-    await graphqlServer.stop();
-    server.stop();
+    await stop();
     process.exit(0);
   };
 

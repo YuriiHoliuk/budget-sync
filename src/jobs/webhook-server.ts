@@ -1,8 +1,8 @@
 /**
- * Cloud Run Service: Webhook Server
+ * Cloud Run Service: Webhook Server (Production)
  *
- * HTTP server for receiving Monobank webhook notifications and GraphQL API.
- * This is a direct entry point for Cloud Run Services.
+ * Entry point for the production HTTP server on Cloud Run.
+ * Uses production DI container with real external services.
  *
  * Endpoints:
  * - GET /webhook - Validation endpoint (Monobank sends this to verify the URL)
@@ -16,20 +16,13 @@
  *
  * Environment:
  *   PORT - Port to listen on (default: 8080, Cloud Run provides this)
- *   DEBUG=* or DEBUG=webhook,http - Enable debug logging
  */
 
 import 'reflect-metadata';
-import { makeExecutableSchema } from '@graphql-tools/schema';
-import { PubSub } from 'graphql-subscriptions';
-import { makeHandler } from 'graphql-ws/use/bun';
 import { setupContainer } from '../container.ts';
-import { GraphQLServer } from '../modules/graphql/index.ts';
 import { LOGGER_TOKEN, type Logger } from '../modules/logging/Logger.ts';
 import { StructuredLogger } from '../modules/logging/StructuredLogger.ts';
-import { buildResolverMaps } from '../presentation/graphql/resolvers/index.ts';
-import { typeDefs } from '../presentation/graphql/schema/index.ts';
-import { WebhookServer } from '../presentation/http/WebhookServer.ts';
+import { startServer } from '../presentation/http/startServer.ts';
 
 const DEFAULT_PORT = 8080;
 
@@ -38,51 +31,17 @@ async function main() {
   container.register(LOGGER_TOKEN, { useClass: StructuredLogger });
 
   const logger = container.resolve<Logger>(LOGGER_TOKEN);
-  const webhookServer = container.resolve(WebhookServer);
-
-  // Create PubSub instance for GraphQL subscriptions
-  const pubsub = new PubSub();
-
-  // Build resolvers from injectable classes
-  const resolvers = buildResolverMaps(container);
-
-  // Create executable schema for both HTTP and WebSocket
-  const schema = makeExecutableSchema({
-    typeDefs,
-    resolvers,
-  });
-
-  const graphqlServer = new GraphQLServer({
-    typeDefs,
-    resolvers,
-    introspection: true,
-  });
-
-  // Create WebSocket handler for GraphQL subscriptions
-  const websocketHandler = makeHandler({
-    schema,
-    context: () => ({ container, pubsub }),
-  });
-
   const port = getPort();
 
   try {
-    await webhookServer.start({
-      port,
-      container,
-      websocket: websocketHandler,
-      beforeStart: async (httpServer) => {
-        await graphqlServer.register(httpServer, () => ({ container, pubsub }));
-        logger.info('GraphQL endpoint registered at /graphql');
-      },
-    });
+    const { stop } = await startServer({ container, port });
 
-    setupGracefulShutdown(webhookServer, graphqlServer, logger);
+    setupGracefulShutdown(stop, logger);
 
-    logger.info('Webhook server ready', { port, graphql: '/graphql' });
+    logger.info('Production server ready', { port });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to start webhook server', { error: message });
+    logger.error('Failed to start server', { error: message });
     process.exit(1);
   }
 }
@@ -99,14 +58,12 @@ function getPort(): number {
 }
 
 function setupGracefulShutdown(
-  server: WebhookServer,
-  graphqlServer: GraphQLServer,
+  stop: () => Promise<void>,
   logger: Logger,
 ): void {
   const shutdown = async () => {
-    logger.info('Received shutdown signal, stopping server...');
-    await graphqlServer.stop();
-    server.stop();
+    logger.info('Received shutdown signal');
+    await stop();
     process.exit(0);
   };
 
