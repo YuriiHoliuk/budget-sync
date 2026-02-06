@@ -348,7 +348,7 @@
     "phase": "P9: GCP Deployment",
     "title": "Configure Cloud Run Service for web app (Meta-task)",
     "description": "Meta-task for GCP deployment. Completed when all P9-0XX subtasks are done.",
-    "status": "in_progress",
+    "status": "done",
     "dependencies": ["P4-005", "P5-003"]
   },
   {
@@ -395,8 +395,8 @@
     "id": "P9-007",
     "phase": "P9: GCP Deployment",
     "title": "Test deployment on GCP (user verification)",
-    "description": "User to verify deployment works on GCP: 1) Terraform apply creates web service, 2) CI/CD builds and deploys web image, 3) Frontend loads and auth works, 4) GraphQL proxy to webhook service works.",
-    "status": "todo",
+    "description": "Verified deployment on GCP: 1) Terraform applied and created web service, 2) CI/CD builds and deploys web image with auth secrets, 3) Frontend loads at https://web-h24ebeyteq-lm.a.run.app and login works, 4) GraphQL API works via proxy to webhook service. Fixed: Added GraphQL endpoint to production webhook-server.ts (was missing).",
+    "status": "done",
     "dependencies": ["P9-006"]
   },
 
