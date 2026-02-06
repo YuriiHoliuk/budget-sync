@@ -1,3 +1,4 @@
+// Next.js configuration for Budget Sync web app
 import type { NextConfig } from "next";
 import path from "path";
 
