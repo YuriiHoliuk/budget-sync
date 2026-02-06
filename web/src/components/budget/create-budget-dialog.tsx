@@ -156,7 +156,7 @@ export function CreateBudgetDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" data-qa="dialog-create-budget">
         <DialogHeader>
           <DialogTitle>Create Budget</DialogTitle>
           <DialogDescription>
@@ -177,6 +177,7 @@ export function CreateBudgetDialog({
                   handleSubmit();
                 }
               }}
+              data-qa="input-budget-name"
             />
           </div>
 
@@ -198,7 +199,7 @@ export function CreateBudgetDialog({
                 }
               }}
             >
-              <SelectTrigger id="budget-type" className="w-full">
+              <SelectTrigger id="budget-type" className="w-full" data-qa="select-budget-type">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
@@ -226,6 +227,7 @@ export function CreateBudgetDialog({
               value={targetAmount}
               onChange={(event) => setTargetAmount(event.target.value)}
               className="tabular-nums"
+              data-qa="input-target-amount"
             />
             <p className="text-xs text-muted-foreground">
               {budgetType === BudgetType.Spending

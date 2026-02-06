@@ -289,7 +289,7 @@ export function TransactionsTable() {
 
         {transactions.length === 0 ? (
           <div className="rounded-xl border border-dashed p-8 text-center">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground" data-qa="text-no-transactions">
               {activeFilterCount > 0
                 ? "No transactions match your filters."
                 : "No transactions yet."}
@@ -298,7 +298,7 @@ export function TransactionsTable() {
         ) : (
           <>
             <div className="rounded-xl border">
-              <Table>
+              <Table data-qa="transactions-table">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="w-28">Date</TableHead>
@@ -381,17 +381,18 @@ function TransactionFiltersBar({
           value={filters.search}
           onChange={(e) => onFilterChange("search", e.target.value)}
           className="pl-9"
+          data-qa="input-search"
         />
       </div>
 
       <div className="flex items-center gap-2">
         <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2" data-qa="btn-filters">
               <Filter className="h-4 w-4" />
               Filters
               {activeFilterCount > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0">
+                <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0" data-qa="badge-active-filters">
                   {activeFilterCount}
                 </Badge>
               )}
@@ -407,7 +408,7 @@ function TransactionFiltersBar({
                     onFilterChange("accountId", value === "all" ? null : parseInt(value, 10))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger data-qa="select-account-filter">
                     <SelectValue placeholder="All accounts" />
                   </SelectTrigger>
                   <SelectContent>
@@ -429,7 +430,7 @@ function TransactionFiltersBar({
                     onFilterChange("categoryId", value === "all" ? null : parseInt(value, 10))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger data-qa="select-category-filter">
                     <SelectValue placeholder="All categories" />
                   </SelectTrigger>
                   <SelectContent>
@@ -451,7 +452,7 @@ function TransactionFiltersBar({
                     onFilterChange("budgetId", value === "all" ? null : parseInt(value, 10))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger data-qa="select-budget-filter">
                     <SelectValue placeholder="All budgets" />
                   </SelectTrigger>
                   <SelectContent>
@@ -473,7 +474,7 @@ function TransactionFiltersBar({
                     onFilterChange("type", value === "all" ? null : (value as TransactionTypeEnum))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger data-qa="select-type-filter">
                     <SelectValue placeholder="All types" />
                   </SelectTrigger>
                   <SelectContent>
@@ -492,7 +493,7 @@ function TransactionFiltersBar({
                     onFilterChange("status", value === "all" ? null : (value as CategorizationStatusEnum))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger data-qa="select-status-filter">
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
@@ -527,7 +528,7 @@ function TransactionFiltersBar({
         </Popover>
 
         {activeFilterCount > 0 && (
-          <Button variant="ghost" size="sm" onClick={onClearFilters} className="gap-1">
+          <Button variant="ghost" size="sm" onClick={onClearFilters} className="gap-1" data-qa="btn-clear-filters">
             <X className="h-4 w-4" />
             Clear
           </Button>
@@ -602,6 +603,7 @@ function TransactionRow({
     <TableRow
       className={cn(isEditing && "bg-muted/50", "cursor-pointer")}
       onClick={onViewDetails}
+      data-qa={`transaction-row-${transaction.id}`}
     >
       <TableCell className="font-medium text-muted-foreground">
         {formatDate(transaction.date)}
@@ -620,7 +622,7 @@ function TransactionRow({
       <TableCell className="text-muted-foreground">
         {transaction.account?.name ?? "Unknown"}
       </TableCell>
-      <TableCell onClick={(event) => isEditing && event.stopPropagation()}>
+      <TableCell onClick={(event) => isEditing && event.stopPropagation()} data-qa={`transaction-category-${transaction.id}`}>
         {isEditing ? (
           <Select
             value={transaction.category?.id.toString() ?? "none"}
@@ -664,7 +666,7 @@ function TransactionRow({
           </button>
         )}
       </TableCell>
-      <TableCell onClick={(event) => isEditing && event.stopPropagation()}>
+      <TableCell onClick={(event) => isEditing && event.stopPropagation()} data-qa={`transaction-budget-${transaction.id}`}>
         {isEditing ? (
           <Select
             value={transaction.budget?.id.toString() ?? "none"}
@@ -712,6 +714,7 @@ function TransactionRow({
         <Badge
           variant="outline"
           className={cn("gap-1 text-xs", statusConfig.bgColor, statusConfig.color)}
+          data-qa={`transaction-status-${transaction.id}`}
         >
           <StatusIcon className="h-3 w-3" />
           {statusConfig.label}
@@ -724,6 +727,7 @@ function TransactionRow({
             ? "text-red-600 dark:text-red-400"
             : "text-green-600 dark:text-green-400"
         )}
+        data-qa={`transaction-amount-${transaction.id}`}
       >
         {transaction.type === TransactionTypeEnum.Debit ? "-" : "+"}
         {formatCurrency(transaction.amount)}
@@ -742,6 +746,7 @@ function TransactionRow({
             onClick={handleVerify}
             disabled={isUpdating}
             title="Verify transaction"
+            data-qa={`btn-verify-${transaction.id}`}
           >
             <Check className="h-4 w-4" />
             <span className="sr-only">Verify</span>
@@ -774,7 +779,7 @@ function TransactionPagination({
 
   return (
     <div className="flex items-center justify-between text-sm text-muted-foreground">
-      <div>
+      <div data-qa="text-pagination-info">
         Showing {startItem} - {endItem} of {totalCount} transactions
       </div>
       <div className="flex items-center gap-2">
@@ -783,11 +788,12 @@ function TransactionPagination({
           size="sm"
           onClick={() => onPageChange(page - 1)}
           disabled={page === 0}
+          data-qa="btn-pagination-previous"
         >
           <ChevronLeft className="h-4 w-4" />
           Previous
         </Button>
-        <span className="px-2">
+        <span className="px-2" data-qa="text-pagination-page">
           Page {page + 1} of {totalPages}
         </span>
         <Button
@@ -795,6 +801,7 @@ function TransactionPagination({
           size="sm"
           onClick={() => onPageChange(page + 1)}
           disabled={!hasMore}
+          data-qa="btn-pagination-next"
         >
           Next
           <ChevronRight className="h-4 w-4" />

@@ -193,17 +193,18 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
           variant="outline"
           size="sm"
           onClick={() => handleMoveFunds()}
+          data-qa="btn-move-funds"
         >
           <ArrowLeftRight className="mr-2 h-4 w-4" />
           Move Funds
         </Button>
-        <Button size="sm" onClick={() => setCreateBudgetOpen(true)}>
+        <Button size="sm" onClick={() => setCreateBudgetOpen(true)} data-qa="btn-new-budget">
           <Plus className="mr-2 h-4 w-4" />
           New Budget
         </Button>
       </div>
       <div className="rounded-xl border">
-        <Table>
+        <Table data-qa="budget-table">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[200px]">Budget</TableHead>
@@ -369,15 +370,17 @@ function BudgetRow({
     summary.targetAmount,
   );
 
+  const budgetId = summary.budgetId;
+
   return (
-    <TableRow>
+    <TableRow data-qa={`budget-row-${budgetId}`}>
       <TableCell className="font-medium">{summary.name}</TableCell>
       <TableCell className="text-right text-muted-foreground">
         {summary.targetAmount > 0
           ? formatCurrency(summary.targetAmount)
           : "—"}
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right" data-qa={`budget-allocated-${budgetId}`}>
         {isEditing ? (
           <InlineAllocationEditor
             currentAmount={summary.allocated}
@@ -400,7 +403,7 @@ function BudgetRow({
           </button>
         )}
       </TableCell>
-      <TableCell className="text-right tabular-nums">
+      <TableCell className="text-right tabular-nums" data-qa={`budget-spent-${budgetId}`}>
         {summary.spent !== 0 ? formatCurrency(summary.spent) : "—"}
       </TableCell>
       <TableCell
@@ -408,6 +411,7 @@ function BudgetRow({
           "text-right font-medium tabular-nums",
           getAvailableColor(summary.available),
         )}
+        data-qa={`budget-available-${budgetId}`}
       >
         <span className="group/available inline-flex items-center gap-1">
           {formatCurrency(summary.available)}
@@ -429,13 +433,13 @@ function BudgetRow({
       <TableCell>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" data-qa={`budget-menu-${budgetId}`}>
               <MoreHorizontal className="h-4 w-4" />
               <span className="sr-only">Open menu</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onEditBudget}>
+            <DropdownMenuItem onClick={onEditBudget} data-qa={`budget-edit-${budgetId}`}>
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
@@ -444,7 +448,7 @@ function BudgetRow({
               Move Funds
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onArchiveBudget} variant="destructive">
+            <DropdownMenuItem onClick={onArchiveBudget} variant="destructive" data-qa={`budget-archive-${budgetId}`}>
               <Archive className="mr-2 h-4 w-4" />
               Archive
             </DropdownMenuItem>

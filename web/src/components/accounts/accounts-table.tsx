@@ -187,13 +187,13 @@ export function AccountsTable({ showArchived = false }: AccountsTableProps) {
   return (
     <>
       <div className="flex items-center justify-end gap-2 mb-2">
-        <Button size="sm" onClick={() => setCreateAccountOpen(true)}>
+        <Button size="sm" onClick={() => setCreateAccountOpen(true)} data-qa="btn-add-account">
           <Plus className="mr-2 h-4 w-4" />
           Add Account
         </Button>
       </div>
       <div className="rounded-xl border">
-        <Table>
+        <Table data-qa="accounts-table">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[250px]">Account</TableHead>
@@ -215,6 +215,7 @@ export function AccountsTable({ showArchived = false }: AccountsTableProps) {
                 totalBalance={totalsByRole.get(role) ?? 0}
                 onEditAccount={handleEditAccount}
                 onArchiveAccount={handleArchiveAccount}
+                data-qa-prefix={`account-group-${role.toLowerCase()}`}
               />
             ))}
           </TableBody>
@@ -251,6 +252,7 @@ interface AccountGroupProps {
   totalBalance: number;
   onEditAccount: (accountId: number) => void;
   onArchiveAccount: (accountId: number) => void;
+  "data-qa-prefix": string;
 }
 
 function AccountGroup({
@@ -259,16 +261,17 @@ function AccountGroup({
   totalBalance,
   onEditAccount,
   onArchiveAccount,
+  "data-qa-prefix": dataQaPrefix,
 }: AccountGroupProps) {
   return (
     <>
-      <TableRow className="bg-muted/30 hover:bg-muted/30">
+      <TableRow className="bg-muted/30 hover:bg-muted/30" data-qa={dataQaPrefix}>
         <TableCell className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
           {ROLE_LABELS[role]}
         </TableCell>
         <TableCell />
         <TableCell />
-        <TableCell className="text-right text-xs font-medium text-muted-foreground">
+        <TableCell className="text-right text-xs font-medium text-muted-foreground" data-qa={`account-group-total-${role.toLowerCase()}`}>
           {formatCurrency(totalBalance)}
         </TableCell>
         <TableCell />
@@ -300,14 +303,14 @@ function AccountRow({ account, onEdit, onArchive }: AccountRowProps) {
   const isManual = account.source === AccountSource.Manual;
 
   return (
-    <TableRow>
+    <TableRow data-qa={`account-row-${account.id}`}>
       <TableCell>
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
             <TypeIcon className="h-4 w-4 text-muted-foreground" />
           </div>
           <div>
-            <div className="font-medium">{account.name}</div>
+            <div className="font-medium" data-qa={`account-name-${account.id}`}>{account.name}</div>
             {account.bank && (
               <div className="text-xs text-muted-foreground">{account.bank}</div>
             )}
@@ -315,11 +318,11 @@ function AccountRow({ account, onEdit, onArchive }: AccountRowProps) {
         </div>
       </TableCell>
       <TableCell>
-        <Badge variant="outline" className="text-xs">
+        <Badge variant="outline" className="text-xs" data-qa={`account-type-${account.id}`}>
           {TYPE_LABELS[account.type]}
         </Badge>
       </TableCell>
-      <TableCell className="text-muted-foreground">{account.currency}</TableCell>
+      <TableCell className="text-muted-foreground" data-qa={`account-currency-${account.id}`}>{account.currency}</TableCell>
       <TableCell
         className={cn(
           "text-right font-medium tabular-nums",
@@ -327,6 +330,7 @@ function AccountRow({ account, onEdit, onArchive }: AccountRowProps) {
             ? "text-red-600 dark:text-red-400"
             : "text-foreground",
         )}
+        data-qa={`account-balance-${account.id}`}
       >
         {formatCurrency(account.balance)}
         {account.isCreditAccount && account.creditLimit && (
@@ -353,12 +357,12 @@ function AccountRow({ account, onEdit, onArchive }: AccountRowProps) {
       </TableCell>
       <TableCell>
         {isSynced ? (
-          <Badge variant="secondary" className="text-xs gap-1">
+          <Badge variant="secondary" className="text-xs gap-1" data-qa={`account-source-${account.id}`}>
             <Link2 className="h-3 w-3" />
             Synced
           </Badge>
         ) : (
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="outline" className="text-xs" data-qa={`account-source-${account.id}`}>
             Manual
           </Badge>
         )}
@@ -386,20 +390,20 @@ function AccountRow({ account, onEdit, onArchive }: AccountRowProps) {
       <TableCell>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" data-qa={`account-menu-${account.id}`}>
               <MoreHorizontal className="h-4 w-4" />
               <span className="sr-only">Open menu</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onEdit}>
+            <DropdownMenuItem onClick={onEdit} data-qa={`account-edit-${account.id}`}>
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
             {isManual && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onArchive} variant="destructive">
+                <DropdownMenuItem onClick={onArchive} variant="destructive" data-qa={`account-archive-${account.id}`}>
                   <Archive className="mr-2 h-4 w-4" />
                   Archive
                 </DropdownMenuItem>

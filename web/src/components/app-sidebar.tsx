@@ -32,21 +32,25 @@ const navigationItems = [
     title: "Budget",
     href: "/",
     icon: LayoutDashboardIcon,
+    dataQa: "nav-budget",
   },
   {
     title: "Accounts",
     href: "/accounts",
     icon: WalletIcon,
+    dataQa: "nav-accounts",
   },
   {
     title: "Transactions",
     href: "/transactions",
     icon: ArrowLeftRightIcon,
+    dataQa: "nav-transactions",
   },
   {
     title: "Categories",
     href: "/categories",
     icon: TagsIcon,
+    dataQa: "nav-categories",
   },
 ];
 
@@ -93,7 +97,7 @@ export function AppSidebar() {
                       isActive={isActive}
                       tooltip={item.title}
                     >
-                      <Link href={item.href}>
+                      <Link href={item.href} data-qa={item.dataQa}>
                         <item.icon />
                         <span>{item.title}</span>
                       </Link>
@@ -109,7 +113,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Settings">
-              <Link href="/settings">
+              <Link href="/settings" data-qa="nav-settings">
                 <SettingsIcon />
                 <span>Settings</span>
               </Link>
@@ -122,6 +126,7 @@ export function AppSidebar() {
                 onClick={logout}
                 tooltip="Sign out"
                 className="text-muted-foreground hover:text-foreground"
+                data-qa="btn-logout"
               >
                 <LogOutIcon />
                 <span className="truncate text-xs">{email}</span>

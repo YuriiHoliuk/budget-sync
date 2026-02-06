@@ -2,6 +2,34 @@
 
 ## 2026-02-06
 
+### Added
+- Page Object Model and reusable component classes for E2E tests (P8-002)
+  - `BasePage` class with common selectors, wait utilities, and navigation helpers
+  - Reusable component classes: `Table`, `Dialog`, `InlineEditor`, `MonthSelector`
+  - Page objects: `BudgetPage`, `TransactionsPage`, `AccountsPage`, `CategoriesPage`
+  - Added `data-qa` attributes to all major frontend components for reliable element selection
+  - All page objects and components exported from `e2e/fixtures/index.ts`
+
+- Playwright E2E test infrastructure (P8-001)
+  - Installed `@playwright/test` and `playwright` dependencies
+  - Created `docker-compose.e2e.yml` for isolated test environment (PostgreSQL on port 5433, API on 4002, Web on 3001)
+  - Created `playwright.config.ts` with Chromium project and web server orchestration
+  - Created test fixtures in `e2e/fixtures/`:
+    - `test-base.ts` with `authenticatedPage` and `graphql` fixtures via `test.extend()`
+    - `data-factories.ts` with GraphQL-based factories for budgets, categories, allocations, accounts, transactions
+  - Created `e2e/tests/smoke.spec.ts` with 3 smoke tests (auth, navigation, GraphQL API)
+  - Added justfile commands: `test-e2e`, `test-e2e-ui`, `test-e2e-headed`, `e2e-up`, `e2e-down`, `e2e-logs`, `e2e-report`
+  - All 3 smoke tests passing
+
+### Added
+- Complete API integration tests for core queries and mutations (P7-002)
+  - `budgets.test.ts`: tests for budgets query/mutation CRUD (create, update, archive, filter by active)
+  - `categories.test.ts`: tests for categories query/mutation CRUD with hierarchy support
+  - `allocations.test.ts`: tests for allocations CRUD and moveFunds mutation
+  - `transactions.test.ts`: tests for transactions with all filters (account, category, budget, type, date range, search, status, pagination)
+  - `monthly-overview.test.ts`: tests for monthlyOverview computation (availableFunds, capitalBalance, totalAllocated, totalSpent, savingsRate, budgetSummaries with carryover)
+  - 88 total API integration tests passing
+
 ### Changed
 - Upgraded Apollo Client from 3.14.0 to 4.1.4
   - React hooks now imported from `@apollo/client/react` instead of `@apollo/client`

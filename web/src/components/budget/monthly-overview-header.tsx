@@ -38,14 +38,16 @@ function MetricCard({
   value,
   icon: Icon,
   className,
+  "data-qa": dataQa,
 }: {
   label: string;
   value: string;
   icon: React.ComponentType<{ className?: string }>;
   className?: string;
+  "data-qa"?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-3", className)}>
+    <div className={cn("flex items-center gap-3", className)} data-qa={dataQa}>
       <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
         <Icon className="size-4 text-muted-foreground" />
       </div>
@@ -107,6 +109,7 @@ export function MonthlyOverviewHeader({
           "rounded-xl border p-4",
           getReadyToAssignBg(overview.readyToAssign),
         )}
+        data-qa="metric-ready-to-assign"
       >
         <p className={cn("text-xs font-medium", readyStatus.color)}>
           {readyStatus.label}
@@ -121,26 +124,31 @@ export function MonthlyOverviewHeader({
           label="Available Funds"
           value={formatCurrency(overview.availableFunds)}
           icon={WalletIcon}
+          data-qa="metric-available-funds"
         />
         <MetricCard
           label="Capital"
           value={formatCurrency(overview.capitalBalance)}
           icon={PiggyBankIcon}
+          data-qa="metric-capital-balance"
         />
         <MetricCard
           label="Total Allocated"
           value={formatCurrency(overview.totalAllocated)}
           icon={ArrowUpIcon}
+          data-qa="metric-total-allocated"
         />
         <MetricCard
           label="Total Spent"
           value={formatCurrency(overview.totalSpent)}
           icon={ArrowDownIcon}
+          data-qa="metric-total-spent"
         />
         <MetricCard
           label="Savings Rate"
           value={formatPercent(overview.savingsRate)}
           icon={TrendingUpIcon}
+          data-qa="metric-savings-rate"
         />
       </div>
     </div>

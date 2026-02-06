@@ -59,7 +59,7 @@ export function ArchiveCategoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent className="sm:max-w-[400px]" data-qa="dialog-archive-category">
         <DialogHeader>
           <DialogTitle>Archive Category</DialogTitle>
           <DialogDescription>
@@ -87,10 +87,11 @@ export function ArchiveCategoryDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={loading}
+            data-qa="btn-archive-cancel"
           >
             Cancel
           </Button>
-          <Button variant="destructive" onClick={handleArchive} disabled={loading}>
+          <Button variant="destructive" onClick={handleArchive} disabled={loading} data-qa="btn-archive-confirm">
             {loading ? "Archiving..." : "Archive Category"}
           </Button>
         </DialogFooter>

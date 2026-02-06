@@ -126,7 +126,7 @@ export function MoveFundsDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" data-qa="dialog-move-funds">
         <DialogHeader>
           <DialogTitle>Move Funds</DialogTitle>
           <DialogDescription>
@@ -139,7 +139,7 @@ export function MoveFundsDialog({
           <div className="grid gap-2">
             <Label htmlFor="source-budget">From</Label>
             <Select value={sourceBudgetId} onValueChange={setSourceBudgetId}>
-              <SelectTrigger id="source-budget">
+              <SelectTrigger id="source-budget" data-qa="select-source-budget">
                 <SelectValue placeholder="Select source budget" />
               </SelectTrigger>
               <SelectContent>
@@ -167,7 +167,7 @@ export function MoveFundsDialog({
               </SelectContent>
             </Select>
             {sourceBudget && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground" data-qa="text-available-balance">
                 Available: {formatCurrency(sourceBudget.available)}
               </p>
             )}
@@ -180,7 +180,7 @@ export function MoveFundsDialog({
           <div className="grid gap-2">
             <Label htmlFor="dest-budget">To</Label>
             <Select value={destBudgetId} onValueChange={setDestBudgetId}>
-              <SelectTrigger id="dest-budget">
+              <SelectTrigger id="dest-budget" data-qa="select-dest-budget">
                 <SelectValue placeholder="Select destination budget" />
               </SelectTrigger>
               <SelectContent>
@@ -230,6 +230,7 @@ export function MoveFundsDialog({
                 }
               }}
               className="tabular-nums"
+              data-qa="input-transfer-amount"
             />
             {sourceBudget && isValidAmount && parsedAmount > sourceBudget.available && (
               <p className="text-xs text-yellow-600 dark:text-yellow-400">
@@ -244,10 +245,10 @@ export function MoveFundsDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={loading}>
+          <Button variant="outline" onClick={handleClose} disabled={loading} data-qa="btn-move-cancel">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
+          <Button onClick={handleSubmit} disabled={!canSubmit} data-qa="btn-move-submit">
             {loading ? "Moving..." : "Move Funds"}
           </Button>
         </DialogFooter>

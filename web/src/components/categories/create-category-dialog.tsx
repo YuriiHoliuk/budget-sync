@@ -115,7 +115,7 @@ export function CreateCategoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" data-qa="dialog-create-category">
         <DialogHeader>
           <DialogTitle>Create Category</DialogTitle>
           <DialogDescription>
@@ -137,6 +137,7 @@ export function CreateCategoryDialog({
                   handleSubmit();
                 }
               }}
+              data-qa="input-category-name"
             />
           </div>
 
@@ -148,7 +149,7 @@ export function CreateCategoryDialog({
                 setParentName(value === "none" ? null : value)
               }
             >
-              <SelectTrigger id="category-parent" className="w-full">
+              <SelectTrigger id="category-parent" className="w-full" data-qa="select-parent-category">
                 <SelectValue placeholder="No parent (root category)" />
               </SelectTrigger>
               <SelectContent>
@@ -171,7 +172,7 @@ export function CreateCategoryDialog({
               value={status}
               onValueChange={(value) => setStatus(value as CategoryStatus)}
             >
-              <SelectTrigger id="category-status" className="w-full">
+              <SelectTrigger id="category-status" className="w-full" data-qa="select-category-status">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
@@ -196,7 +197,7 @@ export function CreateCategoryDialog({
           <Button variant="outline" onClick={handleClose} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
+          <Button onClick={handleSubmit} disabled={!canSubmit} data-qa="btn-create-save">
             {loading ? "Creating..." : "Create Category"}
           </Button>
         </DialogFooter>

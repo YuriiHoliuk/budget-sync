@@ -28,10 +28,11 @@ export function MonthSelector() {
         className="size-8"
         onClick={() => navigateMonth(-1)}
         aria-label="Previous month"
+        data-qa="btn-prev-month"
       >
         <ChevronLeftIcon className="size-4" />
       </Button>
-      <span className="min-w-[140px] text-center text-sm font-medium">
+      <span className="min-w-[140px] text-center text-sm font-medium" data-qa="text-current-month">
         {formatMonthDisplay(month)}
       </span>
       <Button
@@ -40,6 +41,7 @@ export function MonthSelector() {
         className="size-8"
         onClick={() => navigateMonth(1)}
         aria-label="Next month"
+        data-qa="btn-next-month"
       >
         <ChevronRightIcon className="size-4" />
       </Button>

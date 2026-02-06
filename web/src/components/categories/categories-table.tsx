@@ -190,18 +190,19 @@ export function CategoriesTable({
             id="show-archived"
             checked={showArchived}
             onCheckedChange={setShowArchived}
+            data-qa="switch-show-archived"
           />
           <Label htmlFor="show-archived" className="text-sm text-muted-foreground">
             Show archived
           </Label>
         </div>
-        <Button size="sm" onClick={() => setCreateCategoryOpen(true)}>
+        <Button size="sm" onClick={() => setCreateCategoryOpen(true)} data-qa="btn-create-category">
           <Plus className="mr-2 h-4 w-4" />
           Create Category
         </Button>
       </div>
       <div className="rounded-xl border">
-        <Table>
+        <Table data-qa="categories-table">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[400px]">Category</TableHead>
@@ -275,7 +276,7 @@ function CategoryRow({
   const FolderIcon = isExpanded ? FolderOpen : Folder;
 
   return (
-    <TableRow className={cn(isArchived && "opacity-60")}>
+    <TableRow className={cn(isArchived && "opacity-60")} data-qa={`category-row-${category.id}`}>
       <TableCell>
         <div className={cn("flex items-center gap-2", isChild && "pl-8")}>
           {!isChild && hasChildren ? (
@@ -284,6 +285,7 @@ function CategoryRow({
               size="sm"
               className="h-8 w-8 p-0"
               onClick={onToggleExpand}
+              data-qa={`btn-expand-${category.id}`}
             >
               <ChevronRight
                 className={cn(
@@ -302,7 +304,7 @@ function CategoryRow({
             <FolderIcon className="h-4 w-4 text-muted-foreground" />
           </div>
           <div>
-            <div className="font-medium">{category.name}</div>
+            <div className="font-medium" data-qa={`category-name-${category.id}`}>{category.name}</div>
             {isChild && category.parentName && (
               <div className="text-xs text-muted-foreground">
                 {category.fullPath}
@@ -312,36 +314,36 @@ function CategoryRow({
         </div>
       </TableCell>
       <TableCell>
-        <Badge variant={STATUS_VARIANTS[category.status]}>
+        <Badge variant={STATUS_VARIANTS[category.status]} data-qa={`category-status-${category.id}`}>
           {STATUS_LABELS[category.status]}
         </Badge>
       </TableCell>
       <TableCell className="text-center">
         {hasChildren ? (
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-muted-foreground" data-qa={`category-children-count-${category.id}`}>
             {category.children?.length}
           </span>
         ) : (
-          <span className="text-sm text-muted-foreground">—</span>
+          <span className="text-sm text-muted-foreground" data-qa={`category-children-count-${category.id}`}>—</span>
         )}
       </TableCell>
       <TableCell>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" data-qa={`category-menu-${category.id}`}>
               <MoreHorizontal className="h-4 w-4" />
               <span className="sr-only">Open menu</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onEdit}>
+            <DropdownMenuItem onClick={onEdit} data-qa={`category-edit-${category.id}`}>
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
             {!isArchived && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onArchive} variant="destructive">
+                <DropdownMenuItem onClick={onArchive} variant="destructive" data-qa={`category-archive-${category.id}`}>
                   <Archive className="mr-2 h-4 w-4" />
                   Archive
                 </DropdownMenuItem>

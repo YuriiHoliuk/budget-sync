@@ -154,7 +154,7 @@ export function CreateAccountDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" data-qa="dialog-create-account">
         <DialogHeader>
           <DialogTitle>Add Account</DialogTitle>
           <DialogDescription>
@@ -175,6 +175,7 @@ export function CreateAccountDialog({
                   handleSubmit();
                 }
               }}
+              data-qa="input-account-name"
             />
           </div>
 
@@ -189,7 +190,7 @@ export function CreateAccountDialog({
                 }
               }}
             >
-              <SelectTrigger id="account-type" className="w-full">
+              <SelectTrigger id="account-type" className="w-full" data-qa="select-account-type">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
@@ -212,7 +213,7 @@ export function CreateAccountDialog({
               value={accountRole}
               onValueChange={(value) => setAccountRole(value as AccountRole)}
             >
-              <SelectTrigger id="account-role" className="w-full">
+              <SelectTrigger id="account-role" className="w-full" data-qa="select-account-role">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
@@ -300,7 +301,7 @@ export function CreateAccountDialog({
           <Button variant="outline" onClick={handleClose} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
+          <Button onClick={handleSubmit} disabled={!canSubmit} data-qa="btn-create-save">
             {loading ? "Adding..." : "Add Account"}
           </Button>
         </DialogFooter>

@@ -69,6 +69,7 @@ export function InlineAllocationEditor({
           "h-8 w-28 text-right tabular-nums",
           isSaving && "opacity-50",
         )}
+        data-qa="allocation-input"
       />
     </div>
   );

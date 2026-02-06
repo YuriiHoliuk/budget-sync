@@ -290,7 +290,7 @@
     "phase": "P7: API Integration Tests",
     "title": "Set up API integration test infrastructure",
     "description": "Create tests/integration/api/ directory. Set up test harness that: starts local Postgres (from docker-compose), runs migrations, creates Apollo Server instance with test container (mocked spreadsheet/bank), provides helpers to seed data and make GraphQL queries. Use Bun test runner. Add factory functions for creating test entities.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P2-001", "P1-004"]
   },
   {
@@ -298,7 +298,7 @@
     "phase": "P7: API Integration Tests",
     "title": "Write API integration tests for core queries and mutations",
     "description": "Write integration tests for: accounts query, budgets CRUD, categories CRUD, allocations CRUD, moveFunds mutation, transactions query with filters, monthlyOverview computation. Each test seeds data, executes query/mutation, asserts response.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P7-001", "P2-007"]
   },
 
@@ -307,7 +307,7 @@
     "phase": "P8: E2E Tests (Playwright)",
     "title": "Set up Playwright E2E test infrastructure with structured fixtures",
     "description": "Install Playwright and configure e2e/ directory. Create docker-compose.e2e.yml that spins up fresh PostgreSQL, runs migrations, seeds test data, starts API server (with mocked Monobank/spreadsheet), and starts Next.js. Configure playwright.config.ts with baseURL, timeout, retries. Create base test fixtures using Playwright's test.extend() for: fresh database state per test file, API client for direct DB manipulation, authenticated page context. Add `just test-e2e` command that orchestrates the full stack. Create e2e/fixtures/ for test data factories and e2e/utils/ for helpers.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P4-002", "P5-002"]
   },
   {
@@ -315,7 +315,7 @@
     "phase": "P8: E2E Tests (Playwright)",
     "title": "Create Page Objects and reusable component classes",
     "description": "Create Page Object Model (POM) pattern in e2e/pages/: BasePage (common selectors, wait utilities), BudgetPage (budget table, metrics, move funds dialog), TransactionsPage (filters, table, pagination), AccountsPage (account groups, CRUD dialogs), CategoriesPage (tree view, CRUD). Create reusable component classes in e2e/components/: Table (row selection, sorting), Dialog (open/close, form submit), MonthSelector (navigate months), InlineEditor (edit/save/cancel). All selectors use data-qa attributes (e.g., [data-qa='budget-table'], [data-qa='move-funds-btn']). Add data-qa attributes to frontend components as needed.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P8-001"]
   },
   {

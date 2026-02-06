@@ -55,7 +55,7 @@ export function ArchiveAccountDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent className="sm:max-w-[400px]" data-qa="dialog-archive-account">
         <DialogHeader>
           <DialogTitle>Archive Account</DialogTitle>
           <DialogDescription>
@@ -81,6 +81,7 @@ export function ArchiveAccountDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={loading}
+            data-qa="btn-archive-cancel"
           >
             Cancel
           </Button>
@@ -88,6 +89,7 @@ export function ArchiveAccountDialog({
             variant="destructive"
             onClick={handleArchive}
             disabled={loading}
+            data-qa="btn-archive-confirm"
           >
             {loading ? "Archiving..." : "Archive Account"}
           </Button>
