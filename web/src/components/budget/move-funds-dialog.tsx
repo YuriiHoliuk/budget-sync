@@ -23,10 +23,10 @@ import {
 } from "@/components/ui/select";
 import {
   MoveFundsDocument,
-  GetMonthlyOverviewDocument,
   type BudgetSummary,
 } from "@/graphql/generated/graphql";
 import { useMonth } from "@/hooks/use-month";
+import { updateMonthlyOverviewCacheForMoveFunds } from "@/lib/cache-utils";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -51,11 +51,7 @@ export function MoveFundsDialog({
   const [amount, setAmount] = useState<string>("");
   const [error, setError] = useState<string>("");
 
-  const [moveFunds, { loading }] = useMutation(MoveFundsDocument, {
-    refetchQueries: [
-      { query: GetMonthlyOverviewDocument, variables: { month } },
-    ],
-  });
+  const [moveFunds, { loading }] = useMutation(MoveFundsDocument);
 
   const sourceBudget = budgetSummaries.find(
     (budget) => budget.budgetId.toString() === sourceBudgetId,
@@ -78,16 +74,28 @@ export function MoveFundsDialog({
 
     setError("");
 
+    const srcId = Number.parseInt(sourceBudgetId, 10);
+    const dstId = Number.parseInt(destBudgetId, 10);
+
     try {
       await moveFunds({
         variables: {
           input: {
-            sourceBudgetId: Number.parseInt(sourceBudgetId, 10),
-            destBudgetId: Number.parseInt(destBudgetId, 10),
+            sourceBudgetId: srcId,
+            destBudgetId: dstId,
             amount: parsedAmount,
             currency: "UAH",
             period: month,
           },
+        },
+        update: (cache) => {
+          updateMonthlyOverviewCacheForMoveFunds(
+            cache,
+            month,
+            srcId,
+            dstId,
+            parsedAmount,
+          );
         },
       });
       handleClose();

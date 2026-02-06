@@ -27,13 +27,13 @@ import {
 } from "@/components/ui/table";
 import {
   CreateAllocationDocument,
-  GetMonthlyOverviewDocument,
   GetBudgetDocument,
   type BudgetSummary,
   BudgetType,
   type TargetCadence,
 } from "@/graphql/generated/graphql";
 import { useMonth } from "@/hooks/use-month";
+import { updateMonthlyOverviewCache } from "@/lib/cache-utils";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { InlineAllocationEditor } from "./inline-allocation-editor";
@@ -98,11 +98,7 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
     skip: selectedBudgetId === null,
   });
 
-  const [createAllocation] = useMutation(CreateAllocationDocument, {
-    refetchQueries: [
-      { query: GetMonthlyOverviewDocument, variables: { month } },
-    ],
-  });
+  const [createAllocation] = useMutation(CreateAllocationDocument);
 
   const handleMoveFunds = (sourceBudgetId?: number) => {
     setMoveFundsSourceId(sourceBudgetId);
@@ -141,6 +137,9 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
           currency: "UAH",
           period: month,
         },
+      },
+      update: (cache) => {
+        updateMonthlyOverviewCache(cache, month, budgetId, amount);
       },
     });
     setEditingBudgetId(null);

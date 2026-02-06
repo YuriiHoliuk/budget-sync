@@ -247,7 +247,7 @@
     "phase": "P4: Budget Overview Page (Main Feature)",
     "title": "Add optimistic responses to mutations",
     "description": "Implement optimistic responses for all frontend mutations: createAllocation, updateAllocation, moveFunds, createBudget, updateBudget. Use Apollo Client optimisticResponse option. Ensure immediate UI feedback before server confirmation. Handle rollback on errors gracefully.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P4-003", "TX-006"]
   },
 
