@@ -1060,6 +1060,75 @@ bun test tests/integration
 TEST_SPREADSHEET_ID=test-123 bun test tests/integration/repositories
 ```
 
+### E2E Tests (Playwright)
+
+E2E tests run the full stack (database, API, frontend) in an isolated environment.
+
+**Structure:**
+
+```
+e2e/
+├── pages/               # Page Object Model classes
+│   ├── BasePage.ts      # Common selectors and utilities
+│   ├── BudgetPage.ts    # Budget page interactions
+│   ├── TransactionsPage.ts
+│   ├── AccountsPage.ts
+│   └── CategoriesPage.ts
+├── components/          # Reusable test components
+│   ├── Table.ts         # Table interactions
+│   ├── Dialog.ts        # Dialog interactions
+│   ├── InlineEditor.ts  # Inline editing
+│   └── MonthSelector.ts # Month navigation
+├── fixtures/            # Test setup and factories
+│   ├── test-base.ts     # authenticatedPage, graphql fixtures
+│   ├── data-factories.ts # createBudget, createAccount, etc.
+│   └── index.ts
+└── tests/               # Test specs (one scenario per file)
+    └── smoke.spec.ts
+```
+
+**Running E2E tests:**
+
+```bash
+just test-e2e           # Run all E2E tests
+just test-e2e-ui        # Interactive Playwright UI
+just test-e2e-headed    # Watch tests run in browser
+just test-e2e-file <path>  # Run specific test file
+just e2e-report         # View HTML report
+```
+
+**Writing E2E tests:**
+
+- Use Page Objects for all page interactions
+- One test scenario per file (easier debugging, parallelization)
+- Use `data-qa` attributes for element selection
+- Use data factories to create test data via GraphQL
+
+```typescript
+// e2e/tests/budget/edit-allocation.spec.ts
+import { test, expect, BudgetPage } from '../../fixtures';
+
+test('should edit allocation inline', async ({ authenticatedPage, graphql }) => {
+  // Arrange: Create test data via GraphQL
+  const budget = await createBudget({ name: 'Groceries', type: 'SPENDING' });
+
+  // Act: Use page object to interact
+  const budgetPage = new BudgetPage(authenticatedPage);
+  await budgetPage.goto();
+  await budgetPage.editAllocation(budget.id, '500');
+
+  // Assert: Verify the change
+  expect(await budgetPage.getAllocatedAmount(budget.id)).toContain('500');
+});
+```
+
+**Key patterns:**
+
+- Page objects wrap all selectors and provide high-level methods
+- Fixtures provide authenticated page and GraphQL client
+- Tests are self-contained with own test data
+- Components (Table, Dialog) are reusable across pages
+
 ---
 
 ## Key Principles

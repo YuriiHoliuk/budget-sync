@@ -334,6 +334,14 @@
     "status": "todo",
     "dependencies": ["P8-002"]
   },
+  {
+    "id": "P8-005",
+    "phase": "P8: E2E Tests (Playwright)",
+    "title": "Refactor E2E tests to one scenario per file",
+    "description": "Refactor existing smoke.spec.ts to follow one-scenario-per-file pattern. Split into separate files: e2e/tests/smoke/authentication.spec.ts, e2e/tests/smoke/navigation.spec.ts, e2e/tests/smoke/graphql-api.spec.ts. Each file should have a single test scenario for easier debugging, better parallelization, and clearer test reports. Update any future test files to follow this pattern.",
+    "status": "todo",
+    "dependencies": ["P8-002"]
+  },
 
   {
     "id": "P9-001",
