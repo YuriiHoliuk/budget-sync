@@ -2,6 +2,44 @@
 
 ## 2026-02-06
 
+### P5-003: Build Transaction detail/edit panel
+
+- Created `TransactionDetailPanel` component using Sheet UI from ShadCN
+- Panel opens when clicking any transaction row in the transactions table
+- Displays full transaction details:
+  - Title (counterparty name), date, amount with currency
+  - Status badge (Pending/AI Categorized/Verified)
+  - Classification section with Category and Budget dropdowns
+  - AI reasoning notes for category/budget when available
+  - Verify Categorization button for non-verified transactions
+  - Transaction Details: Account (with Synced/Manual badge), Counterparty, IBAN, MCC
+  - Additional info: Cashback, Commission, Receipt ID (when available)
+  - Identifiers section: Internal ID, External ID
+- Added click propagation handling to prevent row clicks when interacting with inline edit buttons
+- Uses existing mutations (UpdateTransactionCategory, UpdateTransactionBudget, VerifyTransaction)
+- Tested panel opening, category/budget editing, and close behavior
+
+### P5-002: Build Transactions page with filtering and pagination
+
+- Created full Transactions page with comprehensive filtering and pagination
+- Added GraphQL operations:
+  - `GetTransactions` query with full transaction fields including category, budget, account relations
+  - `GetTransaction` query for single transaction details
+  - `GetCategories` query for filter dropdown
+  - `UpdateTransactionCategory` mutation
+  - `VerifyTransaction` mutation
+- Created `TransactionsTable` component:
+  - Search box for text search across description/counterparty
+  - Filters popover with: Account, Category, Budget, Type (Expense/Income), Status (Pending/Categorized/Verified), Date range
+  - Clear filters button with active filter count badge
+  - Paginated table showing 25 items per page
+  - Transaction rows with: date, description with type icon, account, category (clickable), budget (clickable), status badge, amount (color-coded)
+  - Inline editing for category and budget via dropdowns
+  - Verify button for non-verified transactions
+- Added ShadCN Popover component for filters panel
+- Fixed ShadCN Select v4 compatibility issue (empty string values not allowed, use "all"/"none" sentinel values)
+- Tested filtering, pagination, and UI interactions with browser
+
 ### P5-001: Build Accounts page with CRUD for manual accounts
 
 - Created full Accounts page showing all accounts grouped by role (Operational, Savings)

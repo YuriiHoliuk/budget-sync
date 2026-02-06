@@ -264,7 +264,7 @@
     "phase": "P5: Accounts & Transactions Pages",
     "title": "Build Transactions page with filtering and pagination",
     "description": "Create Transactions page with: filterable table (date range, account, category, budget, search text, status), pagination, sortable columns. Show: date, description, amount (color by type), category, budget, status badge. Click row to expand details.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P3-003", "P2-006", "TX-006"]
   },
   {
@@ -272,7 +272,7 @@
     "phase": "P5: Accounts & Transactions Pages",
     "title": "Build Transaction detail/edit panel",
     "description": "When a transaction is clicked, show a side panel or expanded row with full details. Allow editing: category (dropdown with search), budget (dropdown with search), notes. Show AI reasoning if available. Add Verify button to confirm categorization. For manual account transactions, allow full editing including amount and date.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["P5-002", "P2-004", "P2-009"]
   },
 
