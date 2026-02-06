@@ -94,7 +94,7 @@ describe("updateMonthlyOverviewCache", () => {
 
     const groceriesBudget = writtenData.monthlyOverview.budgetSummaries.find(
       (budget: { budgetId: number }) => budget.budgetId === 1,
-    );
+    )!;
     expect(groceriesBudget.allocated).toBe(500); // 400 + 100
     expect(groceriesBudget.available).toBe(300); // 200 + 100
   });
@@ -115,7 +115,7 @@ describe("updateMonthlyOverviewCache", () => {
 
     const groceriesBudget = writtenData.monthlyOverview.budgetSummaries.find(
       (budget: { budgetId: number }) => budget.budgetId === 1,
-    );
+    )!;
     expect(groceriesBudget.allocated).toBe(350); // 400 - 50
     expect(groceriesBudget.available).toBe(150); // 200 - 50
   });
@@ -147,7 +147,7 @@ describe("updateMonthlyOverviewCache", () => {
 
     const rentBudget = writtenData.monthlyOverview.budgetSummaries.find(
       (budget: { budgetId: number }) => budget.budgetId === 2,
-    );
+    )!;
     expect(rentBudget.allocated).toBe(1000); // unchanged
     expect(rentBudget.available).toBe(0); // unchanged
   });
@@ -175,13 +175,13 @@ describe("updateMonthlyOverviewCacheForMoveFunds", () => {
 
     const groceriesBudget = writtenData.monthlyOverview.budgetSummaries.find(
       (budget: { budgetId: number }) => budget.budgetId === 1,
-    );
+    )!;
     expect(groceriesBudget.allocated).toBe(300); // 400 - 100
     expect(groceriesBudget.available).toBe(100); // 200 - 100
 
     const savingsBudget = writtenData.monthlyOverview.budgetSummaries.find(
       (budget: { budgetId: number }) => budget.budgetId === 3,
-    );
+    )!;
     expect(savingsBudget.allocated).toBe(600); // 500 + 100
     expect(savingsBudget.available).toBe(600); // 500 + 100
   });
@@ -201,7 +201,7 @@ describe("updateMonthlyOverviewCacheForMoveFunds", () => {
 
     const rentBudget = writtenData.monthlyOverview.budgetSummaries.find(
       (budget: { budgetId: number }) => budget.budgetId === 2,
-    );
+    )!;
     expect(rentBudget.allocated).toBe(1000); // unchanged
     expect(rentBudget.available).toBe(0); // unchanged
   });

@@ -3,6 +3,10 @@
 ## 2026-02-06
 
 ### Added
+- Frontend quality checks to `just check` command (P3-007)
+  - Now runs `tsc --noEmit` and `bun run lint` in web/ directory
+  - Fixed TypeScript errors in cache-utils.test.ts (added non-null assertions)
+
 - Optimistic cache updates for budget mutations (P4-006)
   - Inline allocation editing now updates UI instantly without waiting for server response
   - Move funds dialog updates both source and destination budgets immediately

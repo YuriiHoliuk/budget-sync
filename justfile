@@ -94,9 +94,9 @@ job-debug job='sync-accounts':
 # Code Quality
 # ============================================
 
-# Run all checks (typecheck + lint)
+# Run all checks (typecheck + lint) for backend and frontend
 check:
-    bun run typecheck && bun run check
+    bun run typecheck && bun run check && cd web && bun run tsc --noEmit && bun run lint
 
 # Fix lint and format issues
 fix:

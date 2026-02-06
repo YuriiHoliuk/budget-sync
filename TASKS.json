@@ -174,7 +174,7 @@
     "phase": "P3: Next.js Frontend Setup",
     "title": "Add frontend to just check command",
     "description": "Update justfile `check` command to include frontend type checking and linting: run `cd web && bun run lint && tsc --noEmit`. Ensure both backend and frontend quality checks run together. Consider adding parallel execution for speed.",
-    "status": "todo",
+    "status": "done",
     "dependencies": ["TX-007"]
   },
   {
