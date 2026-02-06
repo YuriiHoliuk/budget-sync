@@ -405,7 +405,7 @@
     "phase": "TX: Technical Debt",
     "title": "Auto-verify transaction when user edits category or budget",
     "description": "When user manually updates a transaction's category or budget via updateTransactionCategory or updateTransactionBudget mutations, automatically set categorizationStatus to VERIFIED. This confirms that the user has reviewed and accepted the categorization (even if they changed it). Currently these mutations don't update the status. Filter by 'categorized' status to see LLM-categorized transactions that need review.",
-    "status": "todo",
+    "status": "done",
     "dependencies": []
   }
 ]

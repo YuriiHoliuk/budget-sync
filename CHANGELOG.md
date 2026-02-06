@@ -2,6 +2,13 @@
 
 ## 2026-02-06
 
+### TX-008: Auto-verify transaction when user edits category or budget
+
+- Modified `DatabaseTransactionRepository.updateRecordCategory()` and `updateRecordBudget()` to automatically set `categorizationStatus` to `'verified'`
+- When user manually updates a transaction's category or budget, the transaction is auto-verified
+- This confirms the user has reviewed and accepted (or changed) the categorization
+- Tested both mutations via GraphQL API to verify behavior works correctly
+
 ### P6-001: Build Categories management page
 
 - Created Categories page (`/categories`) with full CRUD functionality

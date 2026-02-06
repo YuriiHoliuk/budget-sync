@@ -272,9 +272,14 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     dbId: number,
     categoryId: number | null,
   ): Promise<TransactionRecord | null> {
+    // Auto-verify: user manually updating category confirms they've reviewed the transaction
     const rows = await this.db
       .update(transactions)
-      .set({ categoryId, updatedAt: new Date() })
+      .set({
+        categoryId,
+        categorizationStatus: 'verified',
+        updatedAt: new Date(),
+      })
       .where(eq(transactions.id, dbId))
       .returning();
     return rows[0] ? this.rowToRecord(rows[0]) : null;
@@ -284,9 +289,14 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     dbId: number,
     budgetId: number | null,
   ): Promise<TransactionRecord | null> {
+    // Auto-verify: user manually updating budget confirms they've reviewed the transaction
     const rows = await this.db
       .update(transactions)
-      .set({ budgetId, updatedAt: new Date() })
+      .set({
+        budgetId,
+        categorizationStatus: 'verified',
+        updatedAt: new Date(),
+      })
       .where(eq(transactions.id, dbId))
       .returning();
     return rows[0] ? this.rowToRecord(rows[0]) : null;
