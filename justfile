@@ -118,9 +118,31 @@ test-watch:
 test-integration:
     bun test tests/integration
 
-# Run API integration tests (requires local PostgreSQL)
+# Run all API integration tests (starts test DB, migrates, runs tests)
 test-api:
+    #!/bin/bash
+    set -e
+    export DATABASE_URL="postgresql://budget_sync_test:budget_sync_test@localhost:5433/budget_sync_test"
+    docker compose -f docker-compose.test.yml up -d --wait
+    bunx drizzle-kit migrate
     bun test tests/integration/api
+
+# Run a single API integration test file
+test-api-file file:
+    #!/bin/bash
+    set -e
+    export DATABASE_URL="postgresql://budget_sync_test:budget_sync_test@localhost:5433/budget_sync_test"
+    docker compose -f docker-compose.test.yml up -d --wait
+    bunx drizzle-kit migrate
+    bun test {{file}}
+
+# Stop test database
+test-api-down:
+    docker compose -f docker-compose.test.yml down
+
+# Stop and remove test database volume (full reset)
+test-api-reset:
+    docker compose -f docker-compose.test.yml down -v
 
 # Run tests with coverage
 test-coverage:

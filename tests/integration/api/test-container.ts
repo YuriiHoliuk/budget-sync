@@ -7,6 +7,11 @@
  * - Mocked external gateways (bank, message queue, LLM)
  *
  * This is similar to container.local.ts but optimized for testing.
+ *
+ * SAFETY:
+ * - Validates DATABASE_URL doesn't point to production (neon.tech, supabase.co, etc.)
+ * - Run tests via `just test-api` which sets DATABASE_URL to test database
+ * - Defaults to local Docker test database on port 5433
  */
 
 import 'reflect-metadata';
@@ -43,15 +48,53 @@ import {
 import { container } from 'tsyringe';
 
 /**
- * Get the test database URL.
- * Uses environment variable or falls back to local Docker default.
+ * Patterns that indicate a production database.
+ * If the database URL matches any of these, tests will be blocked.
+ */
+const PRODUCTION_DB_PATTERNS = [
+  'neon.tech', // Neon Serverless Postgres (production)
+  'supabase.co', // Supabase
+  'aws.neon.tech', // Neon AWS endpoints
+  '.cloud.', // Generic cloud indicators
+];
+
+/**
+ * Check if the database URL looks like a production database.
+ * This is a safety check to prevent running destructive tests on production.
+ */
+function looksLikeProductionDatabase(url: string): boolean {
+  const lowerUrl = url.toLowerCase();
+  return PRODUCTION_DB_PATTERNS.some((pattern) => lowerUrl.includes(pattern));
+}
+
+/**
+ * Get the database URL for tests.
+ *
+ * SAFETY: Validates that DATABASE_URL doesn't point to a production database.
+ * Tests should be run via `just test-api` which sets DATABASE_URL to the test database.
+ *
+ * If DATABASE_URL is not set, falls back to local Docker default.
+ *
+ * @throws Error if the database URL looks like a production database
  */
 function getTestDatabaseUrl(): string {
-  return (
-    process.env['TEST_DATABASE_URL'] ??
-    process.env['DATABASE_URL'] ??
-    'postgresql://budget_sync:budget_sync@localhost:5432/budget_sync'
-  );
+  const databaseUrl = process.env['DATABASE_URL'];
+
+  // If DATABASE_URL is set, validate it doesn't point to production
+  if (databaseUrl) {
+    if (looksLikeProductionDatabase(databaseUrl)) {
+      throw new Error(
+        'SAFETY: DATABASE_URL appears to point to a production database!\n' +
+          `URL contains a production pattern: ${PRODUCTION_DB_PATTERNS.join(', ')}\n` +
+          'Integration tests can TRUNCATE ALL DATA. Use a local database for testing.\n' +
+          'Run tests via: just test-api',
+      );
+    }
+    return databaseUrl;
+  }
+
+  // Default to local Docker test database
+  return 'postgresql://budget_sync_test:budget_sync_test@localhost:5433/budget_sync_test';
 }
 
 /**

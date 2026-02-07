@@ -1,0 +1,30 @@
+# Docker Compose for API Integration Tests
+#
+# Isolated test database on port 5433 (separate from dev on 5432).
+# Used by: just test-api, just test-api-file
+#
+# Usage:
+#   just test-api                    # Run all API integration tests
+#   just test-api-file <path>        # Run single test file
+#   just test-api-down               # Stop test database
+#   just test-api-reset              # Stop and delete volume
+
+services:
+  db-test:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: budget_sync_test
+      POSTGRES_PASSWORD: budget_sync_test
+      POSTGRES_DB: budget_sync_test
+    volumes:
+      - test-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U budget_sync_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+volumes:
+  test-pgdata:

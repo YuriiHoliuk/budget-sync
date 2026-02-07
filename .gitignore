@@ -46,3 +46,6 @@ deployer-key.json
 # Playwright e2e test artifacts
 e2e/playwright-report/
 e2e/test-results/
+
+# Recovery data (contains personal financial data)
+recovery/
