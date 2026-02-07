@@ -16,7 +16,7 @@ export interface TuiState {
   logs: LogEntry[];
   currentIteration: number;
   maxIterations: number;
-  status: 'idle' | 'running' | 'rate-limited' | 'stopped';
+  status: 'idle' | 'running' | 'waiting' | 'rate-limited' | 'stopped';
   inputTokens: number;
   outputTokens: number;
   cost: number;

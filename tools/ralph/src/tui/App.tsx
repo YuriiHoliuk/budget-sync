@@ -33,6 +33,8 @@ export function App({ config }: AppProps) {
 
   const hasStartedRef = useRef(false);
   const outputRef = useRef('');
+  const autoIterateRef = useRef(true); // Auto-start next iteration when turn completes
+  const iterationRef = useRef(1); // Track current iteration for async callbacks
 
   // Load prompt from file
   const loadPrompt = useCallback((): string => {
@@ -47,7 +49,8 @@ export function App({ config }: AppProps) {
     return fs.readFileSync(promptPath, 'utf-8').trim();
   }, [config.promptFile, config.cwd]);
 
-  // Create a logger that writes to the TUI (but skip claudeOutput since hook handles it)
+  // Create a logger that writes to the TUI
+  // Note: claudeOutput, toolStart, toolEnd are handled by hook callbacks to avoid duplicates
   const createTuiLogger = useCallback(
     (): RalphLogger => ({
       debug: (msg: string) => {
@@ -58,9 +61,8 @@ export function App({ config }: AppProps) {
       error: (msg: string) => addLog('error', msg),
       success: (msg: string) => addLog('info', `[OK] ${msg}`),
       claudeOutput: () => {}, // Handled by onOutput callback
-      toolStart: (name: string) => addLog('tool', `[>] ${name}`),
-      toolEnd: (name: string, isError: boolean) =>
-        addLog('tool', `${isError ? '[x]' : '[v]'} ${name}`),
+      toolStart: () => {},    // Handled by onToolStart callback
+      toolEnd: () => {},      // Handled by onToolEnd callback
       iterationStart: () => {},
       iterationEnd: () => {},
       banner: () => {},
@@ -69,32 +71,23 @@ export function App({ config }: AppProps) {
     [addLog, config.verbose],
   );
 
-  // Check for exit signal in output
-  const checkExitSignal = useCallback(
-    (content: string): boolean => {
-      outputRef.current += content;
-      return outputRef.current.includes(config.exitSignal);
-    },
-    [config.exitSignal],
-  );
-
-  const { start, stop, sendMessage, isRunning } = useClaudeProcess({
+  const { start, stop, restart, sendMessage, isRunning, isWaitingForInput } = useClaudeProcess({
     model: config.model,
-    initialPrompt: loadPrompt(),
+    getPrompt: loadPrompt, // Pass function so prompt is re-read each iteration
     logger: createTuiLogger(),
     cwd: config.cwd,
     onOutput: (content: string) => {
       addLog('claude', content);
-      if (checkExitSignal(content)) {
-        addLog('system', `\n[OK] Exit signal detected: ${config.exitSignal}`);
-        setState((prev) => ({ ...prev, status: 'stopped' }));
-        stop();
-      }
+      // Track output for exit signal check (checked in onTurnComplete)
+      outputRef.current += content;
     },
     onToolStart: (name: string) => addLog('tool', `[>] ${name}`),
     onToolEnd: (name: string, isError: boolean) =>
       addLog('tool', `${isError ? '[x]' : '[v]'} ${name}`),
     onTokens: (input: number, output: number) => {
+      if (config.verbose) {
+        addLog('debug', `[Tokens] in=${input}, out=${output}`);
+      }
       setState((prev) => ({
         ...prev,
         inputTokens: input,
@@ -105,11 +98,65 @@ export function App({ config }: AppProps) {
       setState((prev) => ({
         ...prev,
         cost: prev.cost + (result.cost || 0),
+        inputTokens: result.inputTokens || prev.inputTokens,
+        outputTokens: result.outputTokens || prev.outputTokens,
         status: 'stopped',
         isRunning: false,
       }));
       markIterationComplete();
       addLog('system', '\n----- Session Complete -----');
+    },
+    onTurnComplete: () => {
+      if (config.verbose) {
+        addLog('debug', '[Turn Complete] Claude finished a turn');
+      }
+
+      // Claude finished a turn - check if we should auto-iterate
+      if (!autoIterateRef.current) {
+        if (config.verbose) {
+          addLog('debug', '[Turn Complete] Auto-iterate disabled, waiting for user input');
+        }
+        return;
+      }
+
+      // Check if exit signal was detected
+      if (outputRef.current.includes(config.exitSignal)) {
+        addLog('system', `\n[OK] Exit signal detected: ${config.exitSignal}`);
+        setState((prev) => ({ ...prev, status: 'stopped' }));
+        stop();
+        return;
+      }
+
+      // Check if max iterations reached
+      if (iterationRef.current >= config.maxIterations) {
+        addLog('system', '\n[WARN] Max iterations reached');
+        setState((prev) => ({ ...prev, status: 'stopped' }));
+        stop();
+        return;
+      }
+
+      // Start next iteration
+      iterationRef.current += 1;
+      const nextIteration = iterationRef.current;
+      addLog('system', `\n----- Iteration ${nextIteration}/${config.maxIterations} -----`);
+      outputRef.current = ''; // Reset output buffer for new iteration
+
+      setState((prev) => ({
+        ...prev,
+        currentIteration: nextIteration,
+        status: 'running',
+      }));
+
+      // Restart with fresh Claude process after a small delay
+      if (config.verbose) {
+        addLog('debug', `[Turn Complete] Restarting Claude in 1.5s...`);
+      }
+      setTimeout(() => {
+        if (config.verbose) {
+          addLog('debug', `[Turn Complete] Starting fresh Claude process`);
+        }
+        restart(); // Spawn new process with fresh prompt (re-reads PROMPT.md)
+      }, 1500);
     },
   });
 
@@ -131,10 +178,21 @@ export function App({ config }: AppProps) {
     }
   }, [start, addLog, config.model]);
 
-  // Update isRunning state when hook changes
+  // Update status based on hook state
   useEffect(() => {
-    setState((prev) => ({ ...prev, isRunning }));
-  }, [isRunning]);
+    setState((prev) => {
+      // If process is running, always update status (even if was 'stopped')
+      if (isRunning) {
+        if (isWaitingForInput) {
+          return { ...prev, isRunning, status: 'waiting' };
+        }
+        return { ...prev, isRunning, status: 'running' };
+      }
+      // Process not running - keep stopped if already stopped
+      if (prev.status === 'stopped') return prev;
+      return { ...prev, isRunning };
+    });
+  }, [isRunning, isWaitingForInput]);
 
   // Handle Ctrl+C
   useInput((input, key) => {
@@ -152,6 +210,7 @@ export function App({ config }: AppProps) {
       if (isRunning) {
         addLog('info', `> ${message}`);
         sendMessage(message);
+        setState((prev) => ({ ...prev, status: 'running' }));
       } else {
         addLog('warn', 'Cannot send message - Claude is not running');
       }
@@ -162,6 +221,11 @@ export function App({ config }: AppProps) {
   return (
     <Box flexDirection="column" height="100%">
       <LogPane completedLogs={completedLogs} currentLogs={currentLogs} />
+      <InputBox
+        onSubmit={handleSubmit}
+        disabled={state.status === 'stopped'}
+        placeholder="Type message and press Enter to send to Claude..."
+      />
       <StatusBar
         iteration={state.currentIteration}
         maxIterations={state.maxIterations}
@@ -169,12 +233,8 @@ export function App({ config }: AppProps) {
         outputTokens={state.outputTokens}
         startTime={state.startTime}
         status={state.status}
-        cost={state.cost}
-      />
-      <InputBox
-        onSubmit={handleSubmit}
-        disabled={state.status === 'stopped'}
-        placeholder="Type message and press Enter to send to Claude..."
+        model={config.model}
+        cwd={config.cwd}
       />
     </Box>
   );

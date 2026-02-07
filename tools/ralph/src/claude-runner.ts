@@ -7,6 +7,7 @@ export interface ClaudeProcessEvents {
   onToolEnd: (name: string, isError: boolean) => void;
   onResult: (result: ClaudeRunResult) => void;
   onTokens: (input: number, output: number) => void;
+  onTurnComplete: () => void;
 }
 
 export interface ClaudeProcessHandle {
@@ -343,8 +344,35 @@ export function createInteractiveClaudeProcess(
     }
   }, 30000);
 
+  // Helper to extract usage from any event that might contain it
+  const extractUsage = (event: ClaudeStreamEvent) => {
+    const eventWithUsage = event as { usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number } };
+    const usage = eventWithUsage.usage;
+    if (usage && usage.input_tokens !== undefined && usage.output_tokens !== undefined) {
+      inputTokens = usage.input_tokens + (usage.cache_read_input_tokens ?? 0);
+      outputTokens = usage.output_tokens;
+      events.onTokens?.(inputTokens, outputTokens);
+      logger.debug(`[TOKENS] input=${inputTokens}, output=${outputTokens}`);
+    }
+    // Also check for cost in the event
+    const eventWithCost = event as { cost_usd?: number; total_cost_usd?: number };
+    const costUsd = eventWithCost.cost_usd ?? eventWithCost.total_cost_usd;
+    if (costUsd !== undefined && costUsd > cost) {
+      cost = costUsd;
+      logger.debug(`[COST] $${cost.toFixed(4)}`);
+    }
+  };
+
   const processStreamEvent = (event: ClaudeStreamEvent) => {
     lastActivityTime = Date.now();
+
+    // Log all events in verbose mode to debug streaming usage
+    if (event.type !== 'assistant') {
+      logger.debug(`[EVENT] ${event.type}: ${JSON.stringify(event).slice(0, 300)}`);
+    }
+
+    // Check for usage in any event type
+    extractUsage(event);
 
     switch (event.type) {
       case 'system':
@@ -368,6 +396,12 @@ export function createInteractiveClaudeProcess(
             output += content;
             logger.claudeOutput(content);
             events.onOutput?.(content);
+          }
+          // Estimate tokens from output length (~4 chars per token)
+          // This is a rough approximation until we get real usage data
+          if (outputTokens === 0) {
+            const estimatedOutputTokens = Math.round(output.length / 4);
+            events.onTokens?.(inputTokens, estimatedOutputTokens);
           }
         }
         break;
@@ -394,23 +428,29 @@ export function createInteractiveClaudeProcess(
         break;
 
       case 'usage':
+        logger.debug(`[USAGE EVENT] ${JSON.stringify(event)}`);
+        // Tokens can be at top level or nested in usage object
         if ('input_tokens' in event && 'output_tokens' in event) {
-          const newInputTokens = (event as { input_tokens: number })
-            .input_tokens;
-          const newOutputTokens = (event as { output_tokens: number })
-            .output_tokens;
-          inputTokens = newInputTokens;
-          outputTokens = newOutputTokens;
+          inputTokens = (event as { input_tokens: number }).input_tokens;
+          outputTokens = (event as { output_tokens: number }).output_tokens;
           events.onTokens?.(inputTokens, outputTokens);
         }
         break;
 
       case 'result':
+        logger.debug(`[RESULT EVENT] ${JSON.stringify(event)}`);
         if (event.total_cost_usd !== undefined) {
           cost = event.total_cost_usd;
         }
+        // Extract tokens from result event if present
+        if ('input_tokens' in event && 'output_tokens' in event) {
+          inputTokens = (event as { input_tokens: number }).input_tokens;
+          outputTokens = (event as { output_tokens: number }).output_tokens;
+          events.onTokens?.(inputTokens, outputTokens);
+        }
         if (event.subtype === 'success') {
-          logger.debug(`Completed successfully, cost: $${cost.toFixed(4)}`);
+          logger.debug(`Turn completed successfully, cost: $${cost.toFixed(4)}`);
+          events.onTurnComplete?.();
           if (
             event.result &&
             typeof event.result === 'string' &&
@@ -424,6 +464,12 @@ export function createInteractiveClaudeProcess(
           logger.error(`Claude returned error: ${errorMsg}`);
         }
         break;
+
+      default:
+        // Log unknown event types to help debug
+        if (event.type) {
+          logger.debug(`[UNKNOWN EVENT] type=${event.type}: ${JSON.stringify(event).slice(0, 200)}`);
+        }
     }
   };
 
@@ -509,6 +555,8 @@ export function createInteractiveClaudeProcess(
       isRateLimited,
       cost,
       durationMs,
+      inputTokens,
+      outputTokens,
     });
   });
 

@@ -33,7 +33,7 @@ const MOCK_SCENARIOS: MockScenario[] = [
       {
         delay: 2500,
         output:
-          'Processing item 3/3...\nItem 3 completed successfully.\nAll items processed.\nRALPH_EXIT_SIGNAL',
+          'Processing item 3/3...\nItem 3 completed successfully.\nAll items processed.\nRALPH_DONE',
         exitCode: 0,
       },
     ],
@@ -60,7 +60,7 @@ const MOCK_SCENARIOS: MockScenario[] = [
       },
       {
         delay: 2000,
-        output: 'Task completed!\nRALPH_EXIT_SIGNAL',
+        output: 'Task completed!\nRALPH_DONE',
         exitCode: 0,
       },
     ],
@@ -82,7 +82,7 @@ const MOCK_SCENARIOS: MockScenario[] = [
       {
         delay: 3000,
         output:
-          'Retry successful. Migration completed.\nRALPH_EXIT_SIGNAL',
+          'Retry successful. Migration completed.\nRALPH_DONE',
         exitCode: 0,
       },
     ],

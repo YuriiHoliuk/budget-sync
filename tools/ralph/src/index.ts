@@ -14,7 +14,7 @@ program
   .option('-m, --max-iterations <number>', 'Maximum iterations before stopping', '200')
   .option('--model <model>', 'Claude model to use', 'opus')
   .option('-p, --prompt-file <file>', 'Prompt file to use', 'PROMPT.md')
-  .option('-s, --exit-signal <signal>', 'Exit signal to watch for', 'RALPH_EXIT_SIGNAL')
+  .option('-s, --exit-signal <signal>', 'Exit signal to watch for', 'RALPH_DONE')
   .option('--rate-limit-delay <ms>', 'Delay after rate limit in ms', '60000')
   .option('-v, --verbose', 'Enable verbose logging')
   .option('--cwd <dir>', 'Working directory for Claude process')

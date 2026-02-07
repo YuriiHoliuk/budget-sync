@@ -54,6 +54,8 @@ export interface ClaudeRunResult {
   isRateLimited?: boolean;
   cost?: number;
   durationMs?: number;
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 export interface IterationResult {

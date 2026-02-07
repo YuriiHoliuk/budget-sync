@@ -17,7 +17,7 @@ const DEFAULT_CONFIG: RalphConfig = {
   maxIterations: 200,
   model: 'opus',
   promptFile: 'PROMPT.md',
-  exitSignal: 'RALPH_EXIT_SIGNAL',
+  exitSignal: 'RALPH_DONE',
   rateLimitDelay: 60000,
   verbose: false,
   mockMode: false,

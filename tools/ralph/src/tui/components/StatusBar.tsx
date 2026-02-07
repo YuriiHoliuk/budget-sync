@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
+import * as os from 'node:os';
 
 interface StatusBarProps {
   iteration: number;
@@ -7,23 +8,14 @@ interface StatusBarProps {
   inputTokens: number;
   outputTokens: number;
   startTime: Date | null;
-  status: 'idle' | 'running' | 'rate-limited' | 'stopped';
-  cost: number;
-}
-
-function formatNumber(num: number): string {
-  if (num >= 10000) {
-    return `${(num / 1000).toFixed(1)}k`;
-  }
-  if (num >= 1000) {
-    return `${(num / 1000).toFixed(1)}k`;
-  }
-  return num.toString();
+  status: 'idle' | 'running' | 'waiting' | 'rate-limited' | 'stopped';
+  model: string;
+  cwd: string;
 }
 
 function formatElapsedTime(startTime: Date | null): string {
   if (!startTime) {
-    return '0m 0s';
+    return '0m';
   }
 
   const elapsedMs = Date.now() - startTime.getTime();
@@ -31,41 +23,52 @@ function formatElapsedTime(startTime: Date | null): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
 
-  return `${minutes}m ${seconds}s`;
-}
-
-function formatCost(cost: number): string {
-  if (cost < 0.01) {
-    return `$${cost.toFixed(4)}`;
+  if (minutes === 0) {
+    return `${seconds}s`;
   }
-  return `$${cost.toFixed(2)}`;
+  return `${minutes}m`;
 }
 
-function getStatusColor(status: StatusBarProps['status']): string {
+function formatTokens(inputTokens: number, outputTokens: number): string {
+  const total = inputTokens + outputTokens;
+  if (total === 0) return '0';
+  if (total >= 1000) {
+    return `${(total / 1000).toFixed(1)}k`;
+  }
+  return `${total}`;
+}
+
+function shortenPath(fullPath: string): string {
+  const homeDir = os.homedir();
+  if (fullPath.startsWith(homeDir)) {
+    return `~${fullPath.slice(homeDir.length)}`;
+  }
+  return fullPath;
+}
+
+function shortenModel(model: string): string {
+  // Convert model IDs to shorter display names
+  if (model.includes('opus')) return 'Opus';
+  if (model.includes('sonnet')) return 'Sonnet';
+  if (model.includes('haiku')) return 'Haiku';
+  return model;
+}
+
+function getStatusDisplay(
+  status: StatusBarProps['status'],
+): { text: string; color: string } {
   switch (status) {
     case 'running':
-      return 'green';
+      return { text: 'Running', color: 'green' };
+    case 'waiting':
+      return { text: 'Waiting', color: 'cyan' };
     case 'rate-limited':
-      return 'yellow';
+      return { text: 'Rate Limited', color: 'yellow' };
     case 'stopped':
-      return 'red';
+      return { text: 'Stopped', color: 'red' };
     case 'idle':
     default:
-      return 'gray';
-  }
-}
-
-function getStatusText(status: StatusBarProps['status']): string {
-  switch (status) {
-    case 'running':
-      return 'Running';
-    case 'rate-limited':
-      return 'Rate Limited';
-    case 'stopped':
-      return 'Stopped';
-    case 'idle':
-    default:
-      return 'Idle';
+      return { text: 'Idle', color: 'gray' };
   }
 }
 
@@ -76,7 +79,8 @@ export function StatusBar({
   outputTokens,
   startTime,
   status,
-  cost,
+  model,
+  cwd,
 }: StatusBarProps): React.ReactElement {
   const [elapsedTime, setElapsedTime] = useState(formatElapsedTime(startTime));
 
@@ -93,30 +97,27 @@ export function StatusBar({
     return () => clearInterval(interval);
   }, [startTime, status]);
 
-  const statusColor = getStatusColor(status);
-  const statusText = getStatusText(status);
+  const shortPath = shortenPath(cwd);
+  const shortModel = shortenModel(model);
+  const tokens = formatTokens(inputTokens, outputTokens);
+  const statusDisplay = getStatusDisplay(status);
 
   return (
-    <Box borderStyle="single" paddingX={1}>
-      <Text>
-        <Text bold>Iteration </Text>
-        <Text color="cyan">{iteration}</Text>
-        <Text>/{maxIterations}</Text>
-        <Text> | </Text>
-        <Text bold>Tokens: </Text>
-        <Text color="blue">{formatNumber(inputTokens)}</Text>
-        <Text>/</Text>
-        <Text color="magenta">{formatNumber(outputTokens)}</Text>
-        <Text> | </Text>
-        <Text bold>Cost: </Text>
-        <Text color="yellow">{formatCost(cost)}</Text>
-        <Text> | </Text>
-        <Text>{elapsedTime}</Text>
-        <Text> | </Text>
-        <Text color={statusColor} bold>
-          {statusText}
-        </Text>
-      </Text>
+    <Box paddingX={1}>
+      <Text dimColor>{shortPath}</Text>
+      <Text> </Text>
+      <Text color="blue">{tokens}</Text>
+      <Text dimColor> tokens</Text>
+      <Text> </Text>
+      <Text color="cyan">{shortModel}</Text>
+      <Text dimColor> · </Text>
+      <Text color="magenta">{iteration}</Text>
+      <Text dimColor>/</Text>
+      <Text dimColor>{maxIterations}</Text>
+      <Text dimColor> · </Text>
+      <Text>{elapsedTime}</Text>
+      <Text dimColor> · </Text>
+      <Text color={statusDisplay.color}>{statusDisplay.text}</Text>
     </Box>
   );
 }
