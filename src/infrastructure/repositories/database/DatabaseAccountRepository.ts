@@ -123,9 +123,10 @@ export class DatabaseAccountRepository implements AccountRepository {
     accountId: string,
     timestamp: number,
   ): Promise<void> {
+    // timestamp is already in milliseconds (from Date.getTime())
     const result = await this.db
       .update(accounts)
-      .set({ lastSyncTime: new Date(timestamp * 1000) })
+      .set({ lastSyncTime: new Date(timestamp) })
       .where(eq(accounts.externalId, accountId))
       .returning({ id: accounts.id });
     if (result.length === 0) {
