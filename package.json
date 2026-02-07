@@ -28,6 +28,7 @@
     "drizzle-kit": "^0.31.8",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
+    "neonctl": "^2.20.2",
     "playwright": "^1.58.1",
     "tsx": "^4.21.0",
     "typescript": "^5"
