@@ -20,6 +20,7 @@ import { BUDGETIZATION_RULE_REPOSITORY_TOKEN } from '@domain/repositories/Budget
 import { BUDGET_REPOSITORY_TOKEN } from '@domain/repositories/BudgetRepository.ts';
 import { CATEGORIZATION_RULE_REPOSITORY_TOKEN } from '@domain/repositories/CategorizationRuleRepository.ts';
 import { CATEGORY_REPOSITORY_TOKEN } from '@domain/repositories/CategoryRepository.ts';
+import { TRANSACTION_LINK_REPOSITORY_TOKEN } from '@domain/repositories/TransactionLinkRepository.ts';
 import { TRANSACTION_REPOSITORY_TOKEN } from '@domain/repositories/TransactionRepository.ts';
 import { MockBankGateway } from '@infrastructure/gateways/mocks/MockBankGateway.ts';
 import { MockLLMGateway } from '@infrastructure/gateways/mocks/MockLLMGateway.ts';
@@ -30,6 +31,7 @@ import { DatabaseBudgetizationRuleRepository } from '@infrastructure/repositorie
 import { DatabaseBudgetRepository } from '@infrastructure/repositories/database/DatabaseBudgetRepository.ts';
 import { DatabaseCategorizationRuleRepository } from '@infrastructure/repositories/database/DatabaseCategorizationRuleRepository.ts';
 import { DatabaseCategoryRepository } from '@infrastructure/repositories/database/DatabaseCategoryRepository.ts';
+import { DatabaseTransactionLinkRepository } from '@infrastructure/repositories/database/DatabaseTransactionLinkRepository.ts';
 import { DatabaseTransactionRepository } from '@infrastructure/repositories/database/DatabaseTransactionRepository.ts';
 import { DATABASE_CLIENT_TOKEN } from '@infrastructure/repositories/database/tokens.ts';
 import { DatabaseClient } from '@modules/database/DatabaseClient.ts';
@@ -96,6 +98,9 @@ export function setupTestContainer(): typeof container {
   });
   container.register(BUDGETIZATION_RULE_REPOSITORY_TOKEN, {
     useClass: DatabaseBudgetizationRuleRepository,
+  });
+  container.register(TRANSACTION_LINK_REPOSITORY_TOKEN, {
+    useClass: DatabaseTransactionLinkRepository,
   });
 
   // Mock gateways

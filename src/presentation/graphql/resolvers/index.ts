@@ -22,6 +22,7 @@ import { CategoriesResolver } from './categoriesResolver.ts';
 import { HealthResolver } from './healthResolver.ts';
 import { MonthlyOverviewResolver } from './monthlyOverviewResolver.ts';
 import { SubscriptionsResolver } from './subscriptionsResolver.ts';
+import { TransactionLinksResolver } from './transactionLinksResolver.ts';
 import { TransactionsResolver } from './transactionsResolver.ts';
 
 /** All resolver classes in the application */
@@ -33,6 +34,7 @@ export const RESOLVER_CLASSES: InjectionToken<Resolver>[] = [
   CategoriesResolver,
   MonthlyOverviewResolver,
   TransactionsResolver,
+  TransactionLinksResolver,
   SubscriptionsResolver,
 ];
 
@@ -60,5 +62,6 @@ export {
   CategoriesResolver,
   MonthlyOverviewResolver,
   SubscriptionsResolver,
+  TransactionLinksResolver,
   TransactionsResolver,
 };

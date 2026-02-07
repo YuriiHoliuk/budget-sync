@@ -27,6 +27,8 @@ export interface TransactionProps {
   /** Counterparty tax ID (EDRPOU) */
   counterEdrpou?: string;
   dbId?: number | null;
+  /** Exclude from budget calculations */
+  excludeFromCalculations?: boolean;
 }
 
 export class Transaction {
@@ -118,6 +120,10 @@ export class Transaction {
 
   get dbId(): number | null {
     return this.props.dbId ?? null;
+  }
+
+  get excludeFromCalculations(): boolean {
+    return this.props.excludeFromCalculations ?? false;
   }
 
   get isCredit(): boolean {

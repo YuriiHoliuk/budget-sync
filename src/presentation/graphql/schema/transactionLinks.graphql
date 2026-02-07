@@ -1,0 +1,36 @@
+type TransactionLink {
+  id: ID!
+  linkType: TransactionLinkType!
+  notes: String
+  members: [TransactionLinkMember!]!
+  createdAt: String!
+}
+
+type TransactionLinkMember {
+  transactionId: ID!
+  role: TransactionLinkRole!
+}
+
+enum TransactionLinkType {
+  TRANSFER
+  SPLIT
+  REFUND
+}
+
+enum TransactionLinkRole {
+  SOURCE
+  OUTGOING
+  INCOMING
+  PART
+  REFUND
+}
+
+extend type Query {
+  transactionLink(id: ID!): TransactionLink
+  transactionLinkByTransaction(transactionId: ID!): TransactionLink
+}
+
+extend type Mutation {
+  createTransferLink(outgoingTransactionId: ID!, incomingTransactionId: ID!, notes: String): TransactionLink!
+  deleteTransactionLink(id: ID!): Boolean!
+}

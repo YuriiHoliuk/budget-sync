@@ -16,6 +16,7 @@ import { BUDGETIZATION_RULE_REPOSITORY_TOKEN } from '@domain/repositories/Budget
 import { BUDGET_REPOSITORY_TOKEN } from '@domain/repositories/BudgetRepository.ts';
 import { CATEGORIZATION_RULE_REPOSITORY_TOKEN } from '@domain/repositories/CategorizationRuleRepository.ts';
 import { CATEGORY_REPOSITORY_TOKEN } from '@domain/repositories/CategoryRepository.ts';
+import { TRANSACTION_LINK_REPOSITORY_TOKEN } from '@domain/repositories/TransactionLinkRepository.ts';
 import { TRANSACTION_REPOSITORY_TOKEN } from '@domain/repositories/TransactionRepository.ts';
 import {
   GEMINI_CLIENT_TOKEN,
@@ -42,6 +43,7 @@ import { DatabaseBudgetizationRuleRepository } from '@infrastructure/repositorie
 import { DatabaseBudgetRepository } from '@infrastructure/repositories/database/DatabaseBudgetRepository.ts';
 import { DatabaseCategorizationRuleRepository } from '@infrastructure/repositories/database/DatabaseCategorizationRuleRepository.ts';
 import { DatabaseCategoryRepository } from '@infrastructure/repositories/database/DatabaseCategoryRepository.ts';
+import { DatabaseTransactionLinkRepository } from '@infrastructure/repositories/database/DatabaseTransactionLinkRepository.ts';
 import { DatabaseTransactionRepository } from '@infrastructure/repositories/database/DatabaseTransactionRepository.ts';
 import {
   DATABASE_ACCOUNT_REPOSITORY_TOKEN,
@@ -51,6 +53,7 @@ import {
   DATABASE_CATEGORIZATION_RULE_REPOSITORY_TOKEN,
   DATABASE_CATEGORY_REPOSITORY_TOKEN,
   DATABASE_CLIENT_TOKEN,
+  DATABASE_TRANSACTION_LINK_REPOSITORY_TOKEN,
   DATABASE_TRANSACTION_REPOSITORY_TOKEN,
 } from '@infrastructure/repositories/database/tokens.ts';
 import {
@@ -206,6 +209,9 @@ export function setupContainer(): typeof container {
   container.register(DATABASE_BUDGETIZATION_RULE_REPOSITORY_TOKEN, {
     useClass: DatabaseBudgetizationRuleRepository,
   });
+  container.register(DATABASE_TRANSACTION_LINK_REPOSITORY_TOKEN, {
+    useClass: DatabaseTransactionLinkRepository,
+  });
 
   // Register internal spreadsheet repositories (used by dual-write orchestrators)
   container.register(SPREADSHEET_ACCOUNT_REPOSITORY_TOKEN, {
@@ -248,6 +254,9 @@ export function setupContainer(): typeof container {
   });
   container.register(BUDGETIZATION_RULE_REPOSITORY_TOKEN, {
     useClass: DualWriteBudgetizationRuleRepository,
+  });
+  container.register(TRANSACTION_LINK_REPOSITORY_TOKEN, {
+    useClass: DatabaseTransactionLinkRepository,
   });
 
   // LLM Gateway (only registered if Gemini client is available)

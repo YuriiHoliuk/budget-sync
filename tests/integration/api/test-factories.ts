@@ -33,6 +33,7 @@ interface TestAccountData {
   type?: 'debit' | 'credit' | 'fop';
   currency?: string;
   balance?: number;
+  initialBalance?: number | null;
   role?: 'operational' | 'savings';
   iban?: string;
   bank?: string;
@@ -45,13 +46,15 @@ let accountCounter = 0;
 function getDefaultAccountValues() {
   accountCounter++;
   const uniqueId = `${Date.now()}-${accountCounter}`;
+  const balance = 100000; // 1000.00 UAH
   return {
     externalId: `test-acc-${uniqueId}`,
     name: 'Test Account',
     externalName: 'Test Account',
     type: 'debit' as const,
     currency: 'UAH',
-    balance: 100000, // 1000.00 UAH
+    balance,
+    initialBalance: balance, // For flow-based calculation
     role: 'operational' as const,
     iban: `UA${uniqueId.padStart(27, '0')}`,
     bank: 'monobank',
@@ -66,11 +69,18 @@ export async function createTestAccount(
 ) {
   const defaults = getDefaultAccountValues();
   const name = overrides.name ?? defaults.name;
+  const balance = overrides.balance ?? defaults.balance;
   const values = {
     ...defaults,
     ...overrides,
     name,
     externalName: overrides.externalName ?? name,
+    balance,
+    // Default initialBalance to balance if not explicitly set
+    initialBalance:
+      overrides.initialBalance !== undefined
+        ? overrides.initialBalance
+        : balance,
   };
 
   const [result] = await db.insert(accounts).values(values).returning();

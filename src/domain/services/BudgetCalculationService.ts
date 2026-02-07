@@ -32,6 +32,7 @@ export interface TransactionInput {
   type: 'credit' | 'debit';
   date: Date;
   accountRole: 'operational' | 'savings';
+  excludeFromCalculations?: boolean;
 }
 
 /**
@@ -40,6 +41,7 @@ export interface TransactionInput {
 export interface AccountBalanceInput {
   balance: number; // minor units
   role: 'operational' | 'savings';
+  initialBalance?: number; // minor units, undefined if not set
 }
 
 /**
@@ -90,7 +92,11 @@ export class BudgetCalculationService {
     const capitalBalance = this.computeCapitalBalance(accountBalances);
     const availableFunds = this.computeAvailableFunds(accountBalances);
     const totalAllocatedEver = this.computeTotalAllocations(allocations);
-    const readyToAssign = availableFunds - totalAllocatedEver;
+    const totalInflows = this.computeTotalInflows(
+      accountBalances,
+      transactions,
+    );
+    const readyToAssign = totalInflows - totalAllocatedEver;
     const totalAllocatedThisMonth = this.computeAllocationsForMonth(
       allocations,
       month,
@@ -134,6 +140,52 @@ export class BudgetCalculationService {
   }
 
   /**
+   * Computes total inflows for the flow-based Ready to Assign calculation.
+   *
+   * Total inflows = sum(account initial balances) + sum(income transactions) - sum(excluded transactions)
+   *
+   * Income transactions are credits to operational accounts.
+   * Excluded transactions are those marked with excludeFromCalculations = true.
+   */
+  private computeTotalInflows(
+    accountBalances: AccountBalanceInput[],
+    transactions: TransactionInput[],
+  ): number {
+    const initialBalancesSum = this.sumInitialBalances(accountBalances);
+    const incomeSum = this.sumIncomeTransactions(transactions);
+    const excludedSum = this.sumExcludedTransactions(transactions);
+
+    return initialBalancesSum + incomeSum - excludedSum;
+  }
+
+  private sumInitialBalances(accountBalances: AccountBalanceInput[]): number {
+    return accountBalances
+      .filter((account) => account.role === 'operational')
+      .reduce((sum, account) => sum + (account.initialBalance ?? 0), 0);
+  }
+
+  private sumIncomeTransactions(transactions: TransactionInput[]): number {
+    return transactions
+      .filter(
+        (transaction) =>
+          transaction.type === 'credit' &&
+          transaction.accountRole === 'operational' &&
+          !transaction.excludeFromCalculations,
+      )
+      .reduce((sum, transaction) => sum + transaction.amount, 0);
+  }
+
+  private sumExcludedTransactions(transactions: TransactionInput[]): number {
+    return transactions
+      .filter(
+        (transaction) =>
+          transaction.excludeFromCalculations &&
+          transaction.accountRole === 'operational',
+      )
+      .reduce((sum, transaction) => sum + transaction.amount, 0);
+  }
+
+  /**
    * Sum of ALL allocations ever (used for Ready to Assign).
    */
   private computeTotalAllocations(allocations: AllocationInput[]): number {
@@ -167,6 +219,7 @@ export class BudgetCalculationService {
 
   /**
    * Total income from operational accounts in a given month.
+   * Excludes transactions marked with excludeFromCalculations.
    */
   private computeIncomeForMonth(
     transactions: TransactionInput[],
@@ -177,6 +230,7 @@ export class BudgetCalculationService {
         (transaction) =>
           transaction.type === 'credit' &&
           transaction.accountRole === 'operational' &&
+          !transaction.excludeFromCalculations &&
           this.isInMonth(transaction.date, month),
       )
       .reduce((sum, transaction) => sum + transaction.amount, 0);

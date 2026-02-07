@@ -42,3 +42,7 @@ deployer-key.json
 
 # Downloaded packages
 *.pkg
+
+# Playwright e2e test artifacts
+e2e/playwright-report/
+e2e/test-results/

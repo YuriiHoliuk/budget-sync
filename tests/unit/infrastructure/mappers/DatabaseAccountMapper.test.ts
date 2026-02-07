@@ -17,6 +17,7 @@ describe('DatabaseAccountMapper', () => {
         type: 'debit',
         currency: 'UAH',
         balance: 50000,
+        initialBalance: null,
         role: 'operational',
         creditLimit: 0,
         iban: 'UA123456789012345678901234',
@@ -49,6 +50,7 @@ describe('DatabaseAccountMapper', () => {
         type: 'debit',
         currency: 'UAH',
         balance: 10000,
+        initialBalance: null,
         role: 'operational',
         creditLimit: 0,
         iban: null,
@@ -74,6 +76,7 @@ describe('DatabaseAccountMapper', () => {
         type: 'credit',
         currency: 'UAH',
         balance: 30000,
+        initialBalance: null,
         role: 'operational',
         creditLimit: 30000,
         iban: null,
@@ -99,6 +102,7 @@ describe('DatabaseAccountMapper', () => {
         type: 'fop',
         currency: 'UAH',
         balance: 100000,
+        initialBalance: null,
         role: 'operational',
         creditLimit: 0,
         iban: null,
@@ -124,6 +128,7 @@ describe('DatabaseAccountMapper', () => {
         type: 'credit',
         currency: 'UAH',
         balance: 50000,
+        initialBalance: null,
         role: 'operational',
         creditLimit: 50000,
         iban: null,
@@ -151,6 +156,7 @@ describe('DatabaseAccountMapper', () => {
         type: 'debit',
         currency: 'UAH',
         balance: 10000,
+        initialBalance: null,
         role: 'operational',
         creditLimit: 0,
         iban: null,
@@ -177,6 +183,7 @@ describe('DatabaseAccountMapper', () => {
         type: 'debit',
         currency: 'UAH',
         balance: 10000,
+        initialBalance: null,
         role: 'operational',
         creditLimit: 0,
         iban: null,
@@ -202,6 +209,7 @@ describe('DatabaseAccountMapper', () => {
         type: 'debit',
         currency: 'UAH',
         balance: 10000,
+        initialBalance: null,
         role: 'operational',
         creditLimit: 0,
         iban: null,
@@ -216,6 +224,60 @@ describe('DatabaseAccountMapper', () => {
       const account = mapper.toEntity(row);
 
       expect(account.lastSyncTime).toBeUndefined();
+    });
+
+    test('should map initialBalance when present', () => {
+      const row: AccountRow = {
+        id: 8,
+        externalId: 'ext-8',
+        name: 'Account With Initial',
+        externalName: 'Account With Initial',
+        type: 'debit',
+        currency: 'UAH',
+        balance: 50000,
+        initialBalance: 25000,
+        role: 'operational',
+        creditLimit: 0,
+        iban: null,
+        bank: null,
+        source: 'bank_sync',
+        isArchived: false,
+        lastSyncTime: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const account = mapper.toEntity(row);
+
+      expect(account.initialBalance).toBeDefined();
+      expect(account.initialBalance?.amount).toBe(25000);
+      expect(account.initialBalance?.currency.code).toBe('UAH');
+    });
+
+    test('should handle null initialBalance as undefined', () => {
+      const row: AccountRow = {
+        id: 9,
+        externalId: 'ext-9',
+        name: 'Account Without Initial',
+        externalName: 'Account Without Initial',
+        type: 'debit',
+        currency: 'UAH',
+        balance: 50000,
+        initialBalance: null,
+        role: 'operational',
+        creditLimit: 0,
+        iban: null,
+        bank: null,
+        source: 'bank_sync',
+        isArchived: false,
+        lastSyncTime: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const account = mapper.toEntity(row);
+
+      expect(account.initialBalance).toBeUndefined();
     });
   });
 
@@ -377,6 +439,35 @@ describe('DatabaseAccountMapper', () => {
 
       expect(row.name).toBe('Account Name');
       expect(row.externalName).toBe('Account Name');
+    });
+
+    test('should map initialBalance when present', () => {
+      const currency = Currency.UAH;
+      const account = Account.create({
+        externalId: 'ext-114',
+        name: 'Account With Initial',
+        currency,
+        balance: Money.create(50000, currency),
+        initialBalance: Money.create(25000, currency),
+      });
+
+      const row: NewAccountRow = mapper.toInsert(account);
+
+      expect(row.initialBalance).toBe(25000);
+    });
+
+    test('should set initialBalance to null when undefined', () => {
+      const currency = Currency.UAH;
+      const account = Account.create({
+        externalId: 'ext-115',
+        name: 'Account Without Initial',
+        currency,
+        balance: Money.create(50000, currency),
+      });
+
+      const row: NewAccountRow = mapper.toInsert(account);
+
+      expect(row.initialBalance).toBeNull();
     });
   });
 });

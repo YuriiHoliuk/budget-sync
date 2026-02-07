@@ -18,6 +18,7 @@ export const accounts = pgTable(
     type: varchar('type', { length: 50 }).notNull(),
     currency: varchar('currency', { length: 3 }).notNull(),
     balance: bigint('balance', { mode: 'number' }).notNull().default(0),
+    initialBalance: bigint('initial_balance', { mode: 'number' }),
     role: varchar('role', { length: 50 }).notNull().default('operational'),
     creditLimit: bigint('credit_limit', { mode: 'number' }).default(0),
     iban: varchar('iban', { length: 34 }).unique(),

@@ -23,3 +23,14 @@ export {
 } from './Budget.ts';
 export { Category, type CategoryProps } from './Category.ts';
 export { Transaction, type TransactionProps } from './Transaction.ts';
+export {
+  isLinkType,
+  isMemberRole,
+  type LinkType,
+  type MemberRole,
+  parseLinkType,
+  parseMemberRole,
+  TransactionLink,
+  type TransactionLinkMember,
+  type TransactionLinkProps,
+} from './TransactionLink.ts';

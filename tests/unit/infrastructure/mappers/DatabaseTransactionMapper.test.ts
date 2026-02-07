@@ -47,6 +47,7 @@ describe('DatabaseTransactionMapper', () => {
         invoiceId: 'invoice-456',
         tags: null,
         notes: 'Test note',
+        excludeFromCalculations: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -110,6 +111,7 @@ describe('DatabaseTransactionMapper', () => {
         invoiceId: null,
         tags: null,
         notes: null,
+        excludeFromCalculations: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -163,6 +165,7 @@ describe('DatabaseTransactionMapper', () => {
         invoiceId: null,
         tags: null,
         notes: null,
+        excludeFromCalculations: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -204,6 +207,7 @@ describe('DatabaseTransactionMapper', () => {
         invoiceId: null,
         tags: null,
         notes: null,
+        excludeFromCalculations: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -248,6 +252,7 @@ describe('DatabaseTransactionMapper', () => {
         invoiceId: null,
         tags: null,
         notes: null,
+        excludeFromCalculations: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -264,10 +269,11 @@ describe('DatabaseTransactionMapper', () => {
   describe('toInsert', () => {
     test('should convert Transaction to insert row with signed amounts (negative for debit)', () => {
       const currency = Currency.UAH;
+      // Monobank sends negative amounts for debits, so Transaction is created with negative amount
       const transaction = Transaction.create({
         externalId: 'ext-123',
         date: new Date('2024-01-15T10:30:00Z'),
-        amount: Money.create(5000, currency),
+        amount: Money.create(-5000, currency),
         description: 'ATB Market',
         type: TransactionType.DEBIT,
         accountId: 'acc-1',

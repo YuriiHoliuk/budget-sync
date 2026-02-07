@@ -55,6 +55,7 @@ export interface AccountGql {
   role: string;
   currency: string;
   balance: number;
+  actualBalance: number;
   creditLimit: number | null;
   iban: string | null;
   bank: string | null;
@@ -62,6 +63,7 @@ export interface AccountGql {
   isArchived: boolean;
   lastSyncTime: string | null;
   isCreditAccount: boolean;
+  initialBalance: number | null;
 }
 
 export function mapAccountToGql(account: Account): AccountGql {
@@ -73,6 +75,7 @@ export function mapAccountToGql(account: Account): AccountGql {
     role: account.role.toUpperCase(),
     currency: account.currency.code,
     balance: account.balance.toMajorUnits(),
+    actualBalance: account.actualBalance.toMajorUnits(),
     creditLimit: account.creditLimit
       ? account.creditLimit.toMajorUnits()
       : null,
@@ -84,5 +87,6 @@ export function mapAccountToGql(account: Account): AccountGql {
       ? new Date(account.lastSyncTime).toISOString()
       : null,
     isCreditAccount: account.isCreditAccount,
+    initialBalance: account.initialBalance?.toMajorUnits() ?? null,
   };
 }

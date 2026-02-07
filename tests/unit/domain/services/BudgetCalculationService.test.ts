@@ -74,54 +74,146 @@ describe('BudgetCalculationService', () => {
     };
   }
 
-  describe('readyToAssign', () => {
-    test('should equal operational balances minus all allocations ever', () => {
+  describe('readyToAssign (flow-based)', () => {
+    test('should equal totalInflows minus all allocations ever', () => {
+      // totalInflows = initialBalances + income - excluded
       const accounts = makeAccounts([
-        { balance: 5000000, role: 'operational' },
-        { balance: 3000000, role: 'operational' },
+        { balance: 5000000, role: 'operational', initialBalance: 3000000 },
+        { balance: 3000000, role: 'operational', initialBalance: 2000000 },
       ]);
       const allocations = [
         makeAllocation({ amount: 2000000, period: '2026-01' }),
         makeAllocation({ amount: 1500000, period: '2026-02' }),
       ];
+      const transactions = [
+        makeTransaction({
+          amount: 1000000,
+          type: 'credit',
+          accountRole: 'operational',
+        }),
+      ];
 
-      const result = service.compute(MONTH, [], allocations, [], accounts);
+      const result = service.compute(
+        MONTH,
+        [],
+        allocations,
+        transactions,
+        accounts,
+      );
 
-      // 8_000_000 - 3_500_000 = 4_500_000
-      expect(result.readyToAssign).toBe(4500000);
+      // totalInflows = 3000000 + 2000000 (initial) + 1000000 (income) = 6000000
+      // readyToAssign = 6000000 - 3500000 (allocations) = 2500000
+      expect(result.readyToAssign).toBe(2500000);
     });
 
     test('should be negative when over-allocated', () => {
       const accounts = makeAccounts([
-        { balance: 1000000, role: 'operational' },
+        { balance: 1000000, role: 'operational', initialBalance: 500000 },
       ]);
       const allocations = [makeAllocation({ amount: 2000000 })];
 
       const result = service.compute(MONTH, [], allocations, [], accounts);
 
-      expect(result.readyToAssign).toBe(-1000000);
+      // totalInflows = 500000, allocations = 2000000
+      expect(result.readyToAssign).toBe(-1500000);
     });
 
-    test('should be zero when all money is assigned', () => {
+    test('should be zero when all inflows are assigned', () => {
       const accounts = makeAccounts([
-        { balance: 5000000, role: 'operational' },
+        { balance: 5000000, role: 'operational', initialBalance: 3000000 },
       ]);
+      const transactions = [
+        makeTransaction({
+          amount: 2000000,
+          type: 'credit',
+          accountRole: 'operational',
+        }),
+      ];
       const allocations = [makeAllocation({ amount: 5000000 })];
 
-      const result = service.compute(MONTH, [], allocations, [], accounts);
+      const result = service.compute(
+        MONTH,
+        [],
+        allocations,
+        transactions,
+        accounts,
+      );
 
+      // totalInflows = 3000000 + 2000000 = 5000000, allocations = 5000000
       expect(result.readyToAssign).toBe(0);
     });
 
-    test('should exclude savings account balances', () => {
+    test('should exclude savings account initial balances from inflows', () => {
       const accounts = makeAccounts([
-        { balance: 5000000, role: 'operational' },
-        { balance: 10000000, role: 'savings' },
+        { balance: 5000000, role: 'operational', initialBalance: 3000000 },
+        { balance: 10000000, role: 'savings', initialBalance: 8000000 },
       ]);
 
       const result = service.compute(MONTH, [], [], [], accounts);
 
-      expect(result.readyToAssign).toBe(5000000);
+      // Only operational initial balance counts: 3000000
+      expect(result.readyToAssign).toBe(3000000);
+    });
+
+    test('should subtract excluded transactions from inflows', () => {
+      const accounts = makeAccounts([
+        { balance: 5000000, role: 'operational', initialBalance: 5000000 },
+      ]);
+      const transactions = [
+        makeTransaction({
+          amount: 2000000,
+          type: 'credit',
+          accountRole: 'operational',
+        }),
+        makeTransaction({
+          amount: 500000,
+          type: 'credit',
+          accountRole: 'operational',
+          excludeFromCalculations: true,
+        }),
+      ];
+
+      const result = service.compute(MONTH, [], [], transactions, accounts);
+
+      // totalInflows = 5000000 (initial) + 2000000 (income) - 500000 (excluded) = 6500000
+      expect(result.readyToAssign).toBe(6500000);
+    });
+
+    test('should not count excluded credits as income', () => {
+      const accounts = makeAccounts([
+        { balance: 5000000, role: 'operational', initialBalance: 5000000 },
+      ]);
+      const transactions = [
+        makeTransaction({
+          amount: 2000000,
+          type: 'credit',
+          accountRole: 'operational',
+          excludeFromCalculations: true,
+        }),
+      ];
+
+      const result = service.compute(MONTH, [], [], transactions, accounts);
+
+      // totalInflows = 5000000 (initial) + 0 (excluded credit not counted) - 2000000 (excluded) = 3000000
+      expect(result.readyToAssign).toBe(3000000);
+    });
+
+    test('should handle accounts without initial balance as zero', () => {
+      const accounts = makeAccounts([
+        { balance: 5000000, role: 'operational' }, // no initialBalance
+      ]);
+      const transactions = [
+        makeTransaction({
+          amount: 1000000,
+          type: 'credit',
+          accountRole: 'operational',
+        }),
+      ];
+
+      const result = service.compute(MONTH, [], [], transactions, accounts);
+
+      // totalInflows = 0 (no initial) + 1000000 (income) = 1000000
+      expect(result.readyToAssign).toBe(1000000);
     });
   });
 
@@ -277,6 +369,32 @@ describe('BudgetCalculationService', () => {
       const result = service.compute(MONTH, [], [], txns, []);
 
       // income = 100000 (only operational), expenses = 30000
+      expect(result.savingsRate).toBeCloseTo(0.7);
+    });
+
+    test('should exclude transactions marked excludeFromCalculations from income', () => {
+      const txns = [
+        makeTransaction({
+          amount: 100000,
+          type: 'credit',
+          accountRole: 'operational',
+        }),
+        makeTransaction({
+          amount: 50000,
+          type: 'credit',
+          accountRole: 'operational',
+          excludeFromCalculations: true,
+        }),
+        makeTransaction({
+          amount: 30000,
+          type: 'debit',
+          accountRole: 'operational',
+        }),
+      ];
+
+      const result = service.compute(MONTH, [], [], txns, []);
+
+      // income = 100000 (excluded credit not counted), expenses = 30000
       expect(result.savingsRate).toBeCloseTo(0.7);
     });
   });
@@ -511,17 +629,20 @@ describe('BudgetCalculationService', () => {
     });
 
     test('should handle future allocations not affecting current month totals', () => {
+      const accounts = makeAccounts([
+        { balance: 1000000, role: 'operational', initialBalance: 1000000 },
+      ]);
       const allocations = [
         makeAllocation({ amount: 500000, period: MONTH }),
         makeAllocation({ amount: 300000, period: '2026-03' }),
       ];
 
-      const result = service.compute(MONTH, [], allocations, [], []);
+      const result = service.compute(MONTH, [], allocations, [], accounts);
 
       expect(result.totalAllocated).toBe(500000);
-      // But readyToAssign uses all allocations ever
-      // readyToAssign = 0 (no operational balances) - 800000 = -800000
-      expect(result.readyToAssign).toBe(-800000);
+      // readyToAssign uses all allocations ever
+      // readyToAssign = 1000000 (initial) - 800000 (all allocations) = 200000
+      expect(result.readyToAssign).toBe(200000);
     });
   });
 });

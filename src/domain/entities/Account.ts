@@ -84,6 +84,7 @@ export interface AccountProps {
   name: string;
   currency: Currency;
   balance: Money;
+  initialBalance?: Money;
   creditLimit?: Money;
   type?: AccountType;
   role?: AccountRole;
@@ -141,6 +142,10 @@ export class Account {
 
   get creditLimit(): Money | undefined {
     return this.props.creditLimit;
+  }
+
+  get initialBalance(): Money | undefined {
+    return this.props.initialBalance;
   }
 
   get bank(): string | undefined {

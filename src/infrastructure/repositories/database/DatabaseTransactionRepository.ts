@@ -322,6 +322,7 @@ export class DatabaseTransactionRepository implements TransactionRepository {
         type: transactions.type,
         date: transactions.date,
         accountRole: accounts.role,
+        excludeFromCalculations: transactions.excludeFromCalculations,
       })
       .from(transactions)
       .leftJoin(accounts, eq(transactions.accountId, accounts.id));
@@ -334,6 +335,7 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       accountRole: (row.accountRole ?? 'operational') as
         | 'operational'
         | 'savings',
+      excludeFromCalculations: row.excludeFromCalculations ?? false,
     }));
   }
 
@@ -361,6 +363,7 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       commission: row.commission,
       receiptId: row.receiptId,
       notes: row.notes,
+      excludeFromCalculations: row.excludeFromCalculations ?? false,
     };
   }
 

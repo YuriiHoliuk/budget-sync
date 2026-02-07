@@ -54,6 +54,9 @@ export const transactions = pgTable(
     invoiceId: varchar('invoice_id', { length: 255 }),
     tags: text('tags').array(),
     notes: text('notes'),
+    excludeFromCalculations: boolean('exclude_from_calculations').default(
+      false,
+    ),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },

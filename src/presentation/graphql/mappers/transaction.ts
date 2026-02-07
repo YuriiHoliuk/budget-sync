@@ -34,6 +34,7 @@ export interface TransactionGql {
   accountId: number | null;
   categoryId: number | null;
   budgetId: number | null;
+  excludeFromCalculations: boolean;
 }
 
 export function mapTransactionRecordToGql(
@@ -63,5 +64,6 @@ export function mapTransactionRecordToGql(
     accountId: record.accountId,
     categoryId: record.categoryId,
     budgetId: record.budgetId,
+    excludeFromCalculations: record.excludeFromCalculations ?? false,
   };
 }

@@ -113,6 +113,7 @@ export class MonthlyOverviewResolver extends Resolver {
     const accountBalances: AccountBalanceInput[] = accounts.map((account) => ({
       balance: account.balance.amount,
       role: account.role,
+      initialBalance: account.initialBalance?.amount,
     }));
 
     const budgetInputs: BudgetInput[] = budgets.map((budget) => ({
@@ -138,6 +139,7 @@ export class MonthlyOverviewResolver extends Resolver {
         type: summary.type,
         date: summary.date,
         accountRole: summary.accountRole,
+        excludeFromCalculations: summary.excludeFromCalculations,
       }),
     );
 

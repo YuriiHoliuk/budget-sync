@@ -131,8 +131,12 @@ export function AccountsTable({ showArchived = false }: AccountsTableProps) {
 
   const totalsByRole = useMemo(() => {
     const totals = new Map<AccountRole, number>();
-    for (const [role, accounts] of groupedAccounts) {
-      totals.set(role, accounts.reduce((sum, acc) => sum + acc.balance, 0));
+    for (const [role, roleAccounts] of groupedAccounts) {
+      // Use actualBalance for accurate totals (handles credit cards correctly)
+      totals.set(
+        role,
+        roleAccounts.reduce((sum, acc) => sum + acc.actualBalance, 0),
+      );
     }
     return totals;
   }, [groupedAccounts]);
@@ -324,19 +328,34 @@ function AccountRow({ account, onEdit, onArchive }: AccountRowProps) {
       </TableCell>
       <TableCell className="text-muted-foreground" data-qa={`account-currency-${account.id}`}>{account.currency}</TableCell>
       <TableCell
-        className={cn(
-          "text-right font-medium tabular-nums",
-          account.balance < 0
-            ? "text-red-600 dark:text-red-400"
-            : "text-foreground",
-        )}
+        className="text-right font-medium tabular-nums"
         data-qa={`account-balance-${account.id}`}
       >
-        {formatCurrency(account.balance)}
-        {account.isCreditAccount && account.creditLimit && (
-          <div className="text-xs text-muted-foreground">
-            / {formatCurrency(account.creditLimit)}
-          </div>
+        {account.isCreditAccount ? (
+          <>
+            <span
+              className={cn(
+                account.actualBalance < 0
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-foreground",
+              )}
+            >
+              {formatCurrency(account.actualBalance)}
+            </span>
+            <div className="text-xs text-muted-foreground">
+              {formatCurrency(account.balance)} available
+            </div>
+          </>
+        ) : (
+          <span
+            className={cn(
+              account.balance < 0
+                ? "text-red-600 dark:text-red-400"
+                : "text-foreground",
+            )}
+          >
+            {formatCurrency(account.balance)}
+          </span>
         )}
       </TableCell>
       <TableCell>

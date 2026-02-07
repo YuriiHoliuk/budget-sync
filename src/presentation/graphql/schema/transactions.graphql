@@ -219,6 +219,12 @@ type Transaction {
   Assigned budget (null if unbudgeted).
   """
   budget: Budget
+
+  """
+  If true, this transaction is excluded from balance and budget calculations.
+  Used for transfers between own accounts, corrections, etc.
+  """
+  excludeFromCalculations: Boolean!
 }
 
 enum TransactionTypeEnum {

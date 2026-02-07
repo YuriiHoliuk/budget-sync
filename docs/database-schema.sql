@@ -25,6 +25,7 @@ CREATE TABLE accounts (
     type VARCHAR(50) NOT NULL,         -- 'debit', 'credit', 'fop'
     currency VARCHAR(3) NOT NULL,      -- ISO 4217 code
     balance BIGINT NOT NULL DEFAULT 0, -- Minor units (kopecks)
+    initial_balance BIGINT,            -- Balance when account was first added (kopecks)
     role VARCHAR(50) NOT NULL,         -- 'operational' (spending) or 'savings'
     credit_limit BIGINT DEFAULT 0,     -- For credit cards
 
@@ -204,6 +205,7 @@ CREATE TABLE transactions (
     -- User fields
     tags TEXT[],                       -- Array of user tags
     notes TEXT,                        -- User notes
+    exclude_from_calculations BOOLEAN DEFAULT FALSE,  -- Exclude from budget calculations
 
     -- Audit fields
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -237,6 +239,44 @@ COMMENT ON COLUMN transactions.amount IS 'Amount in minor units (kopecks). Posit
 COMMENT ON COLUMN transactions.category_id IS 'What the transaction IS (e.g., Food > Supermarket). Independent from budget.';
 COMMENT ON COLUMN transactions.budget_id IS 'Which envelope the money comes from (e.g., Groceries budget). Independent from category.';
 COMMENT ON COLUMN transactions.categorization_status IS 'pending = awaiting categorization, categorized = LLM assigned, verified = user confirmed';
+
+-----------------------------------------------------------
+-- TRANSACTION LINKS
+-- Links between related transactions (transfers, splits, refunds).
+-- Uses a join table pattern to support N:M relationships.
+--
+-- Types:
+--   transfer — money moved between accounts (source → incoming)
+--   split    — single payment split across budgets (source → parts)
+--   refund   — returned payment (source → refund)
+-----------------------------------------------------------
+CREATE TABLE transaction_links (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    link_type VARCHAR(20) NOT NULL,
+    notes TEXT,
+
+    -- Audit fields
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    CONSTRAINT valid_link_type CHECK (link_type IN ('transfer', 'split', 'refund'))
+);
+
+CREATE TABLE transaction_link_members (
+    link_id UUID REFERENCES transaction_links(id) ON DELETE CASCADE,
+    transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL,
+
+    PRIMARY KEY (link_id, transaction_id),
+    CONSTRAINT valid_member_role CHECK (role IN ('source', 'outgoing', 'incoming', 'part', 'refund'))
+);
+
+CREATE INDEX idx_transaction_links_type ON transaction_links(link_type);
+CREATE INDEX idx_transaction_link_members_transaction ON transaction_link_members(transaction_id);
+
+COMMENT ON TABLE transaction_links IS 'Groups of related transactions (transfers, splits, refunds)';
+COMMENT ON COLUMN transaction_links.link_type IS 'transfer = between accounts, split = across budgets, refund = returned payment';
+COMMENT ON TABLE transaction_link_members IS 'Join table linking transactions to their relationship group';
+COMMENT ON COLUMN transaction_link_members.role IS 'source = original transaction, outgoing/incoming = transfer legs, part = split portion, refund = return';
 
 -----------------------------------------------------------
 -- CATEGORIZATION RULES

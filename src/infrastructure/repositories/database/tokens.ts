@@ -20,3 +20,6 @@ export const DATABASE_BUDGETIZATION_RULE_REPOSITORY_TOKEN = Symbol(
 export const DATABASE_ALLOCATION_REPOSITORY_TOKEN = Symbol(
   'DatabaseAllocationRepository',
 );
+export const DATABASE_TRANSACTION_LINK_REPOSITORY_TOKEN = Symbol(
+  'DatabaseTransactionLinkRepository',
+);

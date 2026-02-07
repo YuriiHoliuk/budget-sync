@@ -12,6 +12,10 @@ export {
 } from './CategoryRepository.ts';
 export { Repository } from './Repository.ts';
 export {
+  TRANSACTION_LINK_REPOSITORY_TOKEN,
+  TransactionLinkRepository,
+} from './TransactionLinkRepository.ts';
+export {
   type CategorizationUpdate,
   TRANSACTION_REPOSITORY_TOKEN,
   TransactionRepository,

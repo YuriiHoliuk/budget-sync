@@ -33,6 +33,7 @@ export interface TransactionRecord {
   commission: number | null;
   receiptId: string | null;
   notes: string | null;
+  excludeFromCalculations: boolean;
 }
 
 /**
@@ -71,4 +72,5 @@ export interface TransactionSummary {
   type: 'credit' | 'debit';
   date: Date;
   accountRole: 'operational' | 'savings';
+  excludeFromCalculations: boolean;
 }

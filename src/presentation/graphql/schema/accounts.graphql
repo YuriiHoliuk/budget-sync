@@ -37,7 +37,16 @@ type Account {
   type: AccountType!
   role: AccountRole!
   currency: String!
+  """
+  Raw balance from bank (for credit cards: available credit including limit).
+  """
   balance: Float!
+  """
+  Actual balance showing your equity (for credit cards: balance - creditLimit).
+  Negative means you owe money, positive means you have own funds on the card.
+  For debit accounts, equals balance.
+  """
+  actualBalance: Float!
   creditLimit: Float
   iban: String
   bank: String
@@ -45,6 +54,10 @@ type Account {
   isArchived: Boolean!
   lastSyncTime: String
   isCreditAccount: Boolean!
+  """
+  Initial balance in major units when account was created (for manual accounts).
+  """
+  initialBalance: Float
 }
 
 input CreateAccountInput {

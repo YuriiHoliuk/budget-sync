@@ -15,6 +15,10 @@ export class DatabaseAccountMapper {
       row.creditLimit != null && row.creditLimit > 0
         ? Money.create(row.creditLimit, currency)
         : undefined;
+    const initialBalance =
+      row.initialBalance != null
+        ? Money.create(row.initialBalance, currency)
+        : undefined;
 
     return Account.create(
       {
@@ -22,6 +26,7 @@ export class DatabaseAccountMapper {
         name: row.externalName ?? row.name ?? '',
         currency,
         balance,
+        initialBalance,
         creditLimit,
         type: parseAccountType(row.type),
         role: parseAccountRole(row.role),
@@ -44,6 +49,7 @@ export class DatabaseAccountMapper {
       type: account.type,
       currency: account.currency.code,
       balance: account.balance.amount,
+      initialBalance: account.initialBalance?.amount ?? null,
       role: account.role,
       creditLimit: account.creditLimit?.amount ?? 0,
       iban: account.iban ?? null,

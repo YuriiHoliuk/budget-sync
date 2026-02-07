@@ -72,6 +72,7 @@ export class DatabaseTransactionMapper {
       invoiceId: row.invoiceId ?? undefined,
       counterEdrpou: row.counterEdrpou ?? undefined,
       dbId: row.id,
+      excludeFromCalculations: row.excludeFromCalculations ?? false,
     };
   }
 
@@ -92,10 +93,13 @@ export class DatabaseTransactionMapper {
     return undefined;
   }
 
+  /**
+   * Get the signed amount for database storage.
+   * Monobank sends amounts already signed (negative for expenses, positive for income),
+   * so we pass through directly without modification.
+   */
   private calculateSignedAmount(transaction: Transaction): number {
-    return transaction.isDebit
-      ? -transaction.amount.amount
-      : transaction.amount.amount;
+    return transaction.amount.amount;
   }
 
   private buildInsertBaseFields(
@@ -160,6 +164,7 @@ export class DatabaseTransactionMapper {
       invoiceId: transaction.invoiceId ?? null,
       tags: null,
       notes: transaction.comment ?? null,
+      excludeFromCalculations: transaction.excludeFromCalculations,
     };
   }
 }
