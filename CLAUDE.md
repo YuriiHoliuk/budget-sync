@@ -16,8 +16,8 @@ just docs-detail            # All docs with descriptions
 just docs-detail <search>   # Search by name or title
 ```
 
-**When making changes:**
-- Check if related docs need updating (run `just docs-list` to see what exists)
+**After any significant code change, you MUST update related documentation or create new docs if none exist.** Run `just docs-list` to find affected docs. Significant changes include: new features, modified APIs, changed architecture, updated configurations, new commands, or altered workflows.
+
 - Update `docs/TROUBLESHOOTING.md` for issues that may recur
 - Planning docs and research go in `claude_plans/`, not `docs/`
 - Every doc in `docs/` should have YAML frontmatter with a `description` field
