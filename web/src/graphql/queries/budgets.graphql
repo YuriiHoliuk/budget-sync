@@ -11,6 +11,7 @@ query GetBudget($id: Int!) {
     startDate
     endDate
     isArchived
+    cap
   }
 }
 
@@ -27,5 +28,6 @@ query GetBudgets($activeOnly: Boolean = false) {
     startDate
     endDate
     isArchived
+    cap
   }
 }

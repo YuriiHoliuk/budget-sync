@@ -46,6 +46,10 @@ describe('BudgetCalculationService', () => {
       type: 'spending',
       targetAmount: 1000000,
       isArchived: false,
+      targetCadence: null,
+      targetCadenceMonths: null,
+      targetDate: null,
+      cap: null,
       ...overrides,
     };
   }
@@ -400,9 +404,10 @@ describe('BudgetCalculationService', () => {
   });
 
   describe('spending budget summaries', () => {
-    test('should compute allocated, spent, available for current month', () => {
+    test('should compute allocated, spent, available with accumulation', () => {
       const budget = makeBudget({ budgetId: 1, type: 'spending' });
       const allocations = [
+        makeAllocation({ budgetId: 1, amount: 300000, period: '2026-01' }),
         makeAllocation({ budgetId: 1, amount: 500000, period: MONTH }),
       ];
       const txns = [makeTransaction({ budgetId: 1, amount: 200000 })];
@@ -412,13 +417,16 @@ describe('BudgetCalculationService', () => {
       const summary = getSummary(result, 0);
       expect(summary.allocated).toBe(500000);
       expect(summary.spent).toBe(200000);
-      expect(summary.available).toBe(300000);
-      expect(summary.carryover).toBe(0);
+      // available = totalAllocated(800000) - totalSpent(200000) = 600000
+      expect(summary.available).toBe(600000);
+      // suggestedAllocation = max(0, targetAmount(1000000) - available(600000)) = 400000
+      expect(summary.suggestedAllocation).toBe(400000);
     });
 
-    test('should carry forward negative balance from previous month', () => {
+    test('should accumulate negative balance from previous months', () => {
       const budget = makeBudget({ budgetId: 1, type: 'spending' });
-      // Jan: allocated 100000, spent 150000 → balance -50000 → carryover -50000
+      // Jan: allocated 100000, spent 150000
+      // Feb: allocated 500000, spent 200000
       const allocations = [
         makeAllocation({ budgetId: 1, amount: 100000, period: '2026-01' }),
         makeAllocation({ budgetId: 1, amount: 500000, period: MONTH }),
@@ -439,37 +447,14 @@ describe('BudgetCalculationService', () => {
       const result = service.compute(MONTH, [budget], allocations, txns, []);
 
       const summary = getSummary(result, 0);
-      expect(summary.carryover).toBe(-50000);
-      // available = 500000 - 200000 + (-50000) = 250000
+      // available = totalAllocated(600000) - totalSpent(350000) = 250000
       expect(summary.available).toBe(250000);
     });
 
-    test('should NOT carry forward positive balance from previous month', () => {
+    test('should accumulate across multiple months', () => {
       const budget = makeBudget({ budgetId: 1, type: 'spending' });
-      // Jan: allocated 500000, spent 200000 → balance +300000 → carryover 0
-      const allocations = [
-        makeAllocation({ budgetId: 1, amount: 500000, period: '2026-01' }),
-        makeAllocation({ budgetId: 1, amount: 500000, period: MONTH }),
-      ];
-      const txns = [
-        makeTransaction({
-          budgetId: 1,
-          amount: 200000,
-          date: makeDate('2026-01'),
-        }),
-      ];
-
-      const result = service.compute(MONTH, [budget], allocations, txns, []);
-
-      const summary = getSummary(result, 0);
-      expect(summary.carryover).toBe(0);
-      expect(summary.available).toBe(500000);
-    });
-
-    test('should chain carryover across multiple months', () => {
-      const budget = makeBudget({ budgetId: 1, type: 'spending' });
-      // Dec: allocated 100000, spent 200000 → balance -100000
-      // Jan: allocated 100000, spent 50000 → balance with carry = 100000-50000+(-100000) = -50000
+      // Dec: allocated 100000, spent 200000
+      // Jan: allocated 100000, spent 50000
       // Feb: allocated 500000
       const allocations = [
         makeAllocation({ budgetId: 1, amount: 100000, period: '2025-12' }),
@@ -492,7 +477,7 @@ describe('BudgetCalculationService', () => {
       const result = service.compute(MONTH, [budget], allocations, txns, []);
 
       const summary = getSummary(result, 0);
-      expect(summary.carryover).toBe(-50000);
+      // available = totalAllocated(700000) - totalSpent(250000) = 450000
       expect(summary.available).toBe(450000);
     });
   });
@@ -520,7 +505,8 @@ describe('BudgetCalculationService', () => {
       // allocated and spent are for current month only
       expect(summary.allocated).toBe(500000);
       expect(summary.spent).toBe(0);
-      expect(summary.carryover).toBe(0);
+      // suggestedAllocation = max(0, targetAmount(1000000) - available(800000)) = 200000
+      expect(summary.suggestedAllocation).toBe(200000);
     });
   });
 
@@ -593,6 +579,156 @@ describe('BudgetCalculationService', () => {
       const result = service.compute(MONTH, budgets, [], [], []);
 
       expect(result.budgetSummaries).toHaveLength(0);
+    });
+  });
+
+  describe('suggestedAllocation', () => {
+    test('should suggest targetAmount minus available for spending budgets', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        type: 'spending',
+        targetAmount: 500000,
+      });
+      const allocations = [
+        makeAllocation({ budgetId: 1, amount: 200000, period: MONTH }),
+      ];
+      const result = service.compute(MONTH, [budget], allocations, [], []);
+      const summary = getSummary(result, 0);
+      // available = 200000, target = 500000, suggestion = 300000
+      expect(summary.suggestedAllocation).toBe(300000);
+    });
+
+    test('should suggest 0 when available meets or exceeds target', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        type: 'spending',
+        targetAmount: 500000,
+      });
+      const allocations = [
+        makeAllocation({ budgetId: 1, amount: 600000, period: MONTH }),
+      ];
+      const result = service.compute(MONTH, [budget], allocations, [], []);
+      const summary = getSummary(result, 0);
+      expect(summary.suggestedAllocation).toBe(0);
+    });
+
+    test('should suggest 0 when targetAmount is 0', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        type: 'spending',
+        targetAmount: 0,
+      });
+      const result = service.compute(MONTH, [budget], [], [], []);
+      const summary = getSummary(result, 0);
+      expect(summary.suggestedAllocation).toBe(0);
+    });
+
+    test('should divide remaining by months for goal budgets', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        type: 'goal',
+        targetAmount: 1200000,
+        targetDate: '2026-06-15',
+      });
+      const allocations = [
+        makeAllocation({ budgetId: 1, amount: 200000, period: '2026-01' }),
+      ];
+      // Month is 2026-02, target is 2026-06 = 4 months remaining
+      // remaining = 1200000 - 200000 = 1000000
+      // suggestion = ceil(1000000 / 4) = 250000
+      const result = service.compute(MONTH, [budget], allocations, [], []);
+      const summary = getSummary(result, 0);
+      expect(summary.suggestedAllocation).toBe(250000);
+    });
+
+    test('should suggest full remaining for goal without target date', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        type: 'goal',
+        targetAmount: 1000000,
+        targetDate: null,
+      });
+      const result = service.compute(MONTH, [budget], [], [], []);
+      const summary = getSummary(result, 0);
+      expect(summary.suggestedAllocation).toBe(1000000);
+    });
+
+    test('should compute monthly amount for yearly periodic budget', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        type: 'periodic',
+        targetAmount: 1200000,
+        targetCadence: 'yearly',
+      });
+      // monthly = ceil(1200000 / 12) = 100000
+      // available = 0, no cap, suggestion = max(0, 100000 - 0) = 100000
+      const result = service.compute(MONTH, [budget], [], [], []);
+      const summary = getSummary(result, 0);
+      expect(summary.suggestedAllocation).toBe(100000);
+    });
+
+    test('should respect cap for periodic budget', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        type: 'periodic',
+        targetAmount: 100000,
+        targetCadence: 'monthly',
+        cap: 250000,
+      });
+      const allocations = [
+        makeAllocation({ budgetId: 1, amount: 200000, period: '2026-01' }),
+      ];
+      // available = 200000, cap = 250000, monthly = 100000
+      // suggestion = min(100000, max(0, 250000 - 200000)) = min(100000, 50000) = 50000
+      const result = service.compute(MONTH, [budget], allocations, [], []);
+      const summary = getSummary(result, 0);
+      expect(summary.suggestedAllocation).toBe(50000);
+    });
+
+    test('should suggest 0 when available reaches cap', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        type: 'periodic',
+        targetAmount: 100000,
+        targetCadence: 'monthly',
+        cap: 200000,
+      });
+      const allocations = [
+        makeAllocation({ budgetId: 1, amount: 200000, period: '2026-01' }),
+      ];
+      // available = 200000, cap = 200000
+      // suggestion = min(100000, max(0, 200000 - 200000)) = min(100000, 0) = 0
+      const result = service.compute(MONTH, [budget], allocations, [], []);
+      const summary = getSummary(result, 0);
+      expect(summary.suggestedAllocation).toBe(0);
+    });
+
+    test('should compute custom cadence monthly amount', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        type: 'periodic',
+        targetAmount: 600000,
+        targetCadence: 'custom',
+        targetCadenceMonths: 6,
+      });
+      // monthly = ceil(600000 / 6) = 100000
+      const result = service.compute(MONTH, [budget], [], [], []);
+      const summary = getSummary(result, 0);
+      expect(summary.suggestedAllocation).toBe(100000);
+    });
+
+    test('should suggest targetAmount minus available for savings budgets', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        type: 'savings',
+        targetAmount: 500000,
+      });
+      const allocations = [
+        makeAllocation({ budgetId: 1, amount: 200000, period: '2026-01' }),
+      ];
+      const result = service.compute(MONTH, [budget], allocations, [], []);
+      const summary = getSummary(result, 0);
+      expect(summary.suggestedAllocation).toBe(300000);
     });
   });
 

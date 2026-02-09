@@ -9,6 +9,8 @@
 #   just test-api-down               # Stop test database
 #   just test-api-reset              # Stop and delete volume
 
+name: budget-sync-test
+
 services:
   db-test:
     image: postgres:16-alpine

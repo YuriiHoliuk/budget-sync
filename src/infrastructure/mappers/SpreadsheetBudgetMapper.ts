@@ -68,6 +68,7 @@ export class SpreadsheetBudgetMapper {
       startDate: record.startDate ?? null,
       endDate: record.endDate ?? null,
       isArchived: false,
+      cap: null,
       dbId: record.dbId,
     });
   }

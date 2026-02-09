@@ -68,6 +68,7 @@ export interface BudgetProps {
   startDate: Date | null;
   endDate: Date | null;
   isArchived: boolean;
+  cap: Money | null;
   dbId?: number | null;
 }
 
@@ -115,6 +116,10 @@ export class Budget {
 
   get isArchived(): boolean {
     return this.props.isArchived;
+  }
+
+  get cap(): Money | null {
+    return this.props.cap;
   }
 
   get dbId(): number | null {

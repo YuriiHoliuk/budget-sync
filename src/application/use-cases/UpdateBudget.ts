@@ -26,6 +26,7 @@ export interface UpdateBudgetRequestDTO {
   targetDate?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  cap?: number | null;
 }
 
 /** Returns the update value if provided, otherwise the current value */
@@ -91,6 +92,8 @@ export class UpdateBudgetUseCase extends UseCase<
   ): Budget {
     const amount = this.resolveAmount(budget, request);
 
+    const cap = this.resolveCap(budget, request, amount.currency);
+
     return budget.withUpdatedProps({
       name: request.name ?? budget.name,
       type: request.type ?? budget.type,
@@ -103,7 +106,19 @@ export class UpdateBudgetUseCase extends UseCase<
       targetDate: resolveDate(request.targetDate, budget.targetDate),
       startDate: resolveDate(request.startDate, budget.startDate),
       endDate: resolveDate(request.endDate, budget.endDate),
+      cap,
     });
+  }
+
+  private resolveCap(
+    budget: Budget,
+    request: UpdateBudgetRequestDTO,
+    currency: Currency,
+  ): Money | null {
+    if (request.cap === undefined) {
+      return budget.cap;
+    }
+    return request.cap != null ? Money.create(request.cap, currency) : null;
   }
 
   private resolveAmount(

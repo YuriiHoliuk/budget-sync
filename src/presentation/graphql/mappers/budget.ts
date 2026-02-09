@@ -42,6 +42,7 @@ export interface BudgetGql {
   startDate: string | null;
   endDate: string | null;
   isArchived: boolean;
+  cap: number | null;
 }
 
 export function mapBudgetToGql(budget: Budget): BudgetGql {
@@ -63,6 +64,7 @@ export function mapBudgetToGql(budget: Budget): BudgetGql {
       : null,
     endDate: budget.endDate ? budget.endDate.toISOString().slice(0, 10) : null,
     isArchived: budget.isArchived,
+    cap: budget.cap?.toMajorUnits() ?? null,
   };
 }
 

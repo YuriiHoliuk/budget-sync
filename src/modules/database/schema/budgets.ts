@@ -23,6 +23,7 @@ export const budgets = pgTable(
     targetDate: date('target_date'),
     startDate: date('start_date'),
     endDate: date('end_date'),
+    cap: bigint('cap', { mode: 'number' }),
     isArchived: boolean('is_archived').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),

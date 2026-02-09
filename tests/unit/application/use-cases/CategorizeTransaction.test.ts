@@ -77,6 +77,7 @@ function createTestBudget(
     startDate: overrides.startDate ?? new Date('2026-01-01'),
     endDate: overrides.endDate ?? new Date('2026-12-31'),
     isArchived: false,
+    cap: null,
   });
 }
 

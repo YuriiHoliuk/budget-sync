@@ -22,6 +22,7 @@ export interface CreateBudgetRequestDTO {
   targetDate?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  cap?: number | null;
 }
 
 @injectable()
@@ -54,6 +55,9 @@ export class CreateBudgetUseCase extends UseCase<
     const currency = Currency.fromCode(request.currency);
     const amount = Money.create(request.targetAmount, currency);
 
+    const cap =
+      request.cap != null ? Money.create(request.cap, currency) : null;
+
     return Budget.create({
       name: request.name,
       type: request.type,
@@ -64,6 +68,7 @@ export class CreateBudgetUseCase extends UseCase<
       startDate: request.startDate ? new Date(request.startDate) : null,
       endDate: request.endDate ? new Date(request.endDate) : null,
       isArchived: false,
+      cap,
     });
   }
 }

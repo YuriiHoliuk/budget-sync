@@ -1,9 +1,0 @@
-mutation EqualizeAllocations($input: EqualizeAllocationsInput!) {
-  equalizeAllocations(input: $input) {
-    allocationsCreated
-    adjustments {
-      budgetId
-      delta
-    }
-  }
-}

@@ -27,6 +27,7 @@ interface CreateBudgetInput {
   targetDate?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  cap?: number | null;
 }
 
 interface UpdateBudgetInput {
@@ -40,6 +41,7 @@ interface UpdateBudgetInput {
   targetDate?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  cap?: number | null;
 }
 
 @injectable()
@@ -117,6 +119,7 @@ export class BudgetsResolver extends Resolver {
       targetDate: input.targetDate ?? null,
       startDate: input.startDate ?? null,
       endDate: input.endDate ?? null,
+      cap: input.cap != null ? toMinorUnits(input.cap) : null,
     };
   }
 
@@ -133,13 +136,20 @@ export class BudgetsResolver extends Resolver {
           ? toMinorUnits(input.targetAmount)
           : undefined,
       targetCadence: mapOptionalGqlEnum(input.targetCadence, GQL_TO_CADENCE),
-      targetCadenceMonths:
-        input.targetCadenceMonths !== undefined
-          ? input.targetCadenceMonths
-          : undefined,
-      targetDate: input.targetDate !== undefined ? input.targetDate : undefined,
-      startDate: input.startDate !== undefined ? input.startDate : undefined,
-      endDate: input.endDate !== undefined ? input.endDate : undefined,
+      targetCadenceMonths: input.targetCadenceMonths,
+      targetDate: input.targetDate,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      cap: this.mapOptionalMoney(input.cap),
     };
+  }
+
+  private mapOptionalMoney(
+    value: number | null | undefined,
+  ): number | null | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    return value != null ? toMinorUnits(value) : null;
   }
 }

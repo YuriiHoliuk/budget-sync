@@ -117,6 +117,13 @@ export class BudgetPage extends BasePage {
   }
 
   /**
+   * Get suggested allocation for a budget
+   */
+  async getSuggestedAllocation(budgetId: number): Promise<string> {
+    return (await this.byQa(`budget-suggested-${budgetId}`).textContent()) ?? '';
+  }
+
+  /**
    * Edit allocation for a budget inline
    * Note: The inline editor saves on Enter key or blur
    */
@@ -301,5 +308,9 @@ class CreateBudgetDialog extends Dialog {
 
   async fillTargetDate(date: string): Promise<void> {
     await this.fillInput('input-target-date', date);
+  }
+
+  async fillCap(amount: string): Promise<void> {
+    await this.fillInput('input-cap', amount);
   }
 }

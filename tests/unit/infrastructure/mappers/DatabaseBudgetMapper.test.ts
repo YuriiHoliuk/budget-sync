@@ -21,6 +21,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: '2024-01-01',
         endDate: '2024-12-31',
         isArchived: false,
+        cap: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -51,6 +52,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: null,
         endDate: '2024-12-31',
         isArchived: false,
+        cap: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -73,6 +75,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: '2024-01-01',
         endDate: null,
         isArchived: false,
+        cap: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -95,6 +98,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: null,
         endDate: null,
         isArchived: false,
+        cap: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -118,6 +122,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: '2024-01-01',
         endDate: '2024-12-31',
         isArchived: false,
+        cap: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -142,6 +147,7 @@ describe('DatabaseBudgetMapper', () => {
           startDate: null,
           endDate: null,
           isArchived: false,
+          cap: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -163,6 +169,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: null,
         endDate: null,
         isArchived: false,
+        cap: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -186,6 +193,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: null,
         endDate: null,
         isArchived: true,
+        cap: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -208,6 +216,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: new Date('2024-01-01'),
         endDate: new Date('2024-12-31'),
         isArchived: false,
+        cap: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
@@ -234,6 +243,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: new Date('2024-06-15T10:30:00Z'),
         endDate: new Date('2024-12-31'),
         isArchived: false,
+        cap: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
@@ -253,6 +263,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: new Date('2024-01-01'),
         endDate: new Date('2024-12-31T23:59:59Z'),
         isArchived: false,
+        cap: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
@@ -272,6 +283,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: null,
         endDate: new Date('2024-12-31'),
         isArchived: false,
+        cap: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
@@ -291,6 +303,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: new Date('2024-01-01'),
         endDate: null,
         isArchived: false,
+        cap: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
@@ -309,6 +322,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: new Date('2024-01-01'),
         endDate: new Date('2024-12-31'),
         isArchived: false,
+        cap: null,
       });
 
       const eurBudget = Budget.create({
@@ -321,6 +335,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: new Date('2024-01-01'),
         endDate: new Date('2024-12-31'),
         isArchived: false,
+        cap: null,
       });
 
       const usdRow: NewBudgetRow = mapper.toInsert(usdBudget);
@@ -341,6 +356,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: null,
         endDate: null,
         isArchived: false,
+        cap: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
@@ -359,6 +375,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: null,
         endDate: null,
         isArchived: true,
+        cap: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
@@ -377,6 +394,7 @@ describe('DatabaseBudgetMapper', () => {
         startDate: null,
         endDate: null,
         isArchived: false,
+        cap: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);

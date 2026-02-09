@@ -38,6 +38,7 @@ type BudgetData = Pick<
   | "targetCadence"
   | "targetCadenceMonths"
   | "targetDate"
+  | "cap"
 >;
 
 interface EditBudgetDialogProps {
@@ -97,6 +98,7 @@ function EditBudgetDialogContent({
     budget.targetCadenceMonths?.toString() ?? "",
   );
   const [targetDate, setTargetDate] = useState(budget.targetDate ?? "");
+  const [cap, setCap] = useState(budget.cap?.toString() ?? "");
   const [error, setError] = useState("");
 
   const [updateBudget, { loading }] = useMutation(UpdateBudgetDocument, {
@@ -110,6 +112,8 @@ function EditBudgetDialogContent({
     !Number.isNaN(parsedTargetAmount) && parsedTargetAmount >= 0;
 
   const needsCadence =
+    budgetType === BudgetType.Periodic || budgetType === BudgetType.Savings;
+  const needsCap =
     budgetType === BudgetType.Periodic || budgetType === BudgetType.Savings;
   const needsTargetDate = budgetType === BudgetType.Goal;
   const needsCustomMonths =
@@ -145,6 +149,7 @@ function EditBudgetDialogContent({
             ...(needsTargetDate && targetDate !== ""
               ? { targetDate }
               : { targetDate: null }),
+            ...(needsCap && cap !== "" ? { cap: Number.parseFloat(cap) } : { cap: null }),
           },
         },
       });
@@ -195,6 +200,7 @@ function EditBudgetDialogContent({
               ) {
                 setTargetCadence("");
                 setTargetCadenceMonths("");
+                setCap("");
               }
               if (value !== BudgetType.Goal) {
                 setTargetDate("");
@@ -283,6 +289,26 @@ function EditBudgetDialogContent({
               value={targetDate}
               onChange={(event) => setTargetDate(event.target.value)}
             />
+          </div>
+        )}
+
+        {needsCap && (
+          <div className="grid gap-2">
+            <Label htmlFor="cap">Maximum Balance (Cap)</Label>
+            <Input
+              id="cap"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Optional"
+              value={cap}
+              onChange={(event) => setCap(event.target.value)}
+              className="tabular-nums"
+              data-qa="input-cap"
+            />
+            <p className="text-xs text-muted-foreground">
+              Stop suggesting allocations when balance reaches this amount
+            </p>
           </div>
         )}
 

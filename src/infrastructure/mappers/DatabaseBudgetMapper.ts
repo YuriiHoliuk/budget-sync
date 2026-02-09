@@ -13,6 +13,8 @@ export class DatabaseBudgetMapper {
     const budgetType = parseBudgetType(row.type);
     const cadence = parseTargetCadence(row.targetCadence);
 
+    const cap = row.cap != null ? Money.create(row.cap, currency) : null;
+
     return Budget.create(
       {
         name: row.name,
@@ -24,6 +26,7 @@ export class DatabaseBudgetMapper {
         startDate: row.startDate ? new Date(row.startDate) : null,
         endDate: row.endDate ? new Date(row.endDate) : null,
         isArchived: row.isArchived,
+        cap,
         dbId: row.id,
       },
       row.name,
@@ -41,6 +44,7 @@ export class DatabaseBudgetMapper {
       targetDate: budget.targetDate ? this.formatDate(budget.targetDate) : null,
       startDate: budget.startDate ? this.formatDate(budget.startDate) : null,
       endDate: budget.endDate ? this.formatDate(budget.endDate) : null,
+      cap: budget.cap?.amount ?? null,
       isArchived: budget.isArchived,
     };
   }

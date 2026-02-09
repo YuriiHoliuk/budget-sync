@@ -510,7 +510,7 @@ describe('Monthly Overview API Integration', () => {
       expect(result.data?.monthlyOverview.savingsRate).toBe(0);
     });
 
-    test('should compute negative carryover (overspending) from previous months', async () => {
+    test('should accumulate overspending from previous months', async () => {
       const operationalAccount = await createTestAccount(harness.getDb(), {
         name: 'Main Account',
         role: 'operational',
@@ -551,7 +551,7 @@ describe('Monthly Overview API Integration', () => {
             budgetId: number;
             name: string;
             allocated: number;
-            carryover: number;
+            suggestedAllocation: number;
             available: number;
           }>;
         };
@@ -563,7 +563,7 @@ describe('Monthly Overview API Integration', () => {
               budgetId
               name
               allocated
-              carryover
+              suggestedAllocation
               available
             }
           }
@@ -575,14 +575,14 @@ describe('Monthly Overview API Integration', () => {
       expect(result.errors).toBeUndefined();
 
       const summary = result.data?.monthlyOverview.budgetSummaries[0];
-      expect(summary?.allocated).toBe(5000); // this month
-      // carryover = 3000 - 5000 = -2000 (only negative carries forward for spending)
-      expect(summary?.carryover).toBe(-2000);
-      // available = allocated + carryover - spent = 5000 + (-2000) - 0 = 3000
+      expect(summary?.allocated).toBe(5000); // this month only
+      // suggestedAllocation = max(0, targetAmount - available) = max(0, 5000 - 3000) = 2000
+      expect(summary?.suggestedAllocation).toBe(2000);
+      // available = total allocated - total spent = (3000 + 5000) - 5000 = 3000
       expect(summary?.available).toBe(3000);
     });
 
-    test('should NOT carry forward positive balance for spending budgets', async () => {
+    test('should carry forward positive balance for spending budgets (accumulation)', async () => {
       const operationalAccount = await createTestAccount(harness.getDb(), {
         name: 'Main Account',
         role: 'operational',
@@ -621,7 +621,7 @@ describe('Monthly Overview API Integration', () => {
         monthlyOverview: {
           budgetSummaries: Array<{
             budgetId: number;
-            carryover: number;
+            suggestedAllocation: number;
             available: number;
           }>;
         };
@@ -631,7 +631,7 @@ describe('Monthly Overview API Integration', () => {
           monthlyOverview(month: $month) {
             budgetSummaries {
               budgetId
-              carryover
+              suggestedAllocation
               available
             }
           }
@@ -643,10 +643,9 @@ describe('Monthly Overview API Integration', () => {
       expect(result.errors).toBeUndefined();
 
       const summary = result.data?.monthlyOverview.budgetSummaries[0];
-      // Positive leftover does NOT carry forward for spending budgets
-      expect(summary?.carryover).toBe(0);
-      // available = allocated + carryover - spent = 5000 + 0 - 0 = 5000
-      expect(summary?.available).toBe(5000);
+      expect(summary?.suggestedAllocation).toBe(0); // no target set
+      // available = total allocated - total spent = (5000 + 5000) - 2000 = 8000
+      expect(summary?.available).toBe(8000);
     });
 
     test('should only include active budgets in summaries', async () => {

@@ -37,6 +37,7 @@ input CreateBudgetInput {
   targetDate: String
   startDate: String
   endDate: String
+  cap: Float
 }
 
 input UpdateBudgetInput {
@@ -50,6 +51,7 @@ input UpdateBudgetInput {
   targetDate: String
   startDate: String
   endDate: String
+  cap: Float
 }
 
 """
@@ -68,6 +70,8 @@ type Budget {
   startDate: String
   endDate: String
   isArchived: Boolean!
+  """Maximum balance cap (for periodic/savings budgets)"""
+  cap: Float
 }
 
 """
@@ -75,7 +79,7 @@ Budget type determines rollover and target behavior.
 """
 enum BudgetType {
   """
-  Monthly budget. Positive balance resets, negative carries forward.
+  Monthly spending budget. Balance accumulates over time.
   """
   SPENDING
   """

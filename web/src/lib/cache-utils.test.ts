@@ -46,7 +46,7 @@ const sampleOverviewData = {
         allocated: 400,
         spent: 200,
         available: 200,
-        carryover: 0,
+        suggestedAllocation: 0,
       },
       {
         budgetId: 2,
@@ -56,7 +56,7 @@ const sampleOverviewData = {
         allocated: 1000,
         spent: 1000,
         available: 0,
-        carryover: 0,
+        suggestedAllocation: 0,
       },
       {
         budgetId: 3,
@@ -66,7 +66,7 @@ const sampleOverviewData = {
         allocated: 500,
         spent: 0,
         available: 500,
-        carryover: 0,
+        suggestedAllocation: 0,
       },
     ],
   },

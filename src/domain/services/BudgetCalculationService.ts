@@ -1,4 +1,4 @@
-import type { BudgetType } from '@domain/entities/Budget.ts';
+import type { BudgetType, TargetCadence } from '@domain/entities/Budget.ts';
 
 /**
  * Input data for a single budget in monthly overview computation.
@@ -10,6 +10,10 @@ export interface BudgetInput {
   type: BudgetType;
   targetAmount: number;
   isArchived: boolean;
+  targetCadence: TargetCadence | null;
+  targetCadenceMonths: number | null;
+  targetDate: string | null;
+  cap: number | null;
 }
 
 /**
@@ -55,7 +59,7 @@ export interface BudgetSummary {
   allocated: number;
   spent: number;
   available: number;
-  carryover: number;
+  suggestedAllocation: number;
 }
 
 /**
@@ -77,6 +81,9 @@ export interface MonthlyOverviewResult {
  *
  * All balances, totals, and availability are computed dynamically
  * from allocations and transactions. There are no stored snapshots.
+ *
+ * All budget types use the accumulating formula:
+ * available = SUM(allocated up to month) - SUM(spent up to month)
  */
 export class BudgetCalculationService {
   /**
@@ -248,6 +255,10 @@ export class BudgetCalculationService {
     );
   }
 
+  /**
+   * All budget types use the same accumulating formula:
+   * available = SUM(allocated up to month) - SUM(spent up to month)
+   */
   private computeSingleBudgetSummary(
     month: string,
     budget: BudgetInput,
@@ -261,72 +272,22 @@ export class BudgetCalculationService {
       (transaction) => transaction.budgetId === budget.budgetId,
     );
 
-    if (budget.type === 'spending') {
-      return this.computeSpendingBudget(
-        month,
-        budget,
-        budgetAllocations,
-        budgetTransactions,
-      );
-    }
-
-    return this.computeAccumulatingBudget(
-      month,
-      budget,
+    const allocatedThisMonth = this.sumAllocationsForMonth(
       budgetAllocations,
-      budgetTransactions,
-    );
-  }
-
-  /**
-   * Spending budgets: reset monthly, only negative carryover carries forward.
-   *
-   * Available = Allocated this month - Spent this month + Carryover
-   * Carryover = Only negative balance from previous month
-   */
-  private computeSpendingBudget(
-    month: string,
-    budget: BudgetInput,
-    allocations: AllocationInput[],
-    transactions: TransactionInput[],
-  ): BudgetSummary {
-    const allocatedThisMonth = this.sumAllocationsForMonth(allocations, month);
-    const spentThisMonth = this.sumExpensesForMonth(transactions, month);
-    const carryover = this.computeSpendingCarryover(
       month,
-      allocations,
-      transactions,
     );
-    const available = allocatedThisMonth - spentThisMonth + carryover;
-
-    return {
-      budgetId: budget.budgetId,
-      name: budget.name,
-      type: budget.type,
-      targetAmount: budget.targetAmount,
-      allocated: allocatedThisMonth,
-      spent: spentThisMonth,
-      available,
-      carryover,
-    };
-  }
-
-  /**
-   * Savings / Goal / Periodic budgets: accumulate over time.
-   *
-   * Available = Sum of all allocations (all time up to month) - Sum of all spending (all time up to month)
-   */
-  private computeAccumulatingBudget(
-    month: string,
-    budget: BudgetInput,
-    allocations: AllocationInput[],
-    transactions: TransactionInput[],
-  ): BudgetSummary {
-    const allocatedThisMonth = this.sumAllocationsForMonth(allocations, month);
-    const spentThisMonth = this.sumExpensesForMonth(transactions, month);
-    const totalAllocated = this.sumAllocationsUpToMonth(allocations, month);
-    const totalSpent = this.sumExpensesUpToMonth(transactions, month);
+    const spentThisMonth = this.sumExpensesForMonth(budgetTransactions, month);
+    const totalAllocated = this.sumAllocationsUpToMonth(
+      budgetAllocations,
+      month,
+    );
+    const totalSpent = this.sumExpensesUpToMonth(budgetTransactions, month);
     const available = totalAllocated - totalSpent;
+    const suggestedAllocation = this.computeSuggestedAllocation(
+      available,
+      budget,
+      month,
+    );
 
     return {
       budgetId: budget.budgetId,
@@ -336,63 +297,112 @@ export class BudgetCalculationService {
       allocated: allocatedThisMonth,
       spent: spentThisMonth,
       available,
-      carryover: 0,
+      suggestedAllocation,
     };
   }
 
   /**
-   * For spending budgets, compute carryover from all previous months.
-   * Only negative balances carry forward (overspending as debt).
-   * Positive leftover does NOT carry forward.
+   * Computes how much should be allocated this month based on budget type and target.
+   *
+   * | Type     | Formula                                                       |
+   * |----------|---------------------------------------------------------------|
+   * | spending | max(0, targetAmount - available)                              |
+   * | savings  | max(0, targetAmount - available)                              |
+   * | goal     | max(0, ceil((targetAmount - available) / monthsRemaining))    |
+   * | periodic | monthly save amount per cadence, 0 if available >= cap        |
    */
-  private computeSpendingCarryover(
+  private computeSuggestedAllocation(
+    available: number,
+    budget: BudgetInput,
     currentMonth: string,
-    allocations: AllocationInput[],
-    transactions: TransactionInput[],
   ): number {
-    const previousMonths = this.getPreviousMonths(
-      allocations,
-      transactions,
-      currentMonth,
-    );
-    let carryover = 0;
-
-    for (const previousMonth of previousMonths) {
-      const allocated = this.sumAllocationsForMonth(allocations, previousMonth);
-      const spent = this.sumExpensesForMonth(transactions, previousMonth);
-      const balance = allocated - spent + carryover;
-      // Only negative balance carries forward for spending budgets
-      carryover = balance < 0 ? balance : 0;
+    if (budget.targetAmount <= 0) {
+      return 0;
     }
 
-    return carryover;
+    switch (budget.type) {
+      case 'spending':
+      case 'savings':
+        return Math.max(0, budget.targetAmount - available);
+
+      case 'goal':
+        return this.computeGoalSuggestion(available, budget, currentMonth);
+
+      case 'periodic':
+        return this.computePeriodicSuggestion(available, budget);
+    }
+  }
+
+  private computeGoalSuggestion(
+    available: number,
+    budget: BudgetInput,
+    currentMonth: string,
+  ): number {
+    const remaining = budget.targetAmount - available;
+    if (remaining <= 0) {
+      return 0;
+    }
+
+    if (!budget.targetDate) {
+      return remaining;
+    }
+
+    const monthsRemaining = this.monthsBetween(currentMonth, budget.targetDate);
+    if (monthsRemaining <= 0) {
+      return remaining;
+    }
+
+    return Math.ceil(remaining / monthsRemaining);
+  }
+
+  private computePeriodicSuggestion(
+    available: number,
+    budget: BudgetInput,
+  ): number {
+    const monthlyAmount = this.computeMonthlyAmount(budget);
+    if (monthlyAmount <= 0) {
+      return 0;
+    }
+
+    if (budget.cap !== null && budget.cap > 0) {
+      return Math.min(monthlyAmount, Math.max(0, budget.cap - available));
+    }
+
+    return Math.max(0, monthlyAmount - available);
+  }
+
+  private computeMonthlyAmount(budget: BudgetInput): number {
+    switch (budget.targetCadence) {
+      case 'monthly':
+        return budget.targetAmount;
+      case 'yearly':
+        return Math.ceil(budget.targetAmount / 12);
+      case 'custom':
+        if (budget.targetCadenceMonths && budget.targetCadenceMonths > 0) {
+          return Math.ceil(budget.targetAmount / budget.targetCadenceMonths);
+        }
+        return budget.targetAmount;
+      default:
+        return budget.targetAmount;
+    }
   }
 
   /**
-   * Get sorted list of unique months before the current month,
-   * from both allocations and transactions.
+   * Returns the number of months from currentMonth to targetDate (inclusive of target month).
+   * If targetDate is in the same month, returns 1.
    */
-  private getPreviousMonths(
-    allocations: AllocationInput[],
-    transactions: TransactionInput[],
-    currentMonth: string,
-  ): string[] {
-    const months = new Set<string>();
+  private monthsBetween(currentMonth: string, targetDate: string): number {
+    const currentParts = currentMonth.split('-');
+    const currentYear = Number(currentParts[0]);
+    const currentMonthNum = Number(currentParts[1]);
 
-    for (const allocation of allocations) {
-      if (allocation.period < currentMonth) {
-        months.add(allocation.period);
-      }
-    }
+    const targetParts = targetDate.slice(0, 7).split('-');
+    const targetYear = Number(targetParts[0]);
+    const targetMonthNum = Number(targetParts[1]);
 
-    for (const transaction of transactions) {
-      const transactionMonth = this.toMonth(transaction.date);
-      if (transactionMonth < currentMonth) {
-        months.add(transactionMonth);
-      }
-    }
-
-    return Array.from(months).sort();
+    const months =
+      (targetYear - currentYear) * 12 + (targetMonthNum - currentMonthNum);
+    return Math.max(1, months);
   }
 
   private sumAllocationsForMonth(

@@ -81,7 +81,7 @@ export class MonthlyOverviewResolver extends Resolver {
         allocated: toMajorUnits(summary.allocated),
         spent: toMajorUnits(summary.spent),
         available: toMajorUnits(summary.available),
-        carryover: toMajorUnits(summary.carryover),
+        suggestedAllocation: toMajorUnits(summary.suggestedAllocation),
       })),
     };
   }
@@ -121,6 +121,12 @@ export class MonthlyOverviewResolver extends Resolver {
       name: budget.name,
       type: budget.type,
       targetAmount: budget.amount.amount,
+      targetCadence: budget.targetCadence,
+      targetCadenceMonths: budget.targetCadenceMonths,
+      targetDate: budget.targetDate
+        ? budget.targetDate.toISOString().slice(0, 10)
+        : null,
+      cap: budget.cap?.amount ?? null,
       isArchived: budget.isArchived,
     }));
 

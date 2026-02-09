@@ -74,6 +74,7 @@ export function CreateBudgetDialog({
   const [targetCadence, setTargetCadence] = useState<TargetCadence | "">("");
   const [targetCadenceMonths, setTargetCadenceMonths] = useState("");
   const [targetDate, setTargetDate] = useState("");
+  const [cap, setCap] = useState("");
   const [error, setError] = useState("");
 
   const [createBudget, { loading }] = useMutation(CreateBudgetDocument, {
@@ -87,6 +88,8 @@ export function CreateBudgetDialog({
     !Number.isNaN(parsedTargetAmount) && parsedTargetAmount >= 0;
 
   const needsCadence =
+    budgetType === BudgetType.Periodic || budgetType === BudgetType.Savings;
+  const needsCap =
     budgetType === BudgetType.Periodic || budgetType === BudgetType.Savings;
   const needsTargetDate = budgetType === BudgetType.Goal;
   const needsCustomMonths =
@@ -122,6 +125,7 @@ export function CreateBudgetDialog({
             ...(needsTargetDate && targetDate !== ""
               ? { targetDate }
               : {}),
+            ...(needsCap && cap !== "" ? { cap: Number.parseFloat(cap) } : {}),
           },
         },
       });
@@ -142,6 +146,7 @@ export function CreateBudgetDialog({
     setTargetCadence("");
     setTargetCadenceMonths("");
     setTargetDate("");
+    setCap("");
     setError("");
     onOpenChange(false);
   };
@@ -193,6 +198,7 @@ export function CreateBudgetDialog({
                 ) {
                   setTargetCadence("");
                   setTargetCadenceMonths("");
+                  setCap("");
                 }
                 if (value !== BudgetType.Goal) {
                   setTargetDate("");
@@ -252,7 +258,7 @@ export function CreateBudgetDialog({
                   }
                 }}
               >
-                <SelectTrigger id="cadence" className="w-full">
+                <SelectTrigger id="cadence" className="w-full" data-qa="select-target-cadence">
                   <SelectValue placeholder="Select cadence" />
                 </SelectTrigger>
                 <SelectContent>
@@ -290,9 +296,30 @@ export function CreateBudgetDialog({
                 type="date"
                 value={targetDate}
                 onChange={(event) => setTargetDate(event.target.value)}
+                data-qa="input-target-date"
               />
               <p className="text-xs text-muted-foreground">
                 When you want to reach your goal
+              </p>
+            </div>
+          )}
+
+          {needsCap && (
+            <div className="grid gap-2">
+              <Label htmlFor="cap">Maximum Balance (Cap)</Label>
+              <Input
+                id="cap"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Optional"
+                value={cap}
+                onChange={(event) => setCap(event.target.value)}
+                className="tabular-nums"
+                data-qa="input-cap"
+              />
+              <p className="text-xs text-muted-foreground">
+                Stop suggesting allocations when balance reaches this amount
               </p>
             </div>
           )}

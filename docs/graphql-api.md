@@ -19,7 +19,7 @@ Schema is defined in SDL files under `src/presentation/graphql/schema/`. The roo
 | `transactions.graphql` | Transaction CRUD, filtering, pagination |
 | `budgets.graphql` | YNAB-style budget envelopes |
 | `categories.graphql` | Hierarchical transaction categories |
-| `allocations.graphql` | Budget allocations, fund moves, equalization |
+| `allocations.graphql` | Budget allocations, fund moves |
 | `monthlyOverview.graphql` | Computed monthly financial overview |
 | `transactionLinks.graphql` | Transfer/split/refund links between transactions |
 | `subscriptions.graphql` | Real-time update events |
@@ -68,7 +68,6 @@ New `.graphql` files must be registered in `src/presentation/graphql/schema/inde
 | `updateAllocation(input)` | Update allocation |
 | `deleteAllocation(id)` | Remove allocation |
 | `moveFunds(input)` | Atomically move funds between two budgets |
-| `equalizeAllocations(input)` | Create adjustment allocations to match spending |
 | `createTransferLink(outgoing, incoming, notes)` | Link two transactions as a transfer |
 | `deleteTransactionLink(id)` | Remove a transaction link |
 
@@ -95,6 +94,7 @@ Resolvers are injectable classes extending the `Resolver` base class (`src/prese
 **Key conventions:**
 
 - **Money**: DB stores minor units (kopecks). Resolvers convert to/from major units via `toMajorUnits()` / `toMinorUnits()`. All `Float` money fields in the API are in major units.
+- **BudgetSummary**: Now includes `suggestedAllocation` instead of `carryover`. Budget type includes optional `cap` field.
 - **Enums**: Resolvers map between GraphQL enums (`SPENDING`, `BANK_SYNC`) and domain enums (`spending`, `bank_sync`).
 - **Child resolvers**: Entity relationships (e.g., `Transaction.account`, `Allocation.budget`) are resolved via field resolvers that load from repositories.
 
@@ -139,8 +139,7 @@ queries/
 
 mutations/
   accounts.graphql, allocations.graphql, budgets.graphql,
-  categories.graphql, equalize-allocations.graphql,
-  move-funds.graphql, transactions.graphql
+  categories.graphql, move-funds.graphql, transactions.graphql
 ```
 
 Apollo Client uses the generated typed documents with `useQuery` and `useMutation` hooks (imported from `@apollo/client/react`).

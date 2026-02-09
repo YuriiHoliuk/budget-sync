@@ -31,12 +31,6 @@ extend type Mutation {
   Returns both the source (negative) and destination (positive) allocations.
   """
   moveFunds(input: MoveFundsInput!): MoveFundsResult!
-
-  """
-  Equalize allocations with actual spending for SPENDING-type budgets.
-  Creates adjustment allocations so allocated matches spent.
-  """
-  equalizeAllocations(input: EqualizeAllocationsInput!): EqualizeAllocationsResult!
 }
 
 input CreateAllocationInput {
@@ -115,29 +109,4 @@ type Allocation {
 type MoveFundsResult {
   sourceAllocation: Allocation!
   destAllocation: Allocation!
-}
-
-input EqualizeAllocationsInput {
-  """
-  Period in YYYY-MM format.
-  """
-  period: String!
-  currency: String!
-  """
-  Optional list of budget IDs to equalize. If omitted, all SPENDING budgets are equalized.
-  """
-  budgetIds: [Int!]
-}
-
-type EqualizeAllocationsResult {
-  allocationsCreated: Int!
-  adjustments: [AllocationAdjustment!]!
-}
-
-type AllocationAdjustment {
-  budgetId: Int!
-  """
-  Delta in major units. Positive means more was spent than allocated.
-  """
-  delta: Float!
 }

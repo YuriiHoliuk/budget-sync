@@ -275,6 +275,7 @@ const DEFAULT_BUDGET_PROPS: BudgetProps = {
   startDate: null,
   endDate: null,
   isArchived: false,
+  cap: null,
   dbId: 1,
 };
 

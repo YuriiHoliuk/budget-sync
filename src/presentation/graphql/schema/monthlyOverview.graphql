@@ -55,6 +55,6 @@ type BudgetSummary {
   spent: Float!
   """Available balance (calculation varies by budget type)"""
   available: Float!
-  """Carryover from previous months (spending budgets only, negative = debt)"""
-  carryover: Float!
+  """Suggested allocation based on budget type and target"""
+  suggestedAllocation: Float!
 }

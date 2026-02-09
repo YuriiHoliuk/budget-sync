@@ -17,11 +17,12 @@ import { defineConfig, devices } from '@playwright/test';
  *   bunx playwright test       # Run directly
  */
 export default defineConfig({
+  globalSetup: './e2e/global-setup.ts',
   testDir: './e2e/tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: [
     ['html', { outputFolder: 'e2e/playwright-report' }],
     ['list'],
@@ -41,17 +42,4 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-
-  // Start E2E Docker Compose stack. The command must stay alive (no -d flag)
-  // so Playwright can manage the process lifecycle. In CI, services are
-  // started separately by the workflow, so webServer is disabled.
-  webServer: process.env.CI
-    ? undefined
-    : {
-        command: 'docker compose -f docker-compose.e2e.yml up',
-        url: 'http://localhost:3001',
-        reuseExistingServer: true,
-        timeout: 120 * 1000,
-        stdout: 'ignore',
-      },
 });

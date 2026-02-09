@@ -43,27 +43,33 @@ A supermarket purchase (category: Food > Supermarket) might come from the "Groce
 
 | Type | Balance behavior | Positive leftover | Negative balance | Example |
 |------|-----------------|-------------------|------------------|---------|
-| `spending` | Resets monthly | Returns to Ready to Assign | Carries forward as debt | Groceries, dining out |
+| `spending` | Accumulates | Stays in envelope | Carries forward as debt | Groceries, dining out |
 | `savings` | Accumulates | Stays in envelope | Carries forward | Emergency fund |
 | `goal` | Accumulates until target | Stays in envelope | Carries forward | Vacation, down payment |
 | `periodic` | Accumulates until due | Stays in envelope | Carries forward | Annual insurance |
 
 ### Spending budgets
 
-Available balance is scoped to the current month. Unspent money does not carry forward -- it implicitly returns to Ready to Assign. However, if a spending budget is overspent (negative balance), that debt carries forward into the next month.
+Like all other types, spending budgets accumulate. The available balance is the sum of all allocations minus all spending across all months up to the selected month. Underspending carries forward as a positive balance, overspending carries forward as debt.
 
-```
-available(M) = allocated(M) - spent(M) + carryover
-carryover    = MIN(0, available(M-1))   // only negative carries
-```
+The budget's target amount drives a **suggested allocation**: `max(0, targetAmount - available)`. If the budget already has sufficient funds from previous months, the suggestion is zero.
 
-### Accumulating budgets (savings, goal, periodic)
+### All budgets accumulate
 
-Available balance accumulates across all months. Both allocations and spending are summed from the beginning of time up to the selected month.
+All budget types use the same formula:
 
 ```
 available(M) = SUM(allocated up to M) - SUM(spent up to M)
 ```
+
+The budget `type` determines the **allocation suggestion**, not the balance calculation:
+
+| Type | Suggestion formula |
+|------|-------------------|
+| `spending` | `max(0, targetAmount - available)` |
+| `savings` | `max(0, targetAmount - available)` |
+| `goal` | `ceil((targetAmount - available) / monthsRemaining)` |
+| `periodic` | Monthly amount based on cadence, capped at `cap - available` |
 
 ## Ready to Assign
 
@@ -120,6 +126,10 @@ To move money between envelopes, two paired allocations are created in a single 
 
 Ready to Assign stays unchanged because the two allocations cancel out. This is implemented in `MoveFundsUseCase`.
 
+## Budget Cap
+
+Periodic and savings budgets can have an optional `cap` (maximum balance). When `available >= cap`, the suggested allocation drops to zero, preventing over-accumulation. For periodic budgets with a cap, the suggestion is: `min(monthlyAmount, max(0, cap - available))`.
+
 ## Pure Computation Model
 
 There are no stored monthly snapshots. All balances -- Ready to Assign, budget available amounts, totals -- are computed dynamically from raw allocations and transactions. Selecting a different month recalculates everything on the fly.
@@ -131,4 +141,4 @@ The computation logic lives in `src/domain/services/BudgetCalculationService.ts`
 1. **Start of month**: Check Ready to Assign. Allocate available funds into budget envelopes until Ready to Assign reaches zero.
 2. **During the month**: Transactions arrive via bank sync. Each transaction's spending is tracked against its assigned budget. The monthly overview shows real-time budget status.
 3. **Overspending**: If a budget goes negative, either move money from another envelope or accept the deficit (it carries forward as debt for spending budgets).
-4. **End of month**: For spending budgets, positive leftover returns to Ready to Assign. For accumulating budgets, the balance carries forward.
+4. **End of month**: All budget balances carry forward to the next month. Check suggested allocations to see how much each budget needs.

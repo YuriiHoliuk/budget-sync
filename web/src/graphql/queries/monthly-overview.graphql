@@ -15,7 +15,7 @@ query GetMonthlyOverview($month: String!) {
       allocated
       spent
       available
-      carryover
+      suggestedAllocation
     }
   }
 }

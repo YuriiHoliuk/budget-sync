@@ -31,14 +31,15 @@ async function executeGraphQL<T = unknown>(
  */
 interface CreateBudgetInput {
   name: string;
-  type: 'SPENDING' | 'SAVINGS' | 'GOAL';
+  type: 'SPENDING' | 'SAVINGS' | 'GOAL' | 'PERIODIC';
   currency?: string;
   targetAmount?: number;
-  targetCadence?: 'MONTHLY' | 'WEEKLY' | 'YEARLY';
+  targetCadence?: 'MONTHLY' | 'YEARLY' | 'CUSTOM';
   targetCadenceMonths?: number;
   targetDate?: string;
   startDate?: string;
   endDate?: string;
+  cap?: number;
 }
 
 interface Budget {
@@ -47,6 +48,7 @@ interface Budget {
   type: string;
   currency: string;
   targetAmount: number | null;
+  cap: number | null;
 }
 
 export async function createBudget(input: CreateBudgetInput): Promise<Budget> {
@@ -58,6 +60,7 @@ export async function createBudget(input: CreateBudgetInput): Promise<Budget> {
         type
         currency
         targetAmount
+        cap
       }
     }
   `;
@@ -138,6 +141,7 @@ export async function createCategory(
 interface CreateAllocationInput {
   budgetId: number;
   amount: number;
+  currency?: string;
   period: string;
   date?: string;
   notes?: string;
@@ -168,7 +172,7 @@ export async function createAllocation(
 
   const result = await executeGraphQL<{
     createAllocation: { id: number; budget: { id: number }; amount: number; period: string };
-  }>(mutation, { input });
+  }>(mutation, { input: { currency: 'UAH', ...input } });
 
   if (result.errors) {
     throw new Error(`Failed to create allocation: ${result.errors[0].message}`);
@@ -329,6 +333,7 @@ export async function getBudgets(): Promise<Budget[]> {
         type
         currency
         targetAmount
+        cap
       }
     }
   `;
@@ -372,6 +377,64 @@ export async function getMonthlyOverview(month: string): Promise<MonthlyOverview
 
   if (result.errors) {
     throw new Error(`Failed to get monthly overview: ${result.errors[0].message}`);
+  }
+
+  if (!result.data?.monthlyOverview) {
+    throw new Error('No monthly overview returned');
+  }
+
+  return result.data.monthlyOverview;
+}
+
+interface BudgetSummary {
+  budgetId: number;
+  name: string;
+  type: string;
+  targetAmount: number;
+  allocated: number;
+  spent: number;
+  available: number;
+  suggestedAllocation: number;
+}
+
+interface MonthlyOverviewWithBudgets extends MonthlyOverview {
+  budgetSummaries: BudgetSummary[];
+}
+
+export async function getMonthlyOverviewWithBudgets(
+  month: string
+): Promise<MonthlyOverviewWithBudgets> {
+  const query = `
+    query GetMonthlyOverview($month: String!) {
+      monthlyOverview(month: $month) {
+        readyToAssign
+        totalAllocated
+        totalSpent
+        capitalBalance
+        availableFunds
+        savingsRate
+        budgetSummaries {
+          budgetId
+          name
+          type
+          targetAmount
+          allocated
+          spent
+          available
+          suggestedAllocation
+        }
+      }
+    }
+  `;
+
+  const result = await executeGraphQL<{
+    monthlyOverview: MonthlyOverviewWithBudgets;
+  }>(query, { month });
+
+  if (result.errors) {
+    throw new Error(
+      `Failed to get monthly overview: ${result.errors[0].message}`
+    );
   }
 
   if (!result.data?.monthlyOverview) {

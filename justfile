@@ -19,8 +19,15 @@ install:
 
 # Start full stack (db + api + web) via Docker Compose
 dev:
-    docker compose up -d
-    @bash scripts/wait-for-ready.sh
+    docker compose up -d --wait
+    @echo ""
+    @echo "========================================"
+    @echo "  Budget Sync is ready!"
+    @echo "========================================"
+    @echo "  Frontend:  http://localhost:3000"
+    @echo "  API:       http://localhost:4001/graphql"
+    @echo "  DB Studio: just db-studio"
+    @echo "========================================"
 
 # Reset everything and start fresh (destroys volumes)
 dev-fresh:
@@ -172,7 +179,7 @@ e2e-logs service='api-e2e':
 
 # Run E2E tests (starts environment automatically)
 test-e2e:
-    bunx playwright test
+    docker compose -f docker-compose.e2e.yml up -d --wait && bunx playwright test
 
 # Run E2E tests with Playwright UI
 test-e2e-ui:
