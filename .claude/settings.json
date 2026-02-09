@@ -1,0 +1,7 @@
+{
+  "plansDirectory": "claude_plans",
+  "deniedMcpServers": [
+    { "serverName": "playwright" },
+    { "serverName": "production-postgres" }
+  ]
+}
