@@ -21,9 +21,40 @@ import {
   transactions,
 } from '../src/modules/database/schema/index.ts';
 
+// --- Production safety guard ---
+const PRODUCTION_DB_PATTERNS = [
+  'neon.tech',
+  'aws.neon.tech',
+  'supabase.co',
+  '.cloud.',
+];
+
+function maskDatabaseUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return parsed.host;
+  } catch {
+    return '<unparseable-url>';
+  }
+}
+
+function assertNotProductionDatabase(url: string): void {
+  const lowerUrl = url.toLowerCase();
+  if (PRODUCTION_DB_PATTERNS.some((pattern) => lowerUrl.includes(pattern))) {
+    const maskedHost = maskDatabaseUrl(url);
+    console.error(
+      `FATAL: Refusing to seed production database! DATABASE_URL points to: ${maskedHost}`,
+    );
+    process.exit(1);
+  }
+}
+// --- End safety guard ---
+
 const DATABASE_URL =
   process.env['DATABASE_URL'] ??
   'postgresql://budget_sync:budget_sync@localhost:5432/budget_sync';
+
+assertNotProductionDatabase(DATABASE_URL);
 
 const client = postgres(DATABASE_URL);
 const db = drizzle(client);
