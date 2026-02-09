@@ -13,13 +13,19 @@ default:
 init:
     ./scripts/init-local-env.sh
 
-# Install dependencies only
+# Install all dependencies (root + web)
 install:
-    bun install
+    bun install && cd web && bun install
 
 # Start full stack (db + api + web) via Docker Compose
 dev:
     docker compose up -d
+    @bash scripts/wait-for-ready.sh
+
+# Reset everything and start fresh (destroys volumes)
+dev-fresh:
+    docker compose down -v
+    just dev
 
 # Stop all services
 dev-down:
@@ -114,7 +120,7 @@ verify:
 test-watch:
     bun test --watch tests/unit
 
-# Run integration tests (uses real APIs)
+# Run integration tests (Monobank/Google Sheets — uses real APIs, run manually)
 test-integration:
     bun test tests/integration
 

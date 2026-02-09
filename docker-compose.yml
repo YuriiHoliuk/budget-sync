@@ -35,6 +35,18 @@ services:
         condition: service_healthy
     command: ["sh", "-c", "bun install --frozen-lockfile && bunx drizzle-kit migrate"]
 
+  db-seed:
+    image: oven/bun:1
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgresql://budget_sync:budget_sync@db:5432/budget_sync
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "bun install --frozen-lockfile && bun scripts/seed-if-empty.ts"]
+
   api:
     image: oven/bun:1
     working_dir: /app
@@ -50,8 +62,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      db-migrate:
+      db-seed:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "bun", "--eval", "const r = await fetch('http://localhost:4001/health'); process.exit(r.ok ? 0 : 1)"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
     command: ["sh", "-c", "bun install --frozen-lockfile && bun run --watch src/server.ts"]
 
   web:
@@ -66,7 +84,13 @@ services:
       API_URL: http://api:4001
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bun", "--eval", "const r = await fetch('http://localhost:3000'); process.exit(r.ok ? 0 : 1)"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+      start_period: 20s
     command: ["sh", "-c", "bun install --frozen-lockfile && bun run dev"]
 
   budget-sync:

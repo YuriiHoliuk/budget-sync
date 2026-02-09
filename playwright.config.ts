@@ -9,7 +9,7 @@ import { defineConfig, devices } from '@playwright/test';
  * The test environment runs on:
  * - Frontend: http://localhost:3001
  * - API: http://localhost:4002
- * - Database: localhost:5433
+ * - Database: localhost:5434
  *
  * Usage:
  *   just test-e2e              # Run all E2E tests
@@ -47,6 +47,6 @@ export default defineConfig({
     command: 'docker compose -f docker-compose.e2e.yml up -d',
     url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: (process.env.CI ? 300 : 120) * 1000,
   },
 });

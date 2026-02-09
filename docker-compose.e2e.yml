@@ -16,7 +16,7 @@ services:
   db-e2e:
     image: postgres:16-alpine
     ports:
-      - "5433:5432"
+      - "5434:5432"
     environment:
       POSTGRES_USER: budget_sync_test
       POSTGRES_PASSWORD: budget_sync_test
