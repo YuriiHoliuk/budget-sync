@@ -174,10 +174,11 @@ Image tags use the git commit SHA.
 
 ## Neon PostgreSQL (External Database)
 
-The production database is hosted on **Neon Serverless PostgreSQL**, external to GCP. It is not managed by Terraform.
+The production database is hosted on **Neon Serverless PostgreSQL** in `aws-eu-central-1` (Frankfurt), external to GCP. It is not managed by Terraform.
 
+- **Region**: `aws-eu-central-1` (Frankfurt) -- close to Cloud Run in Warsaw (`europe-central2`)
 - **Connection**: The `DATABASE_URL` is stored in Secret Manager and injected into Cloud Run workloads at runtime
-- **Connection string format**: `postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require`
+- **Connection string format**: `postgresql://user:pass@ep-xxx.eu-central-1.aws.neon.tech/neondb?sslmode=require`
 - **Schema management**: Drizzle ORM with migrations applied during CI/CD deploys (see Deploy workflow)
 - **Local development**: Uses a local PostgreSQL 16 container via Docker Compose on port 5432
 

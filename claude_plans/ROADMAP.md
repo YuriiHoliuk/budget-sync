@@ -150,7 +150,7 @@ Small but important items, not tied to a specific phase:
 - [ ] **Audit budget fund movement** — validate month-to-month fund transfers work correctly for all budget types (spending, savings, debt). Investigate and fix if needed.
 - [ ] **Manual transaction UI** — add form on web UI to create transactions for manual (non-synced) accounts
 - [ ] **Spreadsheet cleanup** — remove Google Sheets dependency (code, modules, scripts, credentials) now that PostgreSQL is primary
-- [ ] **Database migration US → EU** — migrate Neon database from New York to Frankfurt (closer to Cloud Run in Warsaw)
+- [x] **Database migration US → EU** — migrated Neon database from New York (`aws-us-west-2`) to Frankfurt (`aws-eu-central-1`), closer to Cloud Run in Warsaw. Data copied via pg_dump/restore, GCP secret updated, services redeployed.
 - [ ] **Runtime env vars & production E2E** — remove `NEXT_PUBLIC_*` bundled env vars in favor of runtime configuration (follow 12-factor app). Build a single Docker image and run E2E tests against it instead of dev mode. Enables: same image for dev/staging/prod with different env vars, eliminates dev-server warm-up hacks in CI, makes E2E closer to production behavior.
 
 ---
