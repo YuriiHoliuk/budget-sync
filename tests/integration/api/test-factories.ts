@@ -16,6 +16,8 @@ import {
   allocations,
   budgets,
   categories,
+  transactionLinkMembers,
+  transactionLinks,
   transactions,
 } from '@modules/database/schema/index.ts';
 import { sql } from 'drizzle-orm';
@@ -235,9 +237,55 @@ export async function createTestTransaction(db: Db, data: TestTransactionData) {
  * Clear all test data from the database.
  * Use in beforeEach/afterEach to ensure clean state.
  */
+/**
+ * Transaction link factory - creates test transaction links
+ */
+interface TestTransactionLinkData {
+  linkType?: 'transfer' | 'split' | 'refund';
+  notes?: string | null;
+  members: Array<{
+    transactionId: number;
+    role: 'source' | 'outgoing' | 'incoming' | 'part' | 'refund';
+  }>;
+}
+
+export async function createTestTransactionLink(
+  db: Db,
+  data: TestTransactionLinkData,
+) {
+  const [link] = await db
+    .insert(transactionLinks)
+    .values({
+      linkType: data.linkType ?? 'transfer',
+      notes: data.notes ?? null,
+    })
+    .returning();
+
+  if (!link) {
+    throw new Error('Failed to create test transaction link');
+  }
+
+  const memberValues = data.members.map((member) => ({
+    linkId: link.id,
+    transactionId: member.transactionId,
+    role: member.role,
+  }));
+
+  const members = await db
+    .insert(transactionLinkMembers)
+    .values(memberValues)
+    .returning();
+
+  return { ...link, members };
+}
+
+/**
+ * Clear all test data from the database.
+ * Use in beforeEach/afterEach to ensure clean state.
+ */
 export async function clearAllTestData(db: Db): Promise<void> {
   await db.execute(
-    sql`TRUNCATE TABLE allocations, transactions, budgets, categories, accounts RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE transaction_link_members, transaction_links, allocations, transactions, budgets, categories, accounts RESTART IDENTITY CASCADE`,
   );
 }
 
