@@ -1,3 +1,7 @@
+---
+description: Decision to keep schema-first approach with SDL files for GraphQL schema management.
+---
+
 # ADR-002: GraphQL Schema Management Strategy
 
 **Date**: 2026-02-06

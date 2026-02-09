@@ -1,3 +1,7 @@
+---
+description: Product vision, user stories, and feature requirements for the Budget Sync application.
+---
+
 # Product Requirements Document (PRD)
 
 ## Budget Sync — Personal Finance Management App

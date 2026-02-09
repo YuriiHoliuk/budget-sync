@@ -1,3 +1,7 @@
+---
+description: Quick fixes for common development and deployment issues.
+---
+
 # Troubleshooting
 
 Quick solutions for common issues encountered during development and deployment.

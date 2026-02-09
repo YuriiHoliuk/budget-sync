@@ -229,6 +229,20 @@ Cloud Scheduler (cron) ──────────────────┘
 | `budget-sync-scheduler` | Triggers jobs on schedule |
 | `budget-sync-deployer` | GitHub Actions deployment |
 
+## Documentation
+
+Project documentation lives in `docs/`. Browse it with:
+
+```bash
+just docs-list              # All docs with titles
+just docs-detail            # All docs with descriptions
+just docs-detail <search>   # Search by name or title
+```
+
+Key docs: [PRD](docs/PRD.md) | [Database Design](docs/database-design.md) | [GraphQL API](docs/graphql-api.md) | [Envelope Budgeting](docs/envelope-budgeting.md) | [Data Flow](docs/data-flow.md) | [Deployment](docs/deployment.md) | [Infrastructure](docs/infrastructure.md) | [Frontend Architecture](docs/frontend-architecture.md)
+
+Planning docs and historical research are in `claude_plans/`.
+
 ## Resources
 
 - [Spreadsheet](https://docs.google.com/spreadsheets/d/135dmcPNwvPA8tEuND4-UlUwMmPqpiNZBINoQJH1qJCw/edit)

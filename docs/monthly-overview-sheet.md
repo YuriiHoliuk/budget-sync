@@ -1,3 +1,7 @@
+---
+description: Legacy spreadsheet monthly overview sheet with budget summaries and spending calculations.
+---
+
 # Monthly Overview Sheet (Місячний огляд)
 
 The "Місячний огляд" sheet is a dashboard that provides a monthly summary of budgets, spending, and available funds. It dynamically filters budgets active for the selected month and calculates spending from transactions.

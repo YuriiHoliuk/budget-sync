@@ -1,3 +1,7 @@
+---
+description: Technical lessons learned during development — integration patterns, gotchas, and solutions.
+---
+
 # Learnings
 
 ## Apollo Server + Bun HttpServer Integration

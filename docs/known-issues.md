@@ -1,3 +1,7 @@
+---
+description: Tracked technical debt, known limitations, and planned improvements.
+---
+
 # Known Issues & Future Improvements
 
 ## 1. Spreadsheet Row Loading - Memory & Performance

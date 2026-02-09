@@ -1,3 +1,7 @@
+---
+description: Monobank API endpoints, authentication, rate limits, and webhook setup for transaction sync.
+---
+
 # Monobank Open API Documentation
 
 > **Base URL:** `https://api.monobank.ua`

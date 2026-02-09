@@ -1,0 +1,163 @@
+# Budget Sync Roadmap
+
+## Phase 1: Cloud Deployment `completed`
+
+> Deployed Jan 3-4, 2026
+
+- [x] Set up CI/CD pipeline (GitHub Actions → Google Cloud)
+- [x] Deploy system to Google Cloud Run
+- [x] Manage infrastructure with Terraform (service accounts, IAM, secrets, scheduler)
+- [x] Configure Cloud Scheduler for transaction polling every 3 hours
+
+---
+
+## Phase 2: Data Model `completed`
+
+> Started as Google Sheets (Jan 2), migrated to PostgreSQL (Feb 1, 2026)
+
+- [x] Categories — hierarchical with parent categories and status tracking
+- [x] Categorization rules — deterministic pattern → category mapping
+- [x] Budgetization rules — deterministic pattern → budget mapping
+- [x] Budget allocations — monthly amounts per budget, allocated vs spent tracking
+
+Originally implemented as spreadsheet sheets, then migrated to Neon PostgreSQL with Drizzle ORM during Phase 8.
+
+---
+
+## Phase 3: Transaction Categorization `completed`
+
+> Jan 8-24, 2026
+
+- [x] Rule-based categorization engine with priority ordering
+- [x] Auto-apply rules during transaction sync
+- [x] LLM fallback via Google Gemini for unmatched transactions
+- [x] Separate LLM calls for category and budget inference
+- [x] Batch categorize CLI command for uncategorized transactions
+
+---
+
+## Phase 4: Real-time Sync `completed`
+
+> Jan 6, 2026
+
+- [x] Monobank webhook integration for instant transaction updates
+- [x] HTTP endpoints for webhook validation and processing
+- [x] Pub/Sub async processing with dead letter queue
+- [x] Polling job kept as fallback (every 3 hours)
+
+---
+
+## Phase 5: Chat Interface `not started` → merged into Phase 10
+
+~~Originally planned as standalone phase. Now part of Phase 10 (Telegram Bot).~~
+
+---
+
+## Phase 6: Review System `not started` → merged into Phase 9
+
+~~Originally planned as standalone phase. Review/approval workflows now part of Phase 9 (Rules UI) and Phase 10 (Telegram Bot).~~
+
+---
+
+## Phase 7: Spreadsheet Dashboard `superseded`
+
+> Jan 24, 2026 — Dashboard scripts created, then superseded by web UI
+
+- [x] Dashboard sheet setup scripts
+- ~~Format and style data sheets~~ — replaced by web UI
+- ~~Dashboard with summary formulas~~ — replaced by web UI
+
+Spreadsheet is no longer the primary interface. Web UI (Phase 8) replaced this.
+
+---
+
+## Phase 8: Platform Migration `completed`
+
+> Jan 31 – Feb 6, 2026
+
+- [x] Replace Google Sheets with PostgreSQL (Neon) + Drizzle ORM
+- [x] GraphQL API with Apollo Server (accounts, budgets, categories, allocations, transactions)
+- [x] Next.js 15 web UI with ShadCN, Tailwind, Apollo Client
+- [x] Budget page with inline editing, move funds, CRUD dialogs
+- [x] Accounts page with CRUD for manual accounts
+- [x] Categories management page
+- [x] Transaction detail/edit panel with auto-verify on edit
+- [x] Basic auth gate for single-user access
+- [x] E2E tests with Playwright, Page Object Model
+- [x] Deploy web frontend to Cloud Run
+
+---
+
+## Phase 9: Categorization Rules & Verification UI `not started`
+
+### Verification panel
+- [ ] Quick-verify panel for categorized transactions — review queue with one-click approve or inline edit (category, budget)
+- [ ] Quick-categorize panel for uncategorized transactions — same UI, assign category/budget or skip
+- [ ] Batch actions — verify all, filter by date/account/status
+
+### Rules management
+- [ ] Deterministic rules form builder — visual condition editor on UI:
+  - Build conditions on transaction fields (description contains, amount >, MCC equals, etc.)
+  - Combine conditions with AND/OR logic
+  - Assign category and/or budget when conditions match
+  - Priority ordering — rules evaluated before LLM
+- [ ] AI rules editor — plaintext prompt editing for LLM-based rules (categories and budgets)
+- [ ] Unified rules management UI — single place to view/edit both deterministic and AI rules
+
+### Smart rule suggestions `future`
+- [ ] Detect patterns when user overrides categorization (e.g., always re-assigns a certain description)
+- [ ] Auto-generate suggested deterministic rules from these patterns
+- [ ] Present suggestions for user approval before adding to active rules
+
+---
+
+## Phase 10: Telegram Bot `not started`
+
+- [ ] Telegram bot for push notifications (new transactions, uncategorized alerts)
+- [ ] Record spendings for manual accounts via chat
+- [ ] Transaction review and approval via chat (approve, categorize, reject)
+- [ ] Quick natural language commands ("Spent 500 on groceries", "Show uncategorized")
+
+---
+
+## Phase 11: AI-Native Interface `not started`
+
+- [ ] Natural language input on web UI (text field + voice dictation)
+- [ ] Agent with tools that interprets user intent and performs operations:
+  - Record cash transactions
+  - Bulk-update transaction statuses
+  - Categorize/re-categorize transactions
+  - Query spending summaries
+  - Any operation available through the app
+- [ ] Tool/action confirmation before execution
+
+---
+
+## Phase 12: Custom Dashboard `not started`
+
+- [ ] Chart builder — create charts from available data (transactions, budgets, categories, accounts)
+- [ ] Supported chart types: column, pie, flow/river (Sankey), line, etc.
+- [ ] Drag-and-drop layout — user arranges charts freely on a canvas
+- [ ] Save/load dashboards — persist custom layouts per user
+- [ ] New chart types added in code, instantly available to users in the builder
+
+---
+
+## Short-term Tasks
+
+Small but important items, not tied to a specific phase:
+
+- [ ] **Audit budget fund movement** — validate month-to-month fund transfers work correctly for all budget types (spending, savings, debt). Investigate and fix if needed.
+- [ ] **Manual transaction UI** — add form on web UI to create transactions for manual (non-synced) accounts
+- [ ] **Spreadsheet cleanup** — remove Google Sheets dependency (code, modules, scripts, credentials) now that PostgreSQL is primary
+- [ ] **Database migration US → EU** — migrate Neon database from New York to Frankfurt (closer to Cloud Run in Warsaw)
+
+---
+
+## Future / Deferred
+
+Low priority or blocked by other work:
+
+- [ ] **Move database to GCP** — self-hosted or Cloud SQL PostgreSQL (postponed — cost consideration)
+- [ ] **WebSocket subscriptions** — Apollo subscriptions for real-time UI updates (blocked: Cloud Run is request-based; needs migration to persistent server)
+- [ ] **Mobile app** — standalone mobile app for transaction management

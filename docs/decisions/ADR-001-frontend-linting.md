@@ -1,3 +1,7 @@
+---
+description: Decision to keep ESLint for frontend instead of migrating to Biome.
+---
+
 # ADR-001: Frontend Linting Strategy
 
 **Date**: 2026-02-06

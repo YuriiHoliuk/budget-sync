@@ -1,3 +1,7 @@
+---
+description: Legacy spreadsheet dashboard sheet with charts and summary statistics for budget analysis.
+---
+
 # Dashboard Sheet (Дашборд)
 
 The "Дашборд" sheet provides visual charts and summary statistics for budget and spending analysis. All data auto-updates when the selected month changes in "Місячний огляд".

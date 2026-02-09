@@ -1,3 +1,7 @@
+---
+description: PostgreSQL schema design for YNAB-style envelope budgeting with tables, relationships, and constraints.
+---
+
 # Database Design Overview
 
 YNAB-style envelope budgeting system on PostgreSQL (Neon Serverless).

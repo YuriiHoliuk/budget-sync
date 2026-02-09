@@ -307,6 +307,18 @@ tf-show resource:
     cd terraform && terraform state show {{resource}}
 
 # ============================================
+# Documentation
+# ============================================
+
+# List all docs with titles (compact view)
+docs-list:
+    bun scripts/docs.ts list
+
+# Show docs with descriptions, or search by name
+docs-detail name='':
+    bun scripts/docs.ts detail {{name}}
+
+# ============================================
 # Tools
 # ============================================
 
