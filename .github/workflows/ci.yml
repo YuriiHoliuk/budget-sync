@@ -96,39 +96,39 @@ jobs:
         run: bunx playwright install --with-deps chromium
 
       - name: Start E2E environment
-        run: docker compose -f docker-compose.e2e.yml up -d
+        run: docker compose -f docker-compose.e2e.yml up -d --wait
+        timeout-minutes: 5
 
-      - name: Wait for services to be ready
+      - name: Warm up Next.js dev server
         run: |
-          echo "Waiting for web-e2e to be healthy..."
-          timeout 300 bash -c 'until curl -sf http://localhost:3001 > /dev/null 2>&1; do sleep 3; done'
-          echo "Services are ready"
+          echo "Pre-compiling pages..."
+          curl -sf http://localhost:3001/ > /dev/null
+          curl -sf http://localhost:3001/budgets/2026-02 > /dev/null
+          curl -sf http://localhost:3001/transactions > /dev/null
+          curl -sf http://localhost:3001/accounts > /dev/null
+          curl -sf http://localhost:3001/categories > /dev/null
+          echo "Verifying GraphQL proxy..."
+          curl -sf http://localhost:3001/api/graphql \
+            -H 'Content-Type: application/json' \
+            -d '{"query":"{ __typename }"}' > /dev/null
+          echo "All pages compiled and API proxy verified"
+
+      - name: Run E2E tests
+        run: bunx playwright test --retries=1
+        env:
+          CI: true
 
       - name: Debug E2E environment
-        if: always()
+        if: failure()
         run: |
           echo "=== Docker container status ==="
           docker compose -f docker-compose.e2e.yml ps
           echo ""
-          echo "=== web-e2e env vars ==="
-          docker compose -f docker-compose.e2e.yml exec -T web-e2e printenv | grep -E "NEXT_PUBLIC|NODE_ENV|API_URL" || echo "Could not read env vars"
+          echo "=== web-e2e logs (last 50 lines) ==="
+          docker compose -f docker-compose.e2e.yml logs --tail=50 web-e2e
           echo ""
-          echo "=== Curl homepage ==="
-          curl -sI http://localhost:3001 || echo "Failed to reach web"
-          echo ""
-          echo "=== Curl homepage body (first 200 lines) ==="
-          curl -s http://localhost:3001 | head -200
-          echo ""
-          echo "=== web-e2e logs (last 30 lines) ==="
-          docker compose -f docker-compose.e2e.yml logs --tail=30 web-e2e
-          echo ""
-          echo "=== api-e2e logs (last 15 lines) ==="
-          docker compose -f docker-compose.e2e.yml logs --tail=15 api-e2e
-
-      - name: Run E2E tests
-        run: bunx playwright test e2e/tests/smoke/navigation.spec.ts --retries=0
-        env:
-          CI: true
+          echo "=== api-e2e logs (last 20 lines) ==="
+          docker compose -f docker-compose.e2e.yml logs --tail=20 api-e2e
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
