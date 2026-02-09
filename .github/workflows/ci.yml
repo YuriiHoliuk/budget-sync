@@ -102,11 +102,16 @@ jobs:
       - name: Warm up Next.js dev server
         run: |
           echo "Pre-compiling pages..."
-          curl -sf http://localhost:3001/ > /dev/null
-          curl -sf http://localhost:3001/budgets/2026-02 > /dev/null
-          curl -sf http://localhost:3001/transactions > /dev/null
-          curl -sf http://localhost:3001/accounts > /dev/null
-          curl -sf http://localhost:3001/categories > /dev/null
+          for path in / /budgets/2026-02 /transactions /accounts /categories; do
+            for i in 1 2 3; do
+              if curl -sf "http://localhost:3001${path}" > /dev/null 2>&1; then
+                echo "  ✓ ${path}"
+                break
+              fi
+              echo "  Retry ${i}/3 for ${path}..."
+              sleep 3
+            done
+          done
           echo "Verifying GraphQL proxy..."
           curl -sf http://localhost:3001/api/graphql \
             -H 'Content-Type: application/json' \

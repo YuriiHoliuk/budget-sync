@@ -91,7 +91,7 @@ services:
       timeout: 5s
       retries: 40
       start_period: 20s
-    command: ["sh", "-c", "bun install --frozen-lockfile && bun run dev"]
+    command: ["sh", "-c", "bun install --frozen-lockfile && bun run codegen && bun run dev"]
 
   budget-sync:
     profiles: ["legacy"]
