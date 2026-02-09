@@ -3,6 +3,7 @@
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMonth } from "@/hooks/use-month";
+import { MonthPicker } from "@/components/month-picker";
 
 function formatMonthDisplay(month: string): string {
   const [year, monthNum] = month.split("-");
@@ -32,9 +33,15 @@ export function MonthSelector() {
       >
         <ChevronLeftIcon className="size-4" />
       </Button>
-      <span className="min-w-[140px] text-center text-sm font-medium" data-qa="text-current-month">
-        {formatMonthDisplay(month)}
-      </span>
+      <MonthPicker selectedMonth={month} onSelect={setMonth}>
+        <button
+          type="button"
+          className="min-w-[140px] rounded-md px-2 py-1 text-center text-sm font-medium hover:bg-muted transition-colors cursor-pointer"
+          data-qa="text-current-month"
+        >
+          {formatMonthDisplay(month)}
+        </button>
+      </MonthPicker>
       <Button
         variant="ghost"
         size="icon"

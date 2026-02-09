@@ -26,37 +26,51 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
+import { useMonth } from "@/hooks/use-month";
 
-const navigationItems = [
-  {
-    title: "Budget",
-    href: "/",
-    icon: LayoutDashboardIcon,
-    dataQa: "nav-budget",
-  },
-  {
-    title: "Accounts",
-    href: "/accounts",
-    icon: WalletIcon,
-    dataQa: "nav-accounts",
-  },
-  {
-    title: "Transactions",
-    href: "/transactions",
-    icon: ArrowLeftRightIcon,
-    dataQa: "nav-transactions",
-  },
-  {
-    title: "Categories",
-    href: "/categories",
-    icon: TagsIcon,
-    dataQa: "nav-categories",
-  },
-];
+interface NavigationItem {
+  title: string;
+  href: string;
+  icon: typeof LayoutDashboardIcon;
+  dataQa: string;
+  isActive: (pathname: string) => boolean;
+}
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { email, logout } = useAuth();
+  const { month } = useMonth();
+
+  const navigationItems: NavigationItem[] = [
+    {
+      title: "Budget",
+      href: `/budgets/${month}`,
+      icon: LayoutDashboardIcon,
+      dataQa: "nav-budget",
+      isActive: (path) => path.startsWith("/budgets/"),
+    },
+    {
+      title: "Accounts",
+      href: "/accounts",
+      icon: WalletIcon,
+      dataQa: "nav-accounts",
+      isActive: (path) => path.startsWith("/accounts"),
+    },
+    {
+      title: "Transactions",
+      href: "/transactions",
+      icon: ArrowLeftRightIcon,
+      dataQa: "nav-transactions",
+      isActive: (path) => path.startsWith("/transactions"),
+    },
+    {
+      title: "Categories",
+      href: "/categories",
+      icon: TagsIcon,
+      dataQa: "nav-categories",
+      isActive: (path) => path.startsWith("/categories"),
+    },
+  ];
 
   return (
     <Sidebar collapsible="icon">
@@ -64,7 +78,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/">
+              <Link href={`/budgets/${month}`}>
                 <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg text-sm font-bold">
                   B
                 </div>
@@ -84,27 +98,20 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigationItems.map((item) => {
-                const isActive =
-                  item.href === "/"
-                    ? pathname === "/"
-                    : pathname.startsWith(item.href);
-
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.title}
-                    >
-                      <Link href={item.href} data-qa={item.dataQa}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {navigationItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={item.isActive(pathname)}
+                    tooltip={item.title}
+                  >
+                    <Link href={item.href} data-qa={item.dataQa}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

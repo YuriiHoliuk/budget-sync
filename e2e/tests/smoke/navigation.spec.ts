@@ -19,5 +19,5 @@ test('should have working navigation', async ({ authenticatedPage }) => {
 
   // Navigate back to budget page (use exact match)
   await authenticatedPage.getByRole('link', { name: 'Budget', exact: true }).click();
-  await expect(authenticatedPage).toHaveURL('/');
+  await expect(authenticatedPage).toHaveURL(/\/budgets\/\d{4}-\d{2}/);
 });

@@ -14,7 +14,7 @@ test('should navigate between months and update metrics', async ({ authenticated
 
   // Navigate to previous month
   await budgetPage.goToPreviousMonth();
-  await authenticatedPage.waitForLoadState('networkidle');
+  await expect(budgetPage.monthSelector.currentMonth).not.toHaveText(initialMonth);
 
   // Verify month changed
   const previousMonth = await budgetPage.getCurrentMonth();
@@ -22,7 +22,7 @@ test('should navigate between months and update metrics', async ({ authenticated
 
   // Navigate forward (back to current)
   await budgetPage.goToNextMonth();
-  await authenticatedPage.waitForLoadState('networkidle');
+  await expect(budgetPage.monthSelector.currentMonth).toHaveText(initialMonth);
 
   // Verify we're back to the original month
   const restoredMonth = await budgetPage.getCurrentMonth();
