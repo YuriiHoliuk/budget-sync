@@ -24,6 +24,9 @@ jobs:
       - name: Install web dependencies
         run: cd web && bun install --frozen-lockfile
 
+      - name: Generate GraphQL types
+        run: cd web && bun run codegen
+
       - name: Typecheck
         run: bun run typecheck
 
@@ -91,6 +94,15 @@ jobs:
 
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
+
+      - name: Start E2E environment
+        run: docker compose -f docker-compose.e2e.yml up -d
+
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for web-e2e to be healthy..."
+          timeout 300 bash -c 'until curl -sf http://localhost:3001 > /dev/null 2>&1; do sleep 3; done'
+          echo "Services are ready"
 
       - name: Run E2E tests
         run: bunx playwright test

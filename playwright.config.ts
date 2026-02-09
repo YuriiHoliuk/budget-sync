@@ -42,11 +42,13 @@ export default defineConfig({
     },
   ],
 
-  // Wait for services to be ready before running tests
-  webServer: {
-    command: 'docker compose -f docker-compose.e2e.yml up -d',
-    url: 'http://localhost:3001',
-    reuseExistingServer: !process.env.CI,
-    timeout: (process.env.CI ? 300 : 120) * 1000,
-  },
+  // In CI, services are started separately. Locally, start Docker Compose.
+  webServer: process.env.CI
+    ? undefined
+    : {
+        command: 'docker compose -f docker-compose.e2e.yml up -d',
+        url: 'http://localhost:3001',
+        reuseExistingServer: true,
+        timeout: 120 * 1000,
+      },
 });
