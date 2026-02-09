@@ -1,6 +1,8 @@
 import type { CreateAllocationRequestDTO } from '@application/use-cases/CreateAllocation.ts';
 import { CreateAllocationUseCase } from '@application/use-cases/CreateAllocation.ts';
 import { DeleteAllocationUseCase } from '@application/use-cases/DeleteAllocation.ts';
+import type { EqualizeAllocationsRequestDTO } from '@application/use-cases/EqualizeAllocations.ts';
+import { EqualizeAllocationsUseCase } from '@application/use-cases/EqualizeAllocations.ts';
 import type { MoveFundsRequestDTO } from '@application/use-cases/MoveFunds.ts';
 import { MoveFundsUseCase } from '@application/use-cases/MoveFunds.ts';
 import type { UpdateAllocationRequestDTO } from '@application/use-cases/UpdateAllocation.ts';
@@ -19,6 +21,7 @@ import {
   type AllocationGql,
   mapAllocationToGql,
   mapBudgetToGql,
+  toMajorUnits,
   toMinorUnits,
 } from '../mappers/index.ts';
 import { Resolver, type ResolverMap } from '../Resolver.ts';
@@ -52,6 +55,12 @@ interface MoveFundsInput {
   notes?: string | null;
 }
 
+interface EqualizeAllocationsInput {
+  period: string;
+  currency: string;
+  budgetIds?: number[] | null;
+}
+
 @injectable()
 export class AllocationsResolver extends Resolver {
   constructor(
@@ -63,6 +72,7 @@ export class AllocationsResolver extends Resolver {
     private updateAllocationUseCase: UpdateAllocationUseCase,
     private deleteAllocationUseCase: DeleteAllocationUseCase,
     private moveFundsUseCase: MoveFundsUseCase,
+    private equalizeAllocationsUseCase: EqualizeAllocationsUseCase,
   ) {
     super();
   }
@@ -90,6 +100,10 @@ export class AllocationsResolver extends Resolver {
           this.deleteAllocation(args.id),
         moveFunds: (_parent: unknown, args: { input: MoveFundsInput }) =>
           this.moveFunds(args.input),
+        equalizeAllocations: (
+          _parent: unknown,
+          args: { input: EqualizeAllocationsInput },
+        ) => this.equalizeAllocations(args.input),
       },
       Allocation: {
         budget: (parent: AllocationGql) =>
@@ -134,6 +148,24 @@ export class AllocationsResolver extends Resolver {
     return {
       sourceAllocation: mapAllocationToGql(result.sourceAllocation),
       destAllocation: mapAllocationToGql(result.destAllocation),
+    };
+  }
+
+  private async equalizeAllocations(input: EqualizeAllocationsInput) {
+    const request: EqualizeAllocationsRequestDTO = {
+      period: input.period,
+      currency: input.currency,
+      budgetIds: input.budgetIds ?? undefined,
+    };
+
+    const result = await this.equalizeAllocationsUseCase.execute(request);
+
+    return {
+      allocationsCreated: result.allocationsCreated,
+      adjustments: result.adjustments.map((adjustment) => ({
+        budgetId: adjustment.budgetId,
+        delta: toMajorUnits(adjustment.delta),
+      })),
     };
   }
 

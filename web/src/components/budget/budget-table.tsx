@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@apollo/client/react";
 import {
   ArrowLeftRight,
+  Equal,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -27,7 +28,9 @@ import {
 } from "@/components/ui/table";
 import {
   CreateAllocationDocument,
+  EqualizeAllocationsDocument,
   GetBudgetDocument,
+  GetMonthlyOverviewDocument,
   type BudgetSummary,
   BudgetType,
   type TargetCadence,
@@ -71,6 +74,14 @@ function getProgressPercentage(spent: number, targetAmount: number): number {
   return Math.min(Math.round((Math.abs(spent) / targetAmount) * 100), 100);
 }
 
+function getLastDayOfMonth(period: string): string {
+  const parts = period.split("-");
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const lastDay = new Date(year, month, 0);
+  return `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, "0")}-${String(lastDay.getDate()).padStart(2, "0")}`;
+}
+
 interface BudgetForDialog {
   id: number;
   name: string;
@@ -99,6 +110,9 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
   });
 
   const [createAllocation] = useMutation(CreateAllocationDocument);
+  const [equalizeAllocations, { loading: equalizing }] = useMutation(
+    EqualizeAllocationsDocument,
+  );
 
   const handleMoveFunds = (sourceBudgetId?: number) => {
     setMoveFundsSourceId(sourceBudgetId);
@@ -113,6 +127,37 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
   const handleArchiveBudget = (budgetId: number) => {
     setSelectedBudgetId(budgetId);
     setArchiveBudgetDialogOpen(true);
+  };
+
+  const handleEqualize = async (budgetId: number, delta: number) => {
+    await createAllocation({
+      variables: {
+        input: {
+          budgetId,
+          amount: delta,
+          currency: "UAH",
+          period: month,
+          date: getLastDayOfMonth(month),
+        },
+      },
+      update: (cache) => {
+        updateMonthlyOverviewCache(cache, month, budgetId, delta);
+      },
+    });
+  };
+
+  const handleEqualizeAll = async () => {
+    await equalizeAllocations({
+      variables: {
+        input: {
+          period: month,
+          currency: "UAH",
+        },
+      },
+      refetchQueries: [
+        { query: GetMonthlyOverviewDocument, variables: { month } },
+      ],
+    });
   };
 
   const groupedBudgets = useMemo(() => {
@@ -166,6 +211,12 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
         }
       : null;
 
+  const hasSpendingMismatch = budgetSummaries.some(
+    (summary) =>
+      summary.type === BudgetType.Spending &&
+      summary.spent !== summary.allocated,
+  );
+
   if (budgetSummaries.length === 0) {
     return (
       <>
@@ -189,6 +240,16 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
   return (
     <>
       <div className="flex items-center justify-end gap-2 mb-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleEqualizeAll}
+          disabled={!hasSpendingMismatch || equalizing}
+          data-qa="btn-equalize-all"
+        >
+          <Equal className="mr-2 h-4 w-4" />
+          Equalize All
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -230,6 +291,7 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
                   onMoveFunds={handleMoveFunds}
                   onEditBudget={handleEditBudget}
                   onArchiveBudget={handleArchiveBudget}
+                  onEqualize={handleEqualize}
                 />
               ),
             )}
@@ -277,6 +339,7 @@ interface BudgetGroupProps {
   onMoveFunds: (sourceBudgetId: number) => void;
   onEditBudget: (budgetId: number) => void;
   onArchiveBudget: (budgetId: number) => void;
+  onEqualize: (budgetId: number, delta: number) => Promise<void>;
 }
 
 function BudgetGroup({
@@ -289,6 +352,7 @@ function BudgetGroup({
   onMoveFunds,
   onEditBudget,
   onArchiveBudget,
+  onEqualize,
 }: BudgetGroupProps) {
   const groupAllocated = summaries.reduce(
     (sum, summary) => sum + summary.allocated,
@@ -338,6 +402,9 @@ function BudgetGroup({
           onMoveFunds={() => onMoveFunds(summary.budgetId)}
           onEditBudget={() => onEditBudget(summary.budgetId)}
           onArchiveBudget={() => onArchiveBudget(summary.budgetId)}
+          onEqualize={() =>
+            onEqualize(summary.budgetId, summary.spent - summary.allocated)
+          }
         />
       ))}
     </>
@@ -353,6 +420,7 @@ interface BudgetRowProps {
   onMoveFunds: () => void;
   onEditBudget: () => void;
   onArchiveBudget: () => void;
+  onEqualize: () => void;
 }
 
 function BudgetRow({
@@ -364,6 +432,7 @@ function BudgetRow({
   onMoveFunds,
   onEditBudget,
   onArchiveBudget,
+  onEqualize,
 }: BudgetRowProps) {
   const progressPercentage = getProgressPercentage(
     summary.spent,
@@ -371,6 +440,8 @@ function BudgetRow({
   );
 
   const budgetId = summary.budgetId;
+  const isSpending = summary.type === BudgetType.Spending;
+  const canEqualize = isSpending && summary.spent !== summary.allocated;
 
   return (
     <TableRow data-qa={`budget-row-${budgetId}`}>
@@ -378,7 +449,7 @@ function BudgetRow({
       <TableCell className="text-right text-muted-foreground">
         {summary.targetAmount > 0
           ? formatCurrency(summary.targetAmount)
-          : "—"}
+          : "\u2014"}
       </TableCell>
       <TableCell className="text-right" data-qa={`budget-allocated-${budgetId}`}>
         {isEditing ? (
@@ -404,7 +475,7 @@ function BudgetRow({
         )}
       </TableCell>
       <TableCell className="text-right tabular-nums" data-qa={`budget-spent-${budgetId}`}>
-        {summary.spent !== 0 ? formatCurrency(summary.spent) : "—"}
+        {summary.spent !== 0 ? formatCurrency(summary.spent) : "\u2014"}
       </TableCell>
       <TableCell
         className={cn(
@@ -447,6 +518,15 @@ function BudgetRow({
               <ArrowLeftRight className="mr-2 h-4 w-4" />
               Move Funds
             </DropdownMenuItem>
+            {isSpending && (
+              <DropdownMenuItem
+                onClick={onEqualize}
+                disabled={!canEqualize}
+              >
+                <Equal className="mr-2 h-4 w-4" />
+                Equalize with Spending
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onArchiveBudget} variant="destructive" data-qa={`budget-archive-${budgetId}`}>
               <Archive className="mr-2 h-4 w-4" />
