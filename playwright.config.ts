@@ -20,7 +20,7 @@ export default defineConfig({
   testDir: './e2e/tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: [
     ['html', { outputFolder: 'e2e/playwright-report' }],
@@ -42,13 +42,16 @@ export default defineConfig({
     },
   ],
 
-  // In CI, services are started separately. Locally, start Docker Compose.
+  // Start E2E Docker Compose stack. The command must stay alive (no -d flag)
+  // so Playwright can manage the process lifecycle. In CI, services are
+  // started separately by the workflow, so webServer is disabled.
   webServer: process.env.CI
     ? undefined
     : {
-        command: 'docker compose -f docker-compose.e2e.yml up -d',
+        command: 'docker compose -f docker-compose.e2e.yml up',
         url: 'http://localhost:3001',
         reuseExistingServer: true,
         timeout: 120 * 1000,
+        stdout: 'ignore',
       },
 });
