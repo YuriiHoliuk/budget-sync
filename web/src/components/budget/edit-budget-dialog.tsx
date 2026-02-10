@@ -38,6 +38,8 @@ type BudgetData = Pick<
   | "targetCadence"
   | "targetCadenceMonths"
   | "targetDate"
+  | "startDate"
+  | "endDate"
   | "cap"
 >;
 
@@ -51,7 +53,7 @@ const BUDGET_TYPE_OPTIONS = [
   {
     value: BudgetType.Spending,
     label: "Spending",
-    description: "Monthly budget. Positive balance resets, negative carries forward.",
+    description: "Monthly budget. Balance accumulates over time.",
   },
   {
     value: BudgetType.Savings,
@@ -98,6 +100,8 @@ function EditBudgetDialogContent({
     budget.targetCadenceMonths?.toString() ?? "",
   );
   const [targetDate, setTargetDate] = useState(budget.targetDate ?? "");
+  const [startDate, setStartDate] = useState(budget.startDate ?? "");
+  const [endDate, setEndDate] = useState(budget.endDate ?? "");
   const [cap, setCap] = useState(budget.cap?.toString() ?? "");
   const [error, setError] = useState("");
 
@@ -150,6 +154,8 @@ function EditBudgetDialogContent({
               ? { targetDate }
               : { targetDate: null }),
             ...(needsCap && cap !== "" ? { cap: Number.parseFloat(cap) } : { cap: null }),
+            startDate: startDate !== "" ? startDate : null,
+            endDate: endDate !== "" ? endDate : null,
           },
         },
       });
@@ -311,6 +317,31 @@ function EditBudgetDialogContent({
             </p>
           </div>
         )}
+
+        <div className="grid gap-2">
+          <Label htmlFor="start-date">Start Date</Label>
+          <Input
+            id="start-date"
+            type="date"
+            value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+            data-qa="input-start-date"
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="end-date">End Date (optional)</Label>
+          <Input
+            id="end-date"
+            type="date"
+            value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+            data-qa="input-end-date"
+          />
+          <p className="text-xs text-muted-foreground">
+            Leave empty for recurring budgets
+          </p>
+        </div>
 
         {error && (
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>

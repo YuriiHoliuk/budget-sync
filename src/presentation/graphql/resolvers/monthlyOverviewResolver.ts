@@ -82,6 +82,7 @@ export class MonthlyOverviewResolver extends Resolver {
         spent: toMajorUnits(summary.spent),
         available: toMajorUnits(summary.available),
         suggestedAllocation: toMajorUnits(summary.suggestedAllocation),
+        isExpired: summary.isExpired,
       })),
     };
   }
@@ -128,6 +129,12 @@ export class MonthlyOverviewResolver extends Resolver {
         : null,
       cap: budget.cap?.amount ?? null,
       isArchived: budget.isArchived,
+      startDate: budget.startDate
+        ? budget.startDate.toISOString().slice(0, 10)
+        : null,
+      endDate: budget.endDate
+        ? budget.endDate.toISOString().slice(0, 10)
+        : null,
     }));
 
     const allocationInputs: AllocationInput[] = allocations.map(

@@ -50,6 +50,8 @@ describe('BudgetCalculationService', () => {
       targetCadenceMonths: null,
       targetDate: null,
       cap: null,
+      startDate: null,
+      endDate: null,
       ...overrides,
     };
   }
@@ -729,6 +731,131 @@ describe('BudgetCalculationService', () => {
       const result = service.compute(MONTH, [budget], allocations, [], []);
       const summary = getSummary(result, 0);
       expect(summary.suggestedAllocation).toBe(300000);
+    });
+  });
+
+  describe('budget visibility filtering', () => {
+    test('budget before start date: excluded', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        startDate: '2026-03-01',
+      });
+
+      const result = service.compute(MONTH, [budget], [], [], []);
+
+      expect(result.budgetSummaries.length).toBe(0);
+    });
+
+    test('budget past end date with zero balance: excluded', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        endDate: '2026-01-31',
+      });
+
+      const result = service.compute(MONTH, [budget], [], [], []);
+
+      expect(result.budgetSummaries.length).toBe(0);
+    });
+
+    test('budget past end date with positive available: included, isExpired: true, suggestedAllocation: 0', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        endDate: '2026-01-31',
+      });
+      const allocations = [
+        makeAllocation({ budgetId: 1, amount: 500000, period: '2026-01' }),
+      ];
+
+      const result = service.compute(MONTH, [budget], allocations, [], []);
+
+      expect(result.budgetSummaries.length).toBe(1);
+      const summary = getSummary(result, 0);
+      expect(summary.isExpired).toBe(true);
+      expect(summary.suggestedAllocation).toBe(0);
+      expect(summary.available).toBe(500000);
+    });
+
+    test('budget active in viewed month: included, isExpired: false', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        startDate: '2026-01-01',
+        endDate: '2026-03-31',
+      });
+      const allocations = [
+        makeAllocation({ budgetId: 1, amount: 300000, period: MONTH }),
+      ];
+
+      const result = service.compute(MONTH, [budget], allocations, [], []);
+
+      expect(result.budgetSummaries.length).toBe(1);
+      const summary = getSummary(result, 0);
+      expect(summary.isExpired).toBe(false);
+    });
+
+    test('budget with no dates (recurring): always included', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        startDate: null,
+        endDate: null,
+      });
+
+      const result = service.compute(MONTH, [budget], [], [], []);
+
+      expect(result.budgetSummaries.length).toBe(1);
+      const summary = getSummary(result, 0);
+      expect(summary.isExpired).toBe(false);
+    });
+
+    test('goal budget past targetDate (no endDate): excluded if zero balance', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        type: 'goal',
+        targetAmount: 1000000,
+        targetDate: '2026-01-15',
+        endDate: null,
+      });
+
+      const result = service.compute(MONTH, [budget], [], [], []);
+
+      expect(result.budgetSummaries.length).toBe(0);
+    });
+
+    test('goal budget past targetDate with funds: included as expired', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        type: 'goal',
+        targetAmount: 1000000,
+        targetDate: '2026-01-15',
+        endDate: null,
+      });
+      const allocations = [
+        makeAllocation({ budgetId: 1, amount: 800000, period: '2026-01' }),
+      ];
+
+      const result = service.compute(MONTH, [budget], allocations, [], []);
+
+      expect(result.budgetSummaries.length).toBe(1);
+      const summary = getSummary(result, 0);
+      expect(summary.isExpired).toBe(true);
+      expect(summary.suggestedAllocation).toBe(0);
+      expect(summary.available).toBe(800000);
+    });
+
+    test('month-granularity: endDate 2026-01-15 still shows in 2026-01', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        endDate: '2026-01-15',
+      });
+      const allocations = [
+        makeAllocation({ budgetId: 1, amount: 300000, period: '2026-01' }),
+      ];
+
+      // Viewing 2026-01, endMonth is also 2026-01, so budget is still active
+      const result = service.compute('2026-01', [budget], allocations, [], []);
+
+      expect(result.budgetSummaries.length).toBe(1);
+      const summary = getSummary(result, 0);
+      expect(summary.isExpired).toBe(false);
     });
   });
 

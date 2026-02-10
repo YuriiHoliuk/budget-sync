@@ -16,6 +16,7 @@ query GetMonthlyOverview($month: String!) {
       spent
       available
       suggestedAllocation
+      isExpired
     }
   }
 }

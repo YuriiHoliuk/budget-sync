@@ -126,6 +126,7 @@ function getDefaultTransactionRepositoryMocks() {
     updateCategorization: mock(() => Promise.resolve()),
     findByCategorizationStatus: mock(() => Promise.resolve([])),
     findUncategorized: mock(() => Promise.resolve([])),
+    findTransactionSummaries: mock(() => Promise.resolve([])),
   };
 }
 

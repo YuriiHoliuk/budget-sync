@@ -299,6 +299,38 @@ export async function createTransaction(
 }
 
 /**
+ * Archive a budget via GraphQL
+ */
+export async function archiveBudget(budgetId: number): Promise<Budget> {
+  const mutation = `
+    mutation ArchiveBudget($id: Int!) {
+      archiveBudget(id: $id) {
+        id
+        name
+        type
+        currency
+        targetAmount
+        cap
+      }
+    }
+  `;
+
+  const result = await executeGraphQL<{ archiveBudget: Budget }>(mutation, {
+    id: budgetId,
+  });
+
+  if (result.errors) {
+    throw new Error(`Failed to archive budget: ${result.errors[0].message}`);
+  }
+
+  if (!result.data?.archiveBudget) {
+    throw new Error('No budget returned from archive mutation');
+  }
+
+  return result.data.archiveBudget;
+}
+
+/**
  * Query existing data
  */
 export async function getAccounts(): Promise<Account[]> {
@@ -395,6 +427,7 @@ interface BudgetSummary {
   spent: number;
   available: number;
   suggestedAllocation: number;
+  isExpired: boolean;
 }
 
 interface MonthlyOverviewWithBudgets extends MonthlyOverview {
@@ -422,6 +455,7 @@ export async function getMonthlyOverviewWithBudgets(
           spent
           available
           suggestedAllocation
+          isExpired
         }
       }
     }

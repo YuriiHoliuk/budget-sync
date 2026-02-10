@@ -49,6 +49,19 @@ export class CreateAllocationUseCase extends UseCase<
     }
   }
 
+  private defaultDateForPeriod(period: string): Date {
+    const currentMonth = new Date().toISOString().slice(0, 7);
+
+    if (period < currentMonth) {
+      const [yearStr, monthStr] = period.split('-');
+      const year = Number(yearStr);
+      const month = Number(monthStr);
+      return new Date(year, month, 0);
+    }
+
+    return new Date();
+  }
+
   private buildAllocation(request: CreateAllocationRequestDTO): Allocation {
     const currency = Currency.fromCode(request.currency);
     const amount = Money.create(request.amount, currency);
@@ -57,7 +70,9 @@ export class CreateAllocationUseCase extends UseCase<
       budgetId: request.budgetId,
       amount,
       period: request.period,
-      date: request.date ? new Date(request.date) : new Date(),
+      date: request.date
+        ? new Date(request.date)
+        : this.defaultDateForPeriod(request.period),
       notes: request.notes ?? null,
     });
   }

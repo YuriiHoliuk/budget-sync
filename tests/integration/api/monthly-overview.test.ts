@@ -683,5 +683,108 @@ describe('Monthly Overview API Integration', () => {
         'Active Budget',
       );
     });
+
+    test('should exclude budget with past endDate and zero balance from monthly overview', async () => {
+      // Budget that ended in December 2025 with no allocations (zero balance)
+      await createTestBudget(harness.getDb(), {
+        name: 'Expired Empty Budget',
+        type: 'spending',
+        endDate: '2025-12-31',
+      });
+
+      // Active budget for comparison
+      await createTestBudget(harness.getDb(), {
+        name: 'Active Budget',
+        type: 'spending',
+      });
+
+      const result = await harness.executeQuery<{
+        monthlyOverview: {
+          budgetSummaries: Array<{
+            name: string;
+            isExpired: boolean;
+          }>;
+        };
+      }>(
+        `
+        query GetMonthlyOverview($month: String!) {
+          monthlyOverview(month: $month) {
+            budgetSummaries {
+              name
+              isExpired
+            }
+          }
+        }
+      `,
+        { month: TEST_MONTH },
+      );
+
+      expect(result.errors).toBeUndefined();
+      // Only the active budget should appear; the expired one with zero balance is excluded
+      expect(result.data?.monthlyOverview.budgetSummaries).toHaveLength(1);
+      expect(result.data?.monthlyOverview.budgetSummaries[0]?.name).toBe(
+        'Active Budget',
+      );
+      expect(result.data?.monthlyOverview.budgetSummaries[0]?.isExpired).toBe(
+        false,
+      );
+    });
+
+    test('should include budget with past endDate and remaining funds as isExpired: true', async () => {
+      // Budget that ended in December 2025
+      const expiredBudget = await createTestBudget(harness.getDb(), {
+        name: 'Expired Budget With Funds',
+        type: 'spending',
+        endDate: '2025-12-31',
+      });
+
+      // Allocation in a past period gives it a positive available balance
+      await createTestAllocation(harness.getDb(), {
+        budgetId: expiredBudget.id,
+        amount: 500000, // 5000 UAH
+        period: '2025-12',
+        date: '2025-12-01',
+      });
+
+      const result = await harness.executeQuery<{
+        monthlyOverview: {
+          budgetSummaries: Array<{
+            budgetId: number;
+            name: string;
+            isExpired: boolean;
+            available: number;
+            allocated: number;
+            suggestedAllocation: number;
+          }>;
+        };
+      }>(
+        `
+        query GetMonthlyOverview($month: String!) {
+          monthlyOverview(month: $month) {
+            budgetSummaries {
+              budgetId
+              name
+              isExpired
+              available
+              allocated
+              suggestedAllocation
+            }
+          }
+        }
+      `,
+        { month: TEST_MONTH },
+      );
+
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.monthlyOverview.budgetSummaries).toHaveLength(1);
+
+      const summary = result.data?.monthlyOverview.budgetSummaries[0];
+      expect(summary?.budgetId).toBe(expiredBudget.id);
+      expect(summary?.name).toBe('Expired Budget With Funds');
+      expect(summary?.isExpired).toBe(true);
+      expect(summary?.available).toBe(5000); // 5000 UAH remaining
+      expect(summary?.allocated).toBe(0); // no allocation in current month
+      expect(summary?.suggestedAllocation).toBe(0); // expired budgets get 0 suggested
+    });
   });
 });

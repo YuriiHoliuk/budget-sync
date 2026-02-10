@@ -9,6 +9,7 @@ import {
   Plus,
   Archive,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -79,6 +80,8 @@ interface BudgetForDialog {
   targetCadence: TargetCadence | null;
   targetCadenceMonths: number | null;
   targetDate: string | null;
+  startDate: string | null;
+  endDate: string | null;
 }
 
 export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
@@ -163,6 +166,8 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
           targetCadence: budgetData.budget.targetCadence ?? null,
           targetCadenceMonths: budgetData.budget.targetCadenceMonths ?? null,
           targetDate: budgetData.budget.targetDate ?? null,
+          startDate: budgetData.budget.startDate ?? null,
+          endDate: budgetData.budget.endDate ?? null,
         }
       : null;
 
@@ -375,8 +380,17 @@ function BudgetRow({
   const budgetId = summary.budgetId;
 
   return (
-    <TableRow data-qa={`budget-row-${budgetId}`}>
-      <TableCell className="font-medium">{summary.name}</TableCell>
+    <TableRow data-qa={`budget-row-${budgetId}`} className={cn(summary.isExpired && "opacity-60")}>
+      <TableCell className="font-medium">
+        <span className="flex items-center gap-2">
+          {summary.name}
+          {summary.isExpired && (
+            <Badge variant="outline" className="text-xs text-amber-600 border-amber-600/30 dark:text-amber-400 dark:border-amber-400/30">
+              Expired
+            </Badge>
+          )}
+        </span>
+      </TableCell>
       <TableCell className="text-right text-muted-foreground">
         {summary.targetAmount > 0
           ? formatCurrency(summary.targetAmount)

@@ -37,7 +37,7 @@ const BUDGET_TYPE_OPTIONS = [
   {
     value: BudgetType.Spending,
     label: "Spending",
-    description: "Monthly budget. Positive balance resets, negative carries forward.",
+    description: "Monthly budget. Balance accumulates over time.",
   },
   {
     value: BudgetType.Savings,
@@ -75,6 +75,8 @@ export function CreateBudgetDialog({
   const [targetCadenceMonths, setTargetCadenceMonths] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [cap, setCap] = useState("");
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState("");
   const [error, setError] = useState("");
 
   const [createBudget, { loading }] = useMutation(CreateBudgetDocument, {
@@ -126,6 +128,8 @@ export function CreateBudgetDialog({
               ? { targetDate }
               : {}),
             ...(needsCap && cap !== "" ? { cap: Number.parseFloat(cap) } : {}),
+            ...(startDate !== "" ? { startDate } : {}),
+            ...(endDate !== "" ? { endDate } : {}),
           },
         },
       });
@@ -147,6 +151,8 @@ export function CreateBudgetDialog({
     setTargetCadenceMonths("");
     setTargetDate("");
     setCap("");
+    setStartDate(new Date().toISOString().slice(0, 10));
+    setEndDate("");
     setError("");
     onOpenChange(false);
   };
@@ -323,6 +329,31 @@ export function CreateBudgetDialog({
               </p>
             </div>
           )}
+
+          <div className="grid gap-2">
+            <Label htmlFor="start-date">Start Date</Label>
+            <Input
+              id="start-date"
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              data-qa="input-start-date"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="end-date">End Date (optional)</Label>
+            <Input
+              id="end-date"
+              type="date"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+              data-qa="input-end-date"
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave empty for recurring budgets
+            </p>
+          </div>
 
           {error && (
             <p className="text-sm text-red-600 dark:text-red-400">{error}</p>

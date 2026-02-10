@@ -14,6 +14,8 @@ export interface BudgetInput {
   targetCadenceMonths: number | null;
   targetDate: string | null;
   cap: number | null;
+  startDate: string | null;
+  endDate: string | null;
 }
 
 /**
@@ -60,6 +62,7 @@ export interface BudgetSummary {
   spent: number;
   available: number;
   suggestedAllocation: number;
+  isExpired: boolean;
 }
 
 /**
@@ -250,21 +253,36 @@ export class BudgetCalculationService {
     transactions: TransactionInput[],
   ): BudgetSummary[] {
     const activeBudgets = budgets.filter((budget) => !budget.isArchived);
-    return activeBudgets.map((budget) =>
-      this.computeSingleBudgetSummary(month, budget, allocations, transactions),
-    );
+    const summaries: BudgetSummary[] = [];
+
+    for (const budget of activeBudgets) {
+      const summary = this.computeSingleBudgetSummary(
+        month,
+        budget,
+        allocations,
+        transactions,
+      );
+      if (summary !== null) {
+        summaries.push(summary);
+      }
+    }
+
+    return summaries;
   }
 
   /**
    * All budget types use the same accumulating formula:
    * available = SUM(allocated up to month) - SUM(spent up to month)
+   *
+   * Returns null when the budget is not visible for the given month.
+   * A budget is visible if it's active for the month OR has non-zero available balance.
    */
   private computeSingleBudgetSummary(
     month: string,
     budget: BudgetInput,
     allocations: AllocationInput[],
     transactions: TransactionInput[],
-  ): BudgetSummary {
+  ): BudgetSummary | null {
     const budgetAllocations = allocations.filter(
       (allocation) => allocation.budgetId === budget.budgetId,
     );
@@ -283,11 +301,18 @@ export class BudgetCalculationService {
     );
     const totalSpent = this.sumExpensesUpToMonth(budgetTransactions, month);
     const available = totalAllocated - totalSpent;
-    const suggestedAllocation = this.computeSuggestedAllocation(
-      available,
-      budget,
-      month,
-    );
+
+    const activeForMonth = this.isBudgetActiveForMonth(budget, month);
+    const hasBalance = available !== 0;
+
+    if (!activeForMonth && !hasBalance) {
+      return null;
+    }
+
+    const isExpired = !activeForMonth && hasBalance;
+    const suggestedAllocation = isExpired
+      ? 0
+      : this.computeSuggestedAllocation(available, budget, month);
 
     return {
       budgetId: budget.budgetId,
@@ -298,7 +323,46 @@ export class BudgetCalculationService {
       spent: spentThisMonth,
       available,
       suggestedAllocation,
+      isExpired,
     };
+  }
+
+  /**
+   * Determines whether a budget is active for a given month.
+   * Compares at month granularity (YYYY-MM).
+   * A budget without start/end dates is always active.
+   * For goal-type budgets without an explicit endDate, targetDate is used as implicit end date.
+   */
+  private isBudgetActiveForMonth(budget: BudgetInput, month: string): boolean {
+    const startMonth = budget.startDate ? budget.startDate.slice(0, 7) : null;
+    const effectiveEndDate = this.getEffectiveEndDate(budget);
+    const endMonth = effectiveEndDate ? effectiveEndDate.slice(0, 7) : null;
+
+    if (startMonth && month < startMonth) {
+      return false;
+    }
+
+    if (endMonth && month > endMonth) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Returns the effective end date for a budget.
+   * For goal-type budgets without an explicit endDate, uses targetDate as implicit end date.
+   */
+  private getEffectiveEndDate(budget: BudgetInput): string | null {
+    if (budget.endDate) {
+      return budget.endDate;
+    }
+
+    if (budget.type === 'goal' && budget.targetDate) {
+      return budget.targetDate;
+    }
+
+    return null;
   }
 
   /**

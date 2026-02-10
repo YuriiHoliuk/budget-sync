@@ -217,12 +217,23 @@ export class BudgetPage extends BasePage {
   /**
    * Create a new budget (convenience method)
    */
-  async createBudget(name: string, type: string, targetAmount?: string): Promise<void> {
+  async createBudget(
+    name: string,
+    type: string,
+    targetAmount?: string,
+    options?: { startDate?: string; endDate?: string },
+  ): Promise<void> {
     const dialog = await this.openCreateBudgetDialog();
     await dialog.fillName(name);
     await dialog.selectType(type);
     if (targetAmount) {
       await dialog.fillTargetAmount(targetAmount);
+    }
+    if (options?.startDate) {
+      await dialog.fillStartDate(options.startDate);
+    }
+    if (options?.endDate) {
+      await dialog.fillEndDate(options.endDate);
     }
     await dialog.submit();
     await dialog.waitForClose();
@@ -249,6 +260,29 @@ export class BudgetPage extends BasePage {
    */
   async assertBudgetNotExists(budgetName: string): Promise<void> {
     await expect(this.getBudgetRow(budgetName)).not.toBeVisible();
+  }
+
+  // ========== EXPIRED BADGE ==========
+
+  /**
+   * Check if a budget row shows the "Expired" badge
+   */
+  isExpired(budgetName: string): Locator {
+    return this.getBudgetRow(budgetName).locator('text=Expired');
+  }
+
+  /**
+   * Assert that a budget shows the "Expired" badge
+   */
+  async assertBudgetExpired(budgetName: string): Promise<void> {
+    await expect(this.isExpired(budgetName)).toBeVisible();
+  }
+
+  /**
+   * Assert that a budget does NOT show the "Expired" badge
+   */
+  async assertBudgetNotExpired(budgetName: string): Promise<void> {
+    await expect(this.isExpired(budgetName)).not.toBeVisible();
   }
 }
 
@@ -312,5 +346,21 @@ class CreateBudgetDialog extends Dialog {
 
   async fillCap(amount: string): Promise<void> {
     await this.fillInput('input-cap', amount);
+  }
+
+  get startDateInput(): Locator {
+    return this.getInput('input-start-date');
+  }
+
+  get endDateInput(): Locator {
+    return this.getInput('input-end-date');
+  }
+
+  async fillStartDate(date: string): Promise<void> {
+    await this.fillInput('input-start-date', date);
+  }
+
+  async fillEndDate(date: string): Promise<void> {
+    await this.fillInput('input-end-date', date);
   }
 }

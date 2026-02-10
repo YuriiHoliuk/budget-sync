@@ -142,3 +142,28 @@ The computation logic lives in `src/domain/services/BudgetCalculationService.ts`
 2. **During the month**: Transactions arrive via bank sync. Each transaction's spending is tracked against its assigned budget. The monthly overview shows real-time budget status.
 3. **Overspending**: If a budget goes negative, either move money from another envelope or accept the deficit (it carries forward as debt for spending budgets).
 4. **End of month**: All budget balances carry forward to the next month. Check suggested allocations to see how much each budget needs.
+
+## Budget Visibility Rules
+
+A budget appears in the monthly overview for a given month if **any** of these conditions are true:
+
+1. **Active for that month** -- its date range includes the viewed month. Comparison is at month granularity: `startDate month <= viewed month <= endDate month`.
+2. **No date restrictions** -- both `startDate` and `endDate` are null. These are recurring budgets and always show.
+3. **Non-zero available balance** -- even if the budget is past its end date, it appears with an "Expired" badge so the user can move or release the remaining funds.
+
+For `goal` type budgets that have no explicit `endDate`, the `targetDate` is used as the implicit end date when evaluating these rules.
+
+### Expired Budgets
+
+Budgets that are past their end date but still visible due to a remaining balance are treated as expired:
+
+- Displayed with **reduced opacity** and an **"Expired" badge**
+- `suggestedAllocation = 0` -- there is no point suggesting further allocation to an expired budget
+- Still fully interactive -- the user can archive them, move funds out, etc.
+
+### Archive Fund Release
+
+When a budget is archived, leftover funds are handled automatically:
+
+- **Positive available balance** (`available > 0`): a negative allocation is created to release the remaining funds back to Ready to Assign. This ensures no money is trapped in a deactivated envelope.
+- **Zero or negative available balance** (`available <= 0`): the budget is archived without creating an allocation. Any overspending debt is forgiven.
