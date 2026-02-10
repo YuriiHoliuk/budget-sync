@@ -255,10 +255,9 @@ export async function createAccount(input: CreateAccountInput): Promise<Account>
 interface CreateTransactionInput {
   accountId: number;
   amount: number;
+  type: 'CREDIT' | 'DEBIT';
   date: string;
   description: string;
-  categoryId?: number;
-  budgetId?: number;
 }
 
 interface Transaction {
@@ -296,6 +295,43 @@ export async function createTransaction(
   }
 
   return result.data.createTransaction;
+}
+
+/**
+ * Assign a budget to a transaction via GraphQL
+ */
+export async function updateTransactionBudget(
+  transactionId: number,
+  budgetId: number,
+): Promise<Transaction> {
+  const mutation = `
+    mutation UpdateTransactionBudget($input: UpdateTransactionBudgetInput!) {
+      updateTransactionBudget(input: $input) {
+        id
+        amount
+        date
+        description
+      }
+    }
+  `;
+
+  const result = await executeGraphQL<{
+    updateTransactionBudget: Transaction;
+  }>(mutation, {
+    input: { id: transactionId, budgetId },
+  });
+
+  if (result.errors) {
+    throw new Error(
+      `Failed to update transaction budget: ${result.errors[0].message}`,
+    );
+  }
+
+  if (!result.data?.updateTransactionBudget) {
+    throw new Error('No transaction returned from update budget mutation');
+  }
+
+  return result.data.updateTransactionBudget;
 }
 
 /**

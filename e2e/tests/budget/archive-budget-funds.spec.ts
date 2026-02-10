@@ -6,6 +6,7 @@ import {
   createAllocation,
   createAccount,
   createTransaction,
+  updateTransactionBudget,
   getMonthlyOverview,
 } from '../../fixtures/index.ts';
 
@@ -108,14 +109,17 @@ test('should not change Ready to Assign when archiving fully-spent budget', asyn
     balance: 100000,
   });
 
-  // Create a transaction that spends the entire budget amount
-  await createTransaction({
+  // Create a debit transaction that spends the entire budget amount
+  const transaction = await createTransaction({
     accountId: account.id,
-    amount: -budgetAmount * 100, // Convert to minor units (kopecks)
+    amount: budgetAmount, // Major units, always positive
+    type: 'DEBIT',
     date: new Date().toISOString().slice(0, 10),
     description: 'Test spending for archive',
-    budgetId: budget.id,
   });
+
+  // Assign the transaction to the budget
+  await updateTransactionBudget(transaction.id, budget.id);
 
   const budgetPage = new BudgetPage(authenticatedPage);
   await budgetPage.goto();
