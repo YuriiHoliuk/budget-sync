@@ -331,6 +331,10 @@ jobs:
             --image=${{ needs.build-backend.outputs.image }} \
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }}
+          gcloud run services update-traffic webhook \
+            --to-latest \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }}
 
   deploy-web:
     name: Deploy Web App
@@ -350,6 +354,10 @@ jobs:
         run: |
           gcloud run services update web \
             --image=${{ needs.build-web.outputs.image }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }}
+          gcloud run services update-traffic web \
+            --to-latest \
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }}
 
