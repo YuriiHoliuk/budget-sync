@@ -168,7 +168,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get deployed backend SHA
+        id: backend_sha
+        run: |
+          IMAGE_TAG=$(gcloud run services describe webhook \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --format='value(spec.template.spec.containers[0].image)' 2>/dev/null || echo "")
+
+          SHA=$(echo "$IMAGE_TAG" | grep -oE '[0-9a-f]{40}$' || echo "")
+
+          if [ -n "$SHA" ] && git cat-file -e "$SHA" 2>/dev/null; then
+            echo "sha=$SHA" >> $GITHUB_OUTPUT
+            echo "Deployed backend SHA: $SHA"
+          else
+            echo "sha=" >> $GITHUB_OUTPUT
+            echo "Could not resolve deployed backend SHA (tag: ${IMAGE_TAG:-none}), will deploy"
+          fi
+
+      - name: Get deployed web SHA
+        id: web_sha
+        run: |
+          IMAGE_TAG=$(gcloud run services describe web \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --format='value(spec.template.spec.containers[0].image)' 2>/dev/null || echo "")
+
+          SHA=$(echo "$IMAGE_TAG" | grep -oE '[0-9a-f]{40}$' || echo "")
+
+          if [ -n "$SHA" ] && git cat-file -e "$SHA" 2>/dev/null; then
+            echo "sha=$SHA" >> $GITHUB_OUTPUT
+            echo "Deployed web SHA: $SHA"
+          else
+            echo "sha=" >> $GITHUB_OUTPUT
+            echo "Could not resolve deployed web SHA (tag: ${IMAGE_TAG:-none}), will deploy"
+          fi
 
       - name: Check for changes
         id: filter
@@ -180,22 +224,40 @@ jobs:
             exit 0
           fi
 
-          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
-
-          if echo "$CHANGED" | grep -qE '^(src/|drizzle/|package\.json|bun\.lock|Dockerfile|tsconfig\.json)'; then
-            echo "should_deploy_backend=true" >> $GITHUB_OUTPUT
-            echo "Backend files changed, will deploy"
+          BACKEND_SHA="${{ steps.backend_sha.outputs.sha }}"
+          if [ -n "$BACKEND_SHA" ]; then
+            BACKEND_CHANGED=$(git diff --name-only "$BACKEND_SHA" HEAD 2>/dev/null || echo "DIFF_FAILED")
           else
-            echo "should_deploy_backend=false" >> $GITHUB_OUTPUT
-            echo "No backend files changed"
+            BACKEND_CHANGED="DIFF_FAILED"
           fi
 
-          if echo "$CHANGED" | grep -qE '^(src/|web/|package\.json|bun\.lock|docker/|Dockerfile\.web|tsconfig\.json)'; then
+          if [ "$BACKEND_CHANGED" = "DIFF_FAILED" ]; then
+            echo "should_deploy_backend=true" >> $GITHUB_OUTPUT
+            echo "Backend: deploying (no deployed SHA to compare)"
+          elif echo "$BACKEND_CHANGED" | grep -qE '^(src/|drizzle/|package\.json|bun\.lock|Dockerfile|tsconfig\.json)'; then
+            echo "should_deploy_backend=true" >> $GITHUB_OUTPUT
+            echo "Backend files changed since deployed commit, will deploy"
+          else
+            echo "should_deploy_backend=false" >> $GITHUB_OUTPUT
+            echo "No backend files changed since deployed commit"
+          fi
+
+          WEB_SHA="${{ steps.web_sha.outputs.sha }}"
+          if [ -n "$WEB_SHA" ]; then
+            WEB_CHANGED=$(git diff --name-only "$WEB_SHA" HEAD 2>/dev/null || echo "DIFF_FAILED")
+          else
+            WEB_CHANGED="DIFF_FAILED"
+          fi
+
+          if [ "$WEB_CHANGED" = "DIFF_FAILED" ]; then
             echo "should_deploy_web=true" >> $GITHUB_OUTPUT
-            echo "Web app files changed, will deploy"
+            echo "Web: deploying (no deployed SHA to compare)"
+          elif echo "$WEB_CHANGED" | grep -qE '^(src/|web/|package\.json|bun\.lock|docker/|Dockerfile\.web|tsconfig\.json)'; then
+            echo "should_deploy_web=true" >> $GITHUB_OUTPUT
+            echo "Web app files changed since deployed commit, will deploy"
           else
             echo "should_deploy_web=false" >> $GITHUB_OUTPUT
-            echo "No web app files changed"
+            echo "No web app files changed since deployed commit"
           fi
 
   migrate:
