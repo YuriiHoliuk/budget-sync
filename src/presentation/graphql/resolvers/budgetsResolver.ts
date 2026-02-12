@@ -1,6 +1,8 @@
 import { ArchiveBudgetUseCase } from '@application/use-cases/ArchiveBudget.ts';
 import type { CreateBudgetRequestDTO } from '@application/use-cases/CreateBudget.ts';
 import { CreateBudgetUseCase } from '@application/use-cases/CreateBudget.ts';
+import type { ReorderBudgetRequestDTO } from '@application/use-cases/ReorderBudget.ts';
+import { ReorderBudgetUseCase } from '@application/use-cases/ReorderBudget.ts';
 import type { UpdateBudgetRequestDTO } from '@application/use-cases/UpdateBudget.ts';
 import { UpdateBudgetUseCase } from '@application/use-cases/UpdateBudget.ts';
 import {
@@ -9,39 +11,41 @@ import {
 } from '@domain/repositories/BudgetRepository.ts';
 import { inject, injectable } from 'tsyringe';
 import {
-  GQL_TO_BUDGET_TYPE,
-  GQL_TO_CADENCE,
+  GQL_TO_CADENCE_UNIT,
   mapBudgetToGql,
-  mapOptionalGqlEnum,
   toMinorUnits,
 } from '../mappers/index.ts';
 import { Resolver, type ResolverMap } from '../Resolver.ts';
 
 interface CreateBudgetInput {
   name: string;
-  type: string;
   currency: string;
   targetAmount: number;
-  targetCadence?: string | null;
-  targetCadenceMonths?: number | null;
+  cadenceUnit?: string | null;
+  cadenceCount?: number | null;
   targetDate?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   cap?: number | null;
+  budgetGroupId?: number | null;
 }
 
 interface UpdateBudgetInput {
   id: number;
+  /** YYYY-MM format. Required for endDate validation and target history. */
+  month: string;
   name?: string | null;
-  type?: string | null;
-  currency?: string | null;
   targetAmount?: number | null;
-  targetCadence?: string | null;
-  targetCadenceMonths?: number | null;
-  targetDate?: string | null;
-  startDate?: string | null;
   endDate?: string | null;
   cap?: number | null;
+  budgetGroupId?: number | null;
+}
+
+interface ReorderBudgetInput {
+  budgetId: number;
+  afterBudgetId?: number | null;
+  beforeBudgetId?: number | null;
+  budgetGroupId?: number | null;
 }
 
 @injectable()
@@ -52,6 +56,7 @@ export class BudgetsResolver extends Resolver {
     private createBudgetUseCase: CreateBudgetUseCase,
     private updateBudgetUseCase: UpdateBudgetUseCase,
     private archiveBudgetUseCase: ArchiveBudgetUseCase,
+    private reorderBudgetUseCase: ReorderBudgetUseCase,
   ) {
     super();
   }
@@ -71,6 +76,10 @@ export class BudgetsResolver extends Resolver {
           this.updateBudget(args.input),
         archiveBudget: (_parent: unknown, args: { id: number }) =>
           this.archiveBudget(args.id),
+        reorderBudget: (
+          _parent: unknown,
+          args: { input: ReorderBudgetInput },
+        ) => this.reorderBudget(args.input),
       },
     };
   }
@@ -106,41 +115,42 @@ export class BudgetsResolver extends Resolver {
     return mapBudgetToGql(budget);
   }
 
+  private async reorderBudget(input: ReorderBudgetInput) {
+    const budget = await this.reorderBudgetUseCase.execute(
+      this.mapReorderInput(input),
+    );
+    return mapBudgetToGql(budget);
+  }
+
   private mapCreateInput(input: CreateBudgetInput): CreateBudgetRequestDTO {
     return {
       name: input.name,
-      type: GQL_TO_BUDGET_TYPE[input.type] ?? 'spending',
       currency: input.currency,
       targetAmount: toMinorUnits(input.targetAmount),
-      targetCadence: input.targetCadence
-        ? (GQL_TO_CADENCE[input.targetCadence] ?? null)
+      cadenceUnit: input.cadenceUnit
+        ? (GQL_TO_CADENCE_UNIT[input.cadenceUnit] ?? null)
         : null,
-      targetCadenceMonths: input.targetCadenceMonths ?? null,
+      cadenceCount: input.cadenceCount ?? null,
       targetDate: input.targetDate ?? null,
       startDate: input.startDate ?? null,
       endDate: input.endDate ?? null,
       cap: input.cap != null ? toMinorUnits(input.cap) : null,
+      budgetGroupId: input.budgetGroupId ?? null,
     };
   }
 
   private mapUpdateInput(input: UpdateBudgetInput): UpdateBudgetRequestDTO {
     return {
       id: input.id,
+      month: input.month,
       name: input.name ?? undefined,
-      type: input.type
-        ? (GQL_TO_BUDGET_TYPE[input.type] ?? undefined)
-        : undefined,
-      currency: input.currency ?? undefined,
       targetAmount:
         input.targetAmount != null
           ? toMinorUnits(input.targetAmount)
           : undefined,
-      targetCadence: mapOptionalGqlEnum(input.targetCadence, GQL_TO_CADENCE),
-      targetCadenceMonths: input.targetCadenceMonths,
-      targetDate: input.targetDate,
-      startDate: input.startDate,
       endDate: input.endDate,
       cap: this.mapOptionalMoney(input.cap),
+      budgetGroupId: input.budgetGroupId,
     };
   }
 
@@ -151,5 +161,14 @@ export class BudgetsResolver extends Resolver {
       return undefined;
     }
     return value != null ? toMinorUnits(value) : null;
+  }
+
+  private mapReorderInput(input: ReorderBudgetInput): ReorderBudgetRequestDTO {
+    return {
+      budgetId: input.budgetId,
+      afterBudgetId: input.afterBudgetId ?? null,
+      beforeBudgetId: input.beforeBudgetId ?? null,
+      budgetGroupId: input.budgetGroupId,
+    };
   }
 }

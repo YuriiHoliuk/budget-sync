@@ -214,7 +214,7 @@ export class AccountsPage extends BasePage {
  */
 class CreateAccountDialog extends Dialog {
   constructor(page: Page) {
-    super(page, 'dialog-create-account');
+    super(page, 'sheet-create-account');
   }
 
   async fillName(name: string): Promise<void> {

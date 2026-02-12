@@ -4,58 +4,65 @@ import { Currency, Money } from '@domain/value-objects/index.ts';
 import { DatabaseBudgetMapper } from '@infrastructure/mappers/DatabaseBudgetMapper.ts';
 import type { BudgetRow, NewBudgetRow } from '@modules/database/types.ts';
 
+// Helper to create a default BudgetRow with old columns for backward compatibility
+function createBudgetRow(overrides: Partial<BudgetRow>): BudgetRow {
+  return {
+    id: 1,
+    name: 'Test Budget',
+    type: 'spending',
+    currency: 'UAH',
+    targetAmount: 100000,
+    targetCadence: null,
+    targetCadenceMonths: null,
+    cadenceUnit: null,
+    cadenceCount: null,
+    targetDate: null,
+    startDate: null,
+    endDate: null,
+    isArchived: false,
+    cap: null,
+    budgetGroupId: null,
+    sortOrder: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
 describe('DatabaseBudgetMapper', () => {
   const mapper = new DatabaseBudgetMapper();
 
   describe('toEntity', () => {
     test('should create Budget with correct amount (from targetAmount), dates', () => {
-      const row: BudgetRow = {
+      const row = createBudgetRow({
         id: 123,
         name: 'Groceries Budget',
-        type: 'spending',
-        currency: 'UAH',
         targetAmount: 500000,
-        targetCadence: null,
-        targetCadenceMonths: null,
-        targetDate: null,
         startDate: '2024-01-01',
         endDate: '2024-12-31',
-        isArchived: false,
-        cap: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+        sortOrder: 'a0',
+      });
 
       const budget = mapper.toEntity(row);
 
       expect(budget).toBeInstanceOf(Budget);
       expect(budget.name).toBe('Groceries Budget');
-      expect(budget.type).toBe('spending');
       expect(budget.amount.amount).toBe(500000);
       expect(budget.amount.currency.code).toBe('UAH');
       expect(budget.startDate).toEqual(new Date('2024-01-01'));
       expect(budget.endDate).toEqual(new Date('2024-12-31'));
       expect(budget.isArchived).toBe(false);
       expect(budget.dbId).toBe(123);
+      expect(budget.sortOrder).toBe('a0');
     });
 
     test('should use null startDate when null in row', () => {
-      const row: BudgetRow = {
+      const row = createBudgetRow({
         id: 456,
         name: 'Default Start',
-        type: 'spending',
         currency: 'USD',
-        targetAmount: 100000,
-        targetCadence: null,
-        targetCadenceMonths: null,
-        targetDate: null,
-        startDate: null,
         endDate: '2024-12-31',
-        isArchived: false,
-        cap: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const budget = mapper.toEntity(row);
 
@@ -63,22 +70,13 @@ describe('DatabaseBudgetMapper', () => {
     });
 
     test('should use null endDate when null in row', () => {
-      const row: BudgetRow = {
+      const row = createBudgetRow({
         id: 789,
         name: 'Default End',
-        type: 'spending',
         currency: 'EUR',
         targetAmount: 75000,
-        targetCadence: null,
-        targetCadenceMonths: null,
-        targetDate: null,
         startDate: '2024-01-01',
-        endDate: null,
-        isArchived: false,
-        cap: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const budget = mapper.toEntity(row);
 
@@ -86,22 +84,11 @@ describe('DatabaseBudgetMapper', () => {
     });
 
     test('should handle both dates null', () => {
-      const row: BudgetRow = {
+      const row = createBudgetRow({
         id: 999,
         name: 'No Dates',
-        type: 'spending',
-        currency: 'UAH',
         targetAmount: 10000,
-        targetCadence: null,
-        targetCadenceMonths: null,
-        targetDate: null,
-        startDate: null,
-        endDate: null,
-        isArchived: false,
-        cap: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const budget = mapper.toEntity(row);
 
@@ -110,96 +97,96 @@ describe('DatabaseBudgetMapper', () => {
     });
 
     test('should create Money with correct currency', () => {
-      const row: BudgetRow = {
+      const row = createBudgetRow({
         id: 111,
         name: 'USD Budget',
-        type: 'spending',
         currency: 'USD',
         targetAmount: 200000,
-        targetCadence: null,
-        targetCadenceMonths: null,
-        targetDate: null,
         startDate: '2024-01-01',
         endDate: '2024-12-31',
-        isArchived: false,
-        cap: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const budget = mapper.toEntity(row);
 
       expect(budget.amount.currency.code).toBe('USD');
     });
 
-    test('should map budget type correctly', () => {
-      const types = ['spending', 'savings', 'goal', 'periodic'] as const;
-      for (const budgetType of types) {
-        const row: BudgetRow = {
-          id: 1,
-          name: `${budgetType} budget`,
-          type: budgetType,
-          currency: 'UAH',
-          targetAmount: 100000,
-          targetCadence: null,
-          targetCadenceMonths: null,
-          targetDate: null,
-          startDate: null,
-          endDate: null,
-          isArchived: false,
-          cap: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        const budget = mapper.toEntity(row);
-        expect(budget.type).toBe(budgetType);
-      }
-    });
-
-    test('should map target cadence fields', () => {
-      const row: BudgetRow = {
-        id: 1,
+    test('should map cadence unit fields', () => {
+      const row = createBudgetRow({
         name: 'Periodic Budget',
-        type: 'periodic',
-        currency: 'UAH',
         targetAmount: 1200000,
-        targetCadence: 'yearly',
-        targetCadenceMonths: null,
+        cadenceUnit: 'year',
+        cadenceCount: 1,
         targetDate: '2026-06-01',
-        startDate: null,
-        endDate: null,
-        isArchived: false,
-        cap: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+        sortOrder: 'a5',
+      });
 
       const budget = mapper.toEntity(row);
 
-      expect(budget.targetCadence).toBe('yearly');
+      expect(budget.cadenceUnit).toBe('year');
       expect(budget.targetDate).toEqual(new Date('2026-06-01'));
     });
 
-    test('should map isArchived', () => {
-      const row: BudgetRow = {
-        id: 1,
-        name: 'Archived Budget',
-        type: 'spending',
-        currency: 'UAH',
-        targetAmount: 100000,
-        targetCadence: null,
+    test('should fallback to old cadence columns when new ones are null', () => {
+      const row = createBudgetRow({
+        name: 'Legacy Periodic Budget',
+        targetAmount: 1200000,
+        targetCadence: 'monthly',
         targetCadenceMonths: null,
-        targetDate: null,
-        startDate: null,
-        endDate: null,
+        cadenceUnit: null,
+        cadenceCount: null,
+      });
+
+      const budget = mapper.toEntity(row);
+
+      expect(budget.cadenceUnit).toBe('month');
+      expect(budget.cadenceCount).toBe(1);
+    });
+
+    test('should fallback to old custom cadence', () => {
+      const row = createBudgetRow({
+        name: 'Legacy Custom Cadence',
+        targetAmount: 900000,
+        targetCadence: 'custom',
+        targetCadenceMonths: 3,
+        cadenceUnit: null,
+        cadenceCount: null,
+      });
+
+      const budget = mapper.toEntity(row);
+
+      expect(budget.cadenceUnit).toBe('month');
+      expect(budget.cadenceCount).toBe(3);
+    });
+
+    test('should map isArchived', () => {
+      const row = createBudgetRow({
+        name: 'Archived Budget',
         isArchived: true,
-        cap: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const budget = mapper.toEntity(row);
       expect(budget.isArchived).toBe(true);
+    });
+
+    test('should map sortOrder', () => {
+      const row = createBudgetRow({
+        name: 'Ordered Budget',
+        sortOrder: 'a3',
+      });
+
+      const budget = mapper.toEntity(row);
+      expect(budget.sortOrder).toBe('a3');
+    });
+
+    test('should map null sortOrder', () => {
+      const row = createBudgetRow({
+        name: 'Unordered Budget',
+        sortOrder: null,
+      });
+
+      const budget = mapper.toEntity(row);
+      expect(budget.sortOrder).toBeNull();
     });
   });
 
@@ -208,42 +195,48 @@ describe('DatabaseBudgetMapper', () => {
       const currency = Currency.UAH;
       const budget = Budget.create({
         name: 'Monthly Groceries',
-        type: 'spending',
         amount: Money.create(500000, currency),
-        targetCadence: null,
-        targetCadenceMonths: null,
+        cadenceUnit: null,
+        cadenceCount: null,
         targetDate: null,
         startDate: new Date('2024-01-01'),
         endDate: new Date('2024-12-31'),
         isArchived: false,
         cap: null,
+        budgetGroupId: null,
+        sortOrder: 'a0',
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
 
       expect(row.name).toBe('Monthly Groceries');
-      expect(row.type).toBe('spending');
       expect(row.currency).toBe('UAH');
       expect(row.targetAmount).toBe(500000);
-      expect(row.targetCadence).toBeNull();
-      expect(row.targetCadenceMonths).toBeNull();
+      expect(row.cadenceUnit).toBeNull();
+      expect(row.cadenceCount).toBeNull();
       expect(row.targetDate).toBeNull();
       expect(row.isArchived).toBe(false);
+      expect(row.sortOrder).toBe('a0');
+      // Dual-write: old columns should also be set
+      expect(row.type).toBe('spending');
+      expect(row.targetCadence).toBeNull();
+      expect(row.targetCadenceMonths).toBeNull();
     });
 
     test('should format startDate correctly', () => {
       const currency = Currency.UAH;
       const budget = Budget.create({
         name: 'Test Budget',
-        type: 'spending',
         amount: Money.create(100000, currency),
-        targetCadence: null,
-        targetCadenceMonths: null,
+        cadenceUnit: null,
+        cadenceCount: null,
         targetDate: null,
         startDate: new Date('2024-06-15T10:30:00Z'),
         endDate: new Date('2024-12-31'),
         isArchived: false,
         cap: null,
+        budgetGroupId: null,
+        sortOrder: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
@@ -255,15 +248,16 @@ describe('DatabaseBudgetMapper', () => {
       const currency = Currency.UAH;
       const budget = Budget.create({
         name: 'Test Budget',
-        type: 'spending',
         amount: Money.create(100000, currency),
-        targetCadence: null,
-        targetCadenceMonths: null,
+        cadenceUnit: null,
+        cadenceCount: null,
         targetDate: null,
         startDate: new Date('2024-01-01'),
         endDate: new Date('2024-12-31T23:59:59Z'),
         isArchived: false,
         cap: null,
+        budgetGroupId: null,
+        sortOrder: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
@@ -275,15 +269,16 @@ describe('DatabaseBudgetMapper', () => {
       const currency = Currency.UAH;
       const budget = Budget.create({
         name: 'No Start',
-        type: 'spending',
         amount: Money.create(100000, currency),
-        targetCadence: null,
-        targetCadenceMonths: null,
+        cadenceUnit: null,
+        cadenceCount: null,
         targetDate: null,
         startDate: null,
         endDate: new Date('2024-12-31'),
         isArchived: false,
         cap: null,
+        budgetGroupId: null,
+        sortOrder: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
@@ -295,15 +290,16 @@ describe('DatabaseBudgetMapper', () => {
       const currency = Currency.UAH;
       const budget = Budget.create({
         name: 'No End',
-        type: 'spending',
         amount: Money.create(100000, currency),
-        targetCadence: null,
-        targetCadenceMonths: null,
+        cadenceUnit: null,
+        cadenceCount: null,
         targetDate: null,
         startDate: new Date('2024-01-01'),
         endDate: null,
         isArchived: false,
         cap: null,
+        budgetGroupId: null,
+        sortOrder: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
@@ -314,28 +310,30 @@ describe('DatabaseBudgetMapper', () => {
     test('should handle different currencies', () => {
       const usdBudget = Budget.create({
         name: 'USD Budget',
-        type: 'spending',
         amount: Money.create(200000, Currency.USD),
-        targetCadence: null,
-        targetCadenceMonths: null,
+        cadenceUnit: null,
+        cadenceCount: null,
         targetDate: null,
         startDate: new Date('2024-01-01'),
         endDate: new Date('2024-12-31'),
         isArchived: false,
         cap: null,
+        budgetGroupId: null,
+        sortOrder: null,
       });
 
       const eurBudget = Budget.create({
         name: 'EUR Budget',
-        type: 'spending',
         amount: Money.create(150000, Currency.EUR),
-        targetCadence: null,
-        targetCadenceMonths: null,
+        cadenceUnit: null,
+        cadenceCount: null,
         targetDate: null,
         startDate: new Date('2024-01-01'),
         endDate: new Date('2024-12-31'),
         isArchived: false,
         cap: null,
+        budgetGroupId: null,
+        sortOrder: null,
       });
 
       const usdRow: NewBudgetRow = mapper.toInsert(usdBudget);
@@ -345,37 +343,19 @@ describe('DatabaseBudgetMapper', () => {
       expect(eurRow.currency).toBe('EUR');
     });
 
-    test('should preserve budget type', () => {
-      const budget = Budget.create({
-        name: 'Savings Budget',
-        type: 'savings',
-        amount: Money.create(100000, Currency.UAH),
-        targetCadence: null,
-        targetCadenceMonths: null,
-        targetDate: null,
-        startDate: null,
-        endDate: null,
-        isArchived: false,
-        cap: null,
-      });
-
-      const row: NewBudgetRow = mapper.toInsert(budget);
-
-      expect(row.type).toBe('savings');
-    });
-
     test('should preserve isArchived', () => {
       const budget = Budget.create({
         name: 'Archived Budget',
-        type: 'spending',
         amount: Money.create(100000, Currency.UAH),
-        targetCadence: null,
-        targetCadenceMonths: null,
+        cadenceUnit: null,
+        cadenceCount: null,
         targetDate: null,
         startDate: null,
         endDate: null,
         isArchived: true,
         cap: null,
+        budgetGroupId: null,
+        sortOrder: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
@@ -386,21 +366,109 @@ describe('DatabaseBudgetMapper', () => {
     test('should preserve target fields for goal budget', () => {
       const budget = Budget.create({
         name: 'Goal Budget',
-        type: 'goal',
         amount: Money.create(5000000, Currency.UAH),
-        targetCadence: null,
-        targetCadenceMonths: null,
+        cadenceUnit: null,
+        cadenceCount: null,
         targetDate: new Date('2026-12-01'),
         startDate: null,
         endDate: null,
         isArchived: false,
         cap: null,
+        budgetGroupId: null,
+        sortOrder: null,
       });
 
       const row: NewBudgetRow = mapper.toInsert(budget);
 
-      expect(row.type).toBe('goal');
       expect(row.targetDate).toBe('2026-12-01');
+    });
+
+    test('should dual-write cadence to old columns', () => {
+      const budget = Budget.create({
+        name: 'Monthly Budget',
+        amount: Money.create(500000, Currency.UAH),
+        cadenceUnit: 'month',
+        cadenceCount: 1,
+        targetDate: null,
+        startDate: null,
+        endDate: null,
+        isArchived: false,
+        cap: null,
+        budgetGroupId: null,
+        sortOrder: null,
+      });
+
+      const row: NewBudgetRow = mapper.toInsert(budget);
+
+      expect(row.cadenceUnit).toBe('month');
+      expect(row.cadenceCount).toBe(1);
+      // Dual-write to old columns
+      expect(row.targetCadence).toBe('monthly');
+      expect(row.targetCadenceMonths).toBeNull();
+    });
+
+    test('should dual-write custom cadence to old columns', () => {
+      const budget = Budget.create({
+        name: 'Quarterly Budget',
+        amount: Money.create(900000, Currency.UAH),
+        cadenceUnit: 'month',
+        cadenceCount: 3,
+        targetDate: null,
+        startDate: null,
+        endDate: null,
+        isArchived: false,
+        cap: null,
+        budgetGroupId: null,
+        sortOrder: null,
+      });
+
+      const row: NewBudgetRow = mapper.toInsert(budget);
+
+      expect(row.cadenceUnit).toBe('month');
+      expect(row.cadenceCount).toBe(3);
+      // Dual-write to old columns as 'custom'
+      expect(row.targetCadence).toBe('custom');
+      expect(row.targetCadenceMonths).toBe(3);
+    });
+
+    test('should map sortOrder to insert row', () => {
+      const budget = Budget.create({
+        name: 'Ordered Budget',
+        amount: Money.create(100000, Currency.UAH),
+        cadenceUnit: null,
+        cadenceCount: null,
+        targetDate: null,
+        startDate: null,
+        endDate: null,
+        isArchived: false,
+        cap: null,
+        budgetGroupId: null,
+        sortOrder: 'a5',
+      });
+
+      const row: NewBudgetRow = mapper.toInsert(budget);
+
+      expect(row.sortOrder).toBe('a5');
+    });
+
+    test('should map null sortOrder to insert row', () => {
+      const budget = Budget.create({
+        name: 'Unordered Budget',
+        amount: Money.create(100000, Currency.UAH),
+        cadenceUnit: null,
+        cadenceCount: null,
+        targetDate: null,
+        startDate: null,
+        endDate: null,
+        isArchived: false,
+        cap: null,
+        budgetGroupId: null,
+        sortOrder: null,
+      });
+
+      const row: NewBudgetRow = mapper.toInsert(budget);
+
+      expect(row.sortOrder).toBeNull();
     });
   });
 });

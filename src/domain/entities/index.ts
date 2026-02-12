@@ -14,12 +14,9 @@ export {
 export {
   Budget,
   type BudgetProps,
-  type BudgetType,
-  isBudgetType,
-  isTargetCadence,
-  parseBudgetType,
-  parseTargetCadence,
-  type TargetCadence,
+  type CadenceUnit,
+  isCadenceUnit,
+  parseCadenceUnit,
 } from './Budget.ts';
 export { Category, type CategoryProps } from './Category.ts';
 export { Transaction, type TransactionProps } from './Transaction.ts';

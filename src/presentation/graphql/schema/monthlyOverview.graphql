@@ -38,6 +38,9 @@ type MonthlyOverview {
 
   """Per-budget breakdown for the selected month"""
   budgetSummaries: [BudgetSummary!]!
+
+  """User-defined budget groups for organizing budgets"""
+  budgetGroups: [BudgetGroup!]!
 }
 
 """
@@ -46,17 +49,20 @@ Computed summary for a single budget in a given month.
 type BudgetSummary {
   budgetId: Int!
   name: String!
-  type: BudgetType!
   """Target amount (monthly limit or total target)"""
   targetAmount: Float!
   """Money allocated to this budget in the selected month"""
   allocated: Float!
   """Money spent from this budget in the selected month"""
   spent: Float!
-  """Available balance (calculation varies by budget type)"""
+  """Available balance"""
   available: Float!
-  """Suggested allocation based on budget type and target"""
+  """Suggested allocation based on budget settings and target"""
   suggestedAllocation: Float!
   """Whether the budget's active period has ended but it still has remaining balance"""
   isExpired: Boolean!
+  """Fractional indexing key for user-defined ordering"""
+  sortOrder: String
+  """Budget group ID if assigned to a group"""
+  budgetGroupId: Int
 }

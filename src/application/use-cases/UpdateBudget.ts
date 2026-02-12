@@ -1,48 +1,31 @@
-import type {
-  Budget,
-  BudgetType,
-  TargetCadence,
-} from '@domain/entities/Budget.ts';
+import type { Budget } from '@domain/entities/Budget.ts';
+import { BudgetTarget } from '@domain/entities/BudgetTarget.ts';
 import {
   BudgetNameTakenError,
   BudgetNotFoundError,
+  InvalidBudgetEndDateError,
 } from '@domain/errors/DomainErrors.ts';
 import {
   BUDGET_REPOSITORY_TOKEN,
   type BudgetRepository,
 } from '@domain/repositories/BudgetRepository.ts';
+import {
+  BUDGET_TARGET_REPOSITORY_TOKEN,
+  type BudgetTargetRepository,
+} from '@domain/repositories/BudgetTargetRepository.ts';
 import { Currency, Money } from '@domain/value-objects/index.ts';
 import { inject, injectable } from 'tsyringe';
 import { UseCase } from './UseCase.ts';
 
 export interface UpdateBudgetRequestDTO {
   id: number;
+  /** YYYY-MM format. Required for endDate validation and target history. */
+  month: string;
   name?: string;
-  type?: BudgetType;
-  currency?: string;
   targetAmount?: number;
-  targetCadence?: TargetCadence | null;
-  targetCadenceMonths?: number | null;
-  targetDate?: string | null;
-  startDate?: string | null;
   endDate?: string | null;
   cap?: number | null;
-}
-
-/** Returns the update value if provided, otherwise the current value */
-function resolveField<T>(updated: T | undefined, current: T): T {
-  return updated !== undefined ? updated : current;
-}
-
-/** Parses a date string if provided, otherwise returns the current date value */
-function resolveDate(
-  updated: string | null | undefined,
-  current: Date | null,
-): Date | null {
-  if (updated === undefined) {
-    return current;
-  }
-  return updated ? new Date(updated) : null;
+  budgetGroupId?: number | null;
 }
 
 @injectable()
@@ -53,6 +36,8 @@ export class UpdateBudgetUseCase extends UseCase<
   constructor(
     @inject(BUDGET_REPOSITORY_TOKEN)
     private readonly budgetRepository: BudgetRepository,
+    @inject(BUDGET_TARGET_REPOSITORY_TOKEN)
+    private readonly budgetTargetRepository: BudgetTargetRepository,
   ) {
     super();
   }
@@ -62,7 +47,11 @@ export class UpdateBudgetUseCase extends UseCase<
     await this.ensureNameIsAvailable(request.name, request.id);
 
     const updated = this.applyUpdates(existing, request);
-    return this.budgetRepository.update(updated);
+    const savedBudget = await this.budgetRepository.update(updated);
+
+    await this.createTargetHistoryIfNeeded(existing, request);
+
+    return savedBudget;
   }
 
   private async findBudget(budgetId: number): Promise<Budget> {
@@ -91,23 +80,50 @@ export class UpdateBudgetUseCase extends UseCase<
     request: UpdateBudgetRequestDTO,
   ): Budget {
     const amount = this.resolveAmount(budget, request);
-
     const cap = this.resolveCap(budget, request, amount.currency);
+    const endDate = this.resolveEndDate(budget, request);
 
-    return budget.withUpdatedProps({
+    const updates: Parameters<typeof budget.withUpdatedProps>[0] = {
       name: request.name ?? budget.name,
-      type: request.type ?? budget.type,
       amount,
-      targetCadence: resolveField(request.targetCadence, budget.targetCadence),
-      targetCadenceMonths: resolveField(
-        request.targetCadenceMonths,
-        budget.targetCadenceMonths,
-      ),
-      targetDate: resolveDate(request.targetDate, budget.targetDate),
-      startDate: resolveDate(request.startDate, budget.startDate),
-      endDate: resolveDate(request.endDate, budget.endDate),
+      endDate,
       cap,
+    };
+
+    // Update group if explicitly provided (undefined means don't change)
+    if (request.budgetGroupId !== undefined) {
+      updates.budgetGroupId = request.budgetGroupId;
+    }
+
+    return budget.withUpdatedProps(updates);
+  }
+
+  private async createTargetHistoryIfNeeded(
+    existing: Budget,
+    request: UpdateBudgetRequestDTO,
+  ): Promise<void> {
+    if (request.targetAmount === undefined) {
+      return;
+    }
+    if (request.targetAmount === existing.amount.amount) {
+      return;
+    }
+
+    const budgetId = existing.dbId;
+    if (!budgetId) {
+      return;
+    }
+
+    const currency = existing.amount.currency;
+    const newAmount = Money.create(request.targetAmount, currency);
+
+    const target = BudgetTarget.create({
+      budgetId,
+      targetAmount: newAmount,
+      effectiveFrom: request.month,
     });
+
+    await this.budgetTargetRepository.save(target);
   }
 
   private resolveCap(
@@ -125,12 +141,39 @@ export class UpdateBudgetUseCase extends UseCase<
     budget: Budget,
     request: UpdateBudgetRequestDTO,
   ): Money {
-    const currencyCode = request.currency ?? budget.amount.currency.code;
-    const currency = Currency.fromCode(currencyCode);
+    const currency = budget.amount.currency;
     const amountValue =
       request.targetAmount !== undefined
         ? request.targetAmount
         : budget.amount.amount;
     return Money.create(amountValue, currency);
+  }
+
+  private resolveEndDate(
+    budget: Budget,
+    request: UpdateBudgetRequestDTO,
+  ): Date | null {
+    if (request.endDate === undefined) {
+      return budget.endDate;
+    }
+
+    if (request.endDate === null || request.endDate === '') {
+      return null;
+    }
+
+    const endDateString = request.endDate;
+    const endDateValue = new Date(endDateString);
+    const minDate = this.getFirstDayOfMonth(request.month);
+
+    if (endDateValue < minDate) {
+      const minDateString = minDate.toISOString().split('T')[0] ?? '';
+      throw new InvalidBudgetEndDateError(endDateString, minDateString);
+    }
+
+    return endDateValue;
+  }
+
+  private getFirstDayOfMonth(month: string): Date {
+    return new Date(`${month}-01T00:00:00.000Z`);
   }
 }

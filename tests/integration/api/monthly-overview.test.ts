@@ -358,7 +358,6 @@ describe('Monthly Overview API Integration', () => {
 
       const groceriesBudget = await createTestBudget(harness.getDb(), {
         name: 'Groceries',
-        type: 'spending',
         targetAmount: 800000, // 8000 UAH target
       });
 
@@ -392,7 +391,6 @@ describe('Monthly Overview API Integration', () => {
           budgetSummaries: Array<{
             budgetId: number;
             name: string;
-            type: string;
             targetAmount: number;
             allocated: number;
             spent: number;
@@ -406,7 +404,6 @@ describe('Monthly Overview API Integration', () => {
             budgetSummaries {
               budgetId
               name
-              type
               targetAmount
               allocated
               spent
@@ -424,7 +421,6 @@ describe('Monthly Overview API Integration', () => {
       const summary = result.data?.monthlyOverview.budgetSummaries[0];
       expect(summary?.budgetId).toBe(groceriesBudget.id);
       expect(summary?.name).toBe('Groceries');
-      expect(summary?.type).toBe('SPENDING');
       expect(summary?.targetAmount).toBe(8000); // target amount
       expect(summary?.allocated).toBe(6000); // allocated this month
       expect(summary?.spent).toBe(400); // 250 + 150
@@ -518,7 +514,6 @@ describe('Monthly Overview API Integration', () => {
 
       const groceriesBudget = await createTestBudget(harness.getDb(), {
         name: 'Groceries',
-        type: 'spending',
       });
 
       // Previous month allocation
@@ -590,7 +585,6 @@ describe('Monthly Overview API Integration', () => {
 
       const groceriesBudget = await createTestBudget(harness.getDb(), {
         name: 'Groceries',
-        type: 'spending',
       });
 
       // Previous month allocation
@@ -688,14 +682,12 @@ describe('Monthly Overview API Integration', () => {
       // Budget that ended in December 2025 with no allocations (zero balance)
       await createTestBudget(harness.getDb(), {
         name: 'Expired Empty Budget',
-        type: 'spending',
         endDate: '2025-12-31',
       });
 
       // Active budget for comparison
       await createTestBudget(harness.getDb(), {
         name: 'Active Budget',
-        type: 'spending',
       });
 
       const result = await harness.executeQuery<{
@@ -734,7 +726,6 @@ describe('Monthly Overview API Integration', () => {
       // Budget that ended in December 2025
       const expiredBudget = await createTestBudget(harness.getDb(), {
         name: 'Expired Budget With Funds',
-        type: 'spending',
         endDate: '2025-12-31',
       });
 

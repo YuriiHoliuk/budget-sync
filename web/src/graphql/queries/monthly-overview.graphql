@@ -10,13 +10,19 @@ query GetMonthlyOverview($month: String!) {
     budgetSummaries {
       budgetId
       name
-      type
       targetAmount
       allocated
       spent
       available
       suggestedAllocation
       isExpired
+      sortOrder
+      budgetGroupId
+    }
+    budgetGroups {
+      id
+      name
+      sortOrder
     }
   }
 }

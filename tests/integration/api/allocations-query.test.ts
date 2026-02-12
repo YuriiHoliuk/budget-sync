@@ -218,7 +218,6 @@ describe('Query: allocations', () => {
   test('should resolve budget child field', async () => {
     const budget = await createTestBudget(harness.getDb(), {
       name: 'Groceries',
-      type: 'spending',
     });
 
     await createTestAllocation(harness.getDb(), {
@@ -230,7 +229,7 @@ describe('Query: allocations', () => {
     const result = await harness.executeQuery<{
       allocations: Array<{
         id: number;
-        budget: { id: number; name: string; type: string };
+        budget: { id: number; name: string };
       }>;
     }>(`
       query {
@@ -239,7 +238,6 @@ describe('Query: allocations', () => {
           budget {
             id
             name
-            type
           }
         }
       }
@@ -247,6 +245,5 @@ describe('Query: allocations', () => {
 
     expect(result.errors).toBeUndefined();
     expect(result.data?.allocations[0]?.budget.name).toBe('Groceries');
-    expect(result.data?.allocations[0]?.budget.type).toBe('SPENDING');
   });
 });

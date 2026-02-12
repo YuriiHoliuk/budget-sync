@@ -7,6 +7,8 @@ import type {
 import type { Account } from '@domain/entities/Account.ts';
 import type { Allocation } from '@domain/entities/Allocation.ts';
 import type { Budget } from '@domain/entities/Budget.ts';
+import type { BudgetGroup } from '@domain/entities/BudgetGroup.ts';
+import type { BudgetTarget } from '@domain/entities/BudgetTarget.ts';
 import type { Category } from '@domain/entities/Category.ts';
 import type { Transaction } from '@domain/entities/Transaction.ts';
 import type { BankGateway } from '@domain/gateways/BankGateway.ts';
@@ -23,8 +25,10 @@ import type {
 } from '@domain/gateways/MessageQueueGateway.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
 import type { AllocationRepository } from '@domain/repositories/AllocationRepository.ts';
+import type { BudgetGroupRepository } from '@domain/repositories/BudgetGroupRepository.ts';
 import type { BudgetizationRuleRepository } from '@domain/repositories/BudgetizationRuleRepository.ts';
 import type { BudgetRepository } from '@domain/repositories/BudgetRepository.ts';
+import type { BudgetTargetRepository } from '@domain/repositories/BudgetTargetRepository.ts';
 import type { CategorizationRuleRepository } from '@domain/repositories/CategorizationRuleRepository.ts';
 import type { CategoryRepository } from '@domain/repositories/CategoryRepository.ts';
 import type {
@@ -371,6 +375,56 @@ export function createMockBudgetizationRuleRepository(
   return {
     findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
   } as unknown as BudgetizationRuleRepository;
+}
+
+/**
+ * Creates a mock BudgetTargetRepository with default implementations.
+ * All find methods return null/empty, save returns the target.
+ */
+export function createMockBudgetTargetRepository(
+  overrides: Partial<{
+    findByBudgetId: (budgetId: number) => Promise<BudgetTarget[]>;
+    findAllForBudgets: (budgetIds: number[]) => Promise<BudgetTarget[]>;
+    findActiveTarget: (
+      budgetId: number,
+      month: string,
+    ) => Promise<BudgetTarget | null>;
+    save: (target: BudgetTarget) => Promise<BudgetTarget>;
+  }> = {},
+): BudgetTargetRepository {
+  return {
+    findByBudgetId: overrides.findByBudgetId ?? mock(() => Promise.resolve([])),
+    findAllForBudgets:
+      overrides.findAllForBudgets ?? mock(() => Promise.resolve([])),
+    findActiveTarget:
+      overrides.findActiveTarget ?? mock(() => Promise.resolve(null)),
+    save:
+      overrides.save ?? mock((target: BudgetTarget) => Promise.resolve(target)),
+  } as unknown as BudgetTargetRepository;
+}
+
+/**
+ * Creates a mock BudgetGroupRepository with default implementations.
+ * All find methods return null/empty, mutation methods resolve successfully.
+ */
+export function createMockBudgetGroupRepository(
+  overrides: Partial<{
+    findAll: () => Promise<BudgetGroup[]>;
+    findById: (id: number) => Promise<BudgetGroup | null>;
+    save: (group: BudgetGroup) => Promise<BudgetGroup>;
+    update: (group: BudgetGroup) => Promise<BudgetGroup>;
+    delete: (id: number) => Promise<void>;
+  }> = {},
+): BudgetGroupRepository {
+  return {
+    findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
+    findById: overrides.findById ?? mock(() => Promise.resolve(null)),
+    save:
+      overrides.save ?? mock((group: BudgetGroup) => Promise.resolve(group)),
+    update:
+      overrides.update ?? mock((group: BudgetGroup) => Promise.resolve(group)),
+    delete: overrides.delete ?? mock(() => Promise.resolve()),
+  } as unknown as BudgetGroupRepository;
 }
 
 /**

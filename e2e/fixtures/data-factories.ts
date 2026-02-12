@@ -31,24 +31,24 @@ async function executeGraphQL<T = unknown>(
  */
 interface CreateBudgetInput {
   name: string;
-  type: 'SPENDING' | 'SAVINGS' | 'GOAL' | 'PERIODIC';
   currency?: string;
   targetAmount?: number;
-  targetCadence?: 'MONTHLY' | 'YEARLY' | 'CUSTOM';
-  targetCadenceMonths?: number;
+  cadenceUnit?: 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
+  cadenceCount?: number;
   targetDate?: string;
   startDate?: string;
   endDate?: string;
   cap?: number;
+  budgetGroupId?: number;
 }
 
 interface Budget {
   id: number;
   name: string;
-  type: string;
   currency: string;
   targetAmount: number | null;
   cap: number | null;
+  budgetGroupId?: number | null;
 }
 
 export async function createBudget(input: CreateBudgetInput): Promise<Budget> {
@@ -57,10 +57,10 @@ export async function createBudget(input: CreateBudgetInput): Promise<Budget> {
       createBudget(input: $input) {
         id
         name
-        type
         currency
         targetAmount
         cap
+        budgetGroupId
       }
     }
   `;
@@ -335,6 +335,67 @@ export async function updateTransactionBudget(
 }
 
 /**
+ * Update a budget via GraphQL
+ */
+interface UpdateBudgetInput {
+  id: number;
+  month: string;
+  name?: string;
+  targetAmount?: number;
+  endDate?: string | null;
+  cap?: number | null;
+  budgetGroupId?: number | null;
+}
+
+interface UpdatedBudget {
+  id: number;
+  name: string;
+  currency: string;
+  targetAmount: number;
+  cadenceUnit: string | null;
+  cadenceCount: number | null;
+  targetDate: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  cap: number | null;
+  budgetGroupId: number | null;
+}
+
+export async function updateBudget(input: UpdateBudgetInput): Promise<UpdatedBudget> {
+  const mutation = `
+    mutation UpdateBudget($input: UpdateBudgetInput!) {
+      updateBudget(input: $input) {
+        id
+        name
+        currency
+        targetAmount
+        cadenceUnit
+        cadenceCount
+        targetDate
+        startDate
+        endDate
+        cap
+        budgetGroupId
+      }
+    }
+  `;
+
+  const result = await executeGraphQL<{ updateBudget: UpdatedBudget }>(mutation, {
+    input,
+  });
+
+  if (result.errors) {
+    throw new Error(`Failed to update budget: ${result.errors[0].message}`);
+  }
+
+  if (!result.data?.updateBudget) {
+    throw new Error('No budget returned from update mutation');
+  }
+
+  return result.data.updateBudget;
+}
+
+/**
  * Archive a budget via GraphQL
  */
 export async function archiveBudget(budgetId: number): Promise<Budget> {
@@ -343,7 +404,6 @@ export async function archiveBudget(budgetId: number): Promise<Budget> {
       archiveBudget(id: $id) {
         id
         name
-        type
         currency
         targetAmount
         cap
@@ -398,7 +458,6 @@ export async function getBudgets(): Promise<Budget[]> {
       budgets {
         id
         name
-        type
         currency
         targetAmount
         cap
@@ -457,7 +516,6 @@ export async function getMonthlyOverview(month: string): Promise<MonthlyOverview
 interface BudgetSummary {
   budgetId: number;
   name: string;
-  type: string;
   targetAmount: number;
   allocated: number;
   spent: number;
@@ -485,7 +543,6 @@ export async function getMonthlyOverviewWithBudgets(
         budgetSummaries {
           budgetId
           name
-          type
           targetAmount
           allocated
           spent
@@ -512,4 +569,187 @@ export async function getMonthlyOverviewWithBudgets(
   }
 
   return result.data.monthlyOverview;
+}
+
+/**
+ * Budget group operations via GraphQL
+ */
+interface BudgetGroup {
+  id: number;
+  name: string;
+  sortOrder: string | null;
+}
+
+export async function createBudgetGroup(name: string): Promise<BudgetGroup> {
+  const mutation = `
+    mutation CreateBudgetGroup($name: String!) {
+      createBudgetGroup(name: $name) {
+        id
+        name
+        sortOrder
+      }
+    }
+  `;
+
+  const result = await executeGraphQL<{ createBudgetGroup: BudgetGroup }>(
+    mutation,
+    { name }
+  );
+
+  if (result.errors) {
+    throw new Error(`Failed to create budget group: ${result.errors[0].message}`);
+  }
+
+  if (!result.data?.createBudgetGroup) {
+    throw new Error('No budget group returned from mutation');
+  }
+
+  return result.data.createBudgetGroup;
+}
+
+export async function updateBudgetGroup(
+  id: number,
+  name: string
+): Promise<BudgetGroup> {
+  const mutation = `
+    mutation UpdateBudgetGroup($id: Int!, $name: String!) {
+      updateBudgetGroup(id: $id, name: $name) {
+        id
+        name
+        sortOrder
+      }
+    }
+  `;
+
+  const result = await executeGraphQL<{ updateBudgetGroup: BudgetGroup }>(
+    mutation,
+    { id, name }
+  );
+
+  if (result.errors) {
+    throw new Error(`Failed to update budget group: ${result.errors[0].message}`);
+  }
+
+  if (!result.data?.updateBudgetGroup) {
+    throw new Error('No budget group returned from mutation');
+  }
+
+  return result.data.updateBudgetGroup;
+}
+
+export async function deleteBudgetGroup(id: number): Promise<boolean> {
+  const mutation = `
+    mutation DeleteBudgetGroup($id: Int!) {
+      deleteBudgetGroup(id: $id)
+    }
+  `;
+
+  const result = await executeGraphQL<{ deleteBudgetGroup: boolean }>(
+    mutation,
+    { id }
+  );
+
+  if (result.errors) {
+    throw new Error(`Failed to delete budget group: ${result.errors[0].message}`);
+  }
+
+  return result.data?.deleteBudgetGroup ?? false;
+}
+
+export async function getBudgetGroups(): Promise<BudgetGroup[]> {
+  const query = `
+    query GetBudgetGroups {
+      budgetGroups {
+        id
+        name
+        sortOrder
+      }
+    }
+  `;
+
+  const result = await executeGraphQL<{ budgetGroups: BudgetGroup[] }>(query);
+
+  if (result.errors) {
+    throw new Error(`Failed to get budget groups: ${result.errors[0].message}`);
+  }
+
+  return result.data?.budgetGroups ?? [];
+}
+
+/**
+ * Budget reordering via GraphQL
+ */
+interface ReorderBudgetInput {
+  budgetId: number;
+  afterBudgetId?: number | null;
+  beforeBudgetId?: number | null;
+  budgetGroupId?: number | null;
+}
+
+interface ReorderedBudget {
+  id: number;
+  name: string;
+  sortOrder: string | null;
+  budgetGroupId: number | null;
+}
+
+export async function reorderBudget(
+  input: ReorderBudgetInput
+): Promise<ReorderedBudget> {
+  const mutation = `
+    mutation ReorderBudget($input: ReorderBudgetInput!) {
+      reorderBudget(input: $input) {
+        id
+        name
+        sortOrder
+        budgetGroupId
+      }
+    }
+  `;
+
+  const result = await executeGraphQL<{ reorderBudget: ReorderedBudget }>(
+    mutation,
+    { input }
+  );
+
+  if (result.errors) {
+    throw new Error(`Failed to reorder budget: ${result.errors[0].message}`);
+  }
+
+  if (!result.data?.reorderBudget) {
+    throw new Error('No budget returned from reorder mutation');
+  }
+
+  return result.data.reorderBudget;
+}
+
+/**
+ * Get budgets with sort order
+ */
+interface BudgetWithOrder {
+  id: number;
+  name: string;
+  sortOrder: string | null;
+  budgetGroupId: number | null;
+}
+
+export async function getBudgetsWithOrder(): Promise<BudgetWithOrder[]> {
+  const query = `
+    query GetBudgets {
+      budgets {
+        id
+        name
+        sortOrder
+        budgetGroupId
+      }
+    }
+  `;
+
+  const result = await executeGraphQL<{ budgets: BudgetWithOrder[] }>(query);
+
+  if (result.errors) {
+    throw new Error(`Failed to get budgets: ${result.errors[0].message}`);
+  }
+
+  return result.data?.budgets ?? [];
 }

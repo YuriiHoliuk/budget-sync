@@ -1,4 +1,4 @@
-import type { BudgetType, TargetCadence } from '@domain/entities/Budget.ts';
+import type { CadenceUnit } from '@domain/entities/Budget.ts';
 
 /**
  * Input data for a single budget in monthly overview computation.
@@ -7,11 +7,10 @@ import type { BudgetType, TargetCadence } from '@domain/entities/Budget.ts';
 export interface BudgetInput {
   budgetId: number;
   name: string;
-  type: BudgetType;
   targetAmount: number;
   isArchived: boolean;
-  targetCadence: TargetCadence | null;
-  targetCadenceMonths: number | null;
+  cadenceUnit: CadenceUnit | null;
+  cadenceCount: number | null;
   targetDate: string | null;
   cap: number | null;
   startDate: string | null;
@@ -56,7 +55,6 @@ export interface AccountBalanceInput {
 export interface BudgetSummary {
   budgetId: number;
   name: string;
-  type: BudgetType;
   targetAmount: number;
   allocated: number;
   spent: number;
@@ -85,8 +83,14 @@ export interface MonthlyOverviewResult {
  * All balances, totals, and availability are computed dynamically
  * from allocations and transactions. There are no stored snapshots.
  *
- * All budget types use the accumulating formula:
+ * All budgets use the accumulating formula:
  * available = SUM(allocated up to month) - SUM(spent up to month)
+ *
+ * Suggested allocation is derived from budget settings:
+ * - Has targetDate → goal formula: spread remaining over months
+ * - Has cadenceUnit + cadenceCount → periodic formula: monthly save amount
+ * - Neither → simple formula: max(0, target - available)
+ * - Cap is applied universally as a post-processing step
  */
 export class BudgetCalculationService {
   /**
@@ -271,7 +275,7 @@ export class BudgetCalculationService {
   }
 
   /**
-   * All budget types use the same accumulating formula:
+   * All budgets use the same accumulating formula:
    * available = SUM(allocated up to month) - SUM(spent up to month)
    *
    * Returns null when the budget is not visible for the given month.
@@ -317,7 +321,6 @@ export class BudgetCalculationService {
     return {
       budgetId: budget.budgetId,
       name: budget.name,
-      type: budget.type,
       targetAmount: budget.targetAmount,
       allocated: allocatedThisMonth,
       spent: spentThisMonth,
@@ -331,7 +334,7 @@ export class BudgetCalculationService {
    * Determines whether a budget is active for a given month.
    * Compares at month granularity (YYYY-MM).
    * A budget without start/end dates is always active.
-   * For goal-type budgets without an explicit endDate, targetDate is used as implicit end date.
+   * For budgets with a targetDate but no explicit endDate, targetDate is used as implicit end date.
    */
   private isBudgetActiveForMonth(budget: BudgetInput, month: string): boolean {
     const startMonth = budget.startDate ? budget.startDate.slice(0, 7) : null;
@@ -351,14 +354,14 @@ export class BudgetCalculationService {
 
   /**
    * Returns the effective end date for a budget.
-   * For goal-type budgets without an explicit endDate, uses targetDate as implicit end date.
+   * For budgets with a targetDate but no explicit endDate, uses targetDate as implicit end date.
    */
   private getEffectiveEndDate(budget: BudgetInput): string | null {
     if (budget.endDate) {
       return budget.endDate;
     }
 
-    if (budget.type === 'goal' && budget.targetDate) {
+    if (budget.targetDate) {
       return budget.targetDate;
     }
 
@@ -366,14 +369,13 @@ export class BudgetCalculationService {
   }
 
   /**
-   * Computes how much should be allocated this month based on budget type and target.
+   * Computes how much should be allocated this month based on budget settings.
    *
-   * | Type     | Formula                                                       |
-   * |----------|---------------------------------------------------------------|
-   * | spending | max(0, targetAmount - available)                              |
-   * | savings  | max(0, targetAmount - available)                              |
-   * | goal     | max(0, ceil((targetAmount - available) / monthsRemaining))    |
-   * | periodic | monthly save amount per cadence, 0 if available >= cap        |
+   * Settings-based logic:
+   * - Has targetDate → goal formula: ceil((target - available) / monthsRemaining)
+   * - Has cadenceUnit + cadenceCount → periodic formula: monthly save amount
+   * - Neither → simple formula: max(0, target - available)
+   * - Cap is applied universally as a post-processing step
    */
   private computeSuggestedAllocation(
     available: number,
@@ -384,17 +386,21 @@ export class BudgetCalculationService {
       return 0;
     }
 
-    switch (budget.type) {
-      case 'spending':
-      case 'savings':
-        return Math.max(0, budget.targetAmount - available);
+    let suggestion: number;
 
-      case 'goal':
-        return this.computeGoalSuggestion(available, budget, currentMonth);
-
-      case 'periodic':
-        return this.computePeriodicSuggestion(available, budget);
+    if (budget.targetDate) {
+      suggestion = this.computeGoalSuggestion(available, budget, currentMonth);
+    } else if (budget.cadenceUnit && budget.cadenceCount) {
+      suggestion = this.computePeriodicSuggestion(available, budget);
+    } else {
+      suggestion = Math.max(0, budget.targetAmount - available);
     }
+
+    if (budget.cap !== null && budget.cap > 0) {
+      suggestion = Math.min(suggestion, Math.max(0, budget.cap - available));
+    }
+
+    return suggestion;
   }
 
   private computeGoalSuggestion(
@@ -428,26 +434,37 @@ export class BudgetCalculationService {
       return 0;
     }
 
-    if (budget.cap !== null && budget.cap > 0) {
-      return Math.min(monthlyAmount, Math.max(0, budget.cap - available));
-    }
-
     return Math.max(0, monthlyAmount - available);
   }
 
+  /**
+   * Computes the monthly save amount based on cadence unit and count.
+   *
+   * | Unit   | Monthly amount                              |
+   * |--------|---------------------------------------------|
+   * | day    | ceil(targetAmount * 365 / (count * 12))     |
+   * | week   | ceil(targetAmount * 52 / (count * 12))      |
+   * | month  | ceil(targetAmount / count)                  |
+   * | year   | ceil(targetAmount / (count * 12))            |
+   * | none   | targetAmount (monthly by default)           |
+   */
   private computeMonthlyAmount(budget: BudgetInput): number {
-    switch (budget.targetCadence) {
-      case 'monthly':
-        return budget.targetAmount;
-      case 'yearly':
-        return Math.ceil(budget.targetAmount / 12);
-      case 'custom':
-        if (budget.targetCadenceMonths && budget.targetCadenceMonths > 0) {
-          return Math.ceil(budget.targetAmount / budget.targetCadenceMonths);
-        }
-        return budget.targetAmount;
-      default:
-        return budget.targetAmount;
+    const unit = budget.cadenceUnit;
+    const count = budget.cadenceCount;
+
+    if (!unit || !count || count <= 0) {
+      return budget.targetAmount;
+    }
+
+    switch (unit) {
+      case 'day':
+        return Math.ceil((budget.targetAmount * 365) / (count * 12));
+      case 'week':
+        return Math.ceil((budget.targetAmount * 52) / (count * 12));
+      case 'month':
+        return Math.ceil(budget.targetAmount / count);
+      case 'year':
+        return Math.ceil(budget.targetAmount / (count * 12));
     }
   }
 

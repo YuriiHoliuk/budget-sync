@@ -16,6 +16,8 @@ import postgres from 'postgres';
 import {
   accounts,
   allocations,
+  budgetGroups,
+  budgetTargets,
   budgets,
   categories,
   transactions,
@@ -61,7 +63,7 @@ const db = drizzle(client);
 
 async function clearDatabase() {
   console.log('Clearing existing data...');
-  await db.execute(sql`TRUNCATE TABLE allocations, transactions, budgets, categories, accounts RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE budget_targets, allocations, transactions, budgets, budget_groups, categories, accounts RESTART IDENTITY CASCADE`);
 }
 
 async function seedAccounts() {
@@ -139,7 +141,7 @@ async function seedCategories() {
       { name: 'Транспорт', status: 'active' },
       { name: 'Житло', status: 'active' },
       { name: 'Розваги', status: 'active' },
-      { name: 'Здоров\u0027я', status: 'active' },
+      { name: 'Здоров\'я', status: 'active' },
       { name: 'Одяг', status: 'active' },
       { name: 'Підписки', status: 'active' },
       { name: 'Дохід', status: 'active' },
@@ -152,7 +154,7 @@ async function seedCategories() {
   await db.insert(categories).values([
     { name: 'Супермаркет', parentId: parentMap.get('Їжа'), status: 'active' },
     { name: 'Ресторан', parentId: parentMap.get('Їжа'), status: 'active' },
-    { name: 'Кав\u0027ярня', parentId: parentMap.get('Їжа'), status: 'active' },
+    { name: 'Кав\'ярня', parentId: parentMap.get('Їжа'), status: 'active' },
     { name: 'Доставка їжі', parentId: parentMap.get('Їжа'), status: 'active' },
     { name: 'Таксі', parentId: parentMap.get('Транспорт'), status: 'active' },
     { name: 'Пальне', parentId: parentMap.get('Транспорт'), status: 'active' },
@@ -174,7 +176,7 @@ async function seedCategories() {
     { name: 'Інтернет', parentId: parentMap.get('Житло'), status: 'active' },
     { name: 'Кіно', parentId: parentMap.get('Розваги'), status: 'active' },
     { name: 'Ігри', parentId: parentMap.get('Розваги'), status: 'active' },
-    { name: 'Аптека', parentId: parentMap.get('Здоров\u0027я'), status: 'active' },
+    { name: 'Аптека', parentId: parentMap.get('Здоров\'я'), status: 'active' },
     {
       name: 'Зарплата',
       parentId: parentMap.get('Дохід'),
@@ -190,103 +192,169 @@ async function seedCategories() {
   return await db.select().from(categories);
 }
 
-async function seedBudgets() {
+async function seedBudgetGroups() {
+  console.log('Seeding budget groups...');
+  return await db
+    .insert(budgetGroups)
+    .values([
+      { name: 'Everyday', sortOrder: 'a0' },
+      { name: 'Bills & Housing', sortOrder: 'a1' },
+      { name: 'Goals & Savings', sortOrder: 'a2' },
+    ])
+    .returning();
+}
+
+async function seedBudgets(groups: Array<{ id: number; name: string }>) {
   console.log('Seeding budgets...');
+
+  const groupMap = new Map(groups.map((group) => [group.name, group.id]));
+  const everydayId = groupMap.get('Everyday') ?? null;
+  const billsId = groupMap.get('Bills & Housing') ?? null;
+  const goalsId = groupMap.get('Goals & Savings') ?? null;
+
   return await db
     .insert(budgets)
     .values([
+      // Everyday group budgets
       {
         name: 'Продукти',
-        type: 'spending',
         currency: 'UAH',
         targetAmount: 1000000,
+        sortOrder: 'a0',
+        budgetGroupId: everydayId,
       },
       {
-        name: 'Ресторани та кав\u0027ярні',
-        type: 'spending',
+        name: 'Ресторани та кав\'ярні',
         currency: 'UAH',
         targetAmount: 500000,
+        sortOrder: 'a1',
+        budgetGroupId: everydayId,
       },
       {
         name: 'Транспорт',
-        type: 'spending',
         currency: 'UAH',
         targetAmount: 300000,
+        sortOrder: 'a2',
+        budgetGroupId: everydayId,
       },
       {
         name: 'Розваги',
-        type: 'spending',
         currency: 'UAH',
         targetAmount: 400000,
+        sortOrder: 'a3',
+        budgetGroupId: everydayId,
       },
       {
         name: 'Одяг',
-        type: 'spending',
         currency: 'UAH',
         targetAmount: 300000,
+        sortOrder: 'a4',
+        budgetGroupId: everydayId,
       },
       {
-        name: 'Здоров\u0027я',
-        type: 'spending',
+        name: 'Здоров\'я',
         currency: 'UAH',
         targetAmount: 200000,
+        sortOrder: 'a5',
+        budgetGroupId: everydayId,
       },
+      // Bills & Housing group budgets
       {
         name: 'Підписки',
-        type: 'spending',
         currency: 'UAH',
         targetAmount: 150000,
+        sortOrder: 'a6',
+        budgetGroupId: billsId,
       },
       {
         name: 'Комунальні послуги',
-        type: 'spending',
         currency: 'UAH',
         targetAmount: 400000,
+        sortOrder: 'a7',
+        budgetGroupId: billsId,
       },
       {
         name: 'Оренда',
-        type: 'spending',
         currency: 'UAH',
         targetAmount: 1500000,
+        sortOrder: 'a8',
+        budgetGroupId: billsId,
       },
+      // Ungrouped budget
       {
         name: 'Інше',
-        type: 'spending',
         currency: 'UAH',
         targetAmount: 200000,
+        sortOrder: 'a9',
       },
+      // Goals & Savings group budgets
       {
         name: 'Фонд безпеки',
-        type: 'savings',
         currency: 'UAH',
         targetAmount: 500000,
+        cap: 20000000,
+        sortOrder: 'aA',
+        budgetGroupId: goalsId,
       },
       {
         name: 'Відпустка',
-        type: 'goal',
         currency: 'UAH',
         targetAmount: 5000000,
         targetDate: '2026-07-01',
+        sortOrder: 'aB',
+        budgetGroupId: goalsId,
       },
       {
         name: 'Новий ноутбук',
-        type: 'goal',
         currency: 'UAH',
         targetAmount: 8000000,
         targetDate: '2026-12-01',
+        sortOrder: 'aC',
+        budgetGroupId: goalsId,
       },
+      // Periodic budgets in Bills group
       {
         name: 'Страховка авто',
-        type: 'spending',
         currency: 'UAH',
         targetAmount: 1200000,
-        targetCadence: 'yearly',
+        cadenceUnit: 'year',
+        cadenceCount: 1,
+        sortOrder: 'aD',
+        budgetGroupId: billsId,
+      },
+      {
+        name: 'Абонемент спортзалу',
+        currency: 'UAH',
+        targetAmount: 200000,
+        cadenceUnit: 'week',
+        cadenceCount: 2,
+        sortOrder: 'aE',
+        budgetGroupId: everydayId,
+      },
+      {
+        name: 'Квартальний податок',
+        currency: 'UAH',
+        targetAmount: 900000,
+        cadenceUnit: 'month',
+        cadenceCount: 3,
+        sortOrder: 'aF',
+        budgetGroupId: billsId,
+      },
+      {
+        name: 'Щоденні витрати на каву',
+        currency: 'UAH',
+        targetAmount: 10000,
+        cadenceUnit: 'day',
+        cadenceCount: 5,
+        sortOrder: 'aG',
+        budgetGroupId: everydayId,
       },
       {
         name: 'Погашення кредиту',
-        type: 'spending',
         currency: 'UAH',
         targetAmount: 500000,
+        sortOrder: 'aH',
+        budgetGroupId: billsId,
       },
     ])
     .returning();
@@ -299,12 +367,52 @@ interface SeedAccount {
 interface SeedBudget {
   id: number;
   name: string;
-  type: string;
+  cadenceUnit: string | null;
+  targetDate: string | null;
+  cap: number | null;
 }
 interface SeedCategory {
   id: number;
   name: string;
   parentId: number | null;
+}
+
+async function seedBudgetTargets(seedBudgets: SeedBudget[]) {
+  console.log('Seeding budget target history...');
+
+  // Simulate a target change for "Продукти": was 800000 in Dec 2025, changed to 1000000 in Jan 2026
+  const produktyBudget = seedBudgets.find((budget) => budget.name === 'Продукти');
+  // Simulate a target change for "Фонд безпеки": was 300000, increased to 500000 in Feb 2026
+  const securityFundBudget = seedBudgets.find((budget) => budget.name === 'Фонд безпеки');
+
+  const targetRows: Array<{
+    budgetId: number;
+    targetAmount: number;
+    effectiveFrom: string;
+  }> = [];
+
+  if (produktyBudget) {
+    targetRows.push(
+      { budgetId: produktyBudget.id, targetAmount: 800000, effectiveFrom: '2025-12' },
+      { budgetId: produktyBudget.id, targetAmount: 1000000, effectiveFrom: '2026-01' },
+    );
+  }
+
+  if (securityFundBudget) {
+    targetRows.push(
+      { budgetId: securityFundBudget.id, targetAmount: 300000, effectiveFrom: '2025-12' },
+      { budgetId: securityFundBudget.id, targetAmount: 500000, effectiveFrom: '2026-02' },
+    );
+  }
+
+  if (targetRows.length > 0) {
+    await db.insert(budgetTargets).values(targetRows);
+    console.log(`  Inserted ${targetRows.length} budget target history entries`);
+  }
+}
+
+function isSimpleTargetBudget(budget: SeedBudget): boolean {
+  return !budget.cadenceUnit && !budget.targetDate;
 }
 
 async function seedAllocations(seedBudgets: SeedBudget[]) {
@@ -320,18 +428,15 @@ async function seedAllocations(seedBudgets: SeedBudget[]) {
 
   for (const budget of seedBudgets) {
     for (const period of periods) {
-      // Spending budgets get their target amount each month
-      // Savings/goal budgets get a portion
-      const amount =
-        budget.type === 'spending'
-          ? budget.name === 'Оренда'
-            ? 1500000
-            : budget.name === 'Продукти'
-              ? 1000000
-              : budget.name === 'Комунальні послуги'
-                ? 400000
-                : 300000
-          : 500000;
+      const amount = isSimpleTargetBudget(budget)
+        ? budget.name === 'Оренда'
+          ? 1500000
+          : budget.name === 'Продукти'
+            ? 1000000
+            : budget.name === 'Комунальні послуги'
+              ? 400000
+              : 300000
+        : 500000;
 
       allocationRows.push({
         budgetId: budget.id,
@@ -363,9 +468,7 @@ async function seedTransactions(
   const incomeCategories = seedCategories.filter((category) =>
     ['Зарплата', 'Фріланс'].includes(category.name),
   );
-  const spendingBudgets = seedBudgets.filter(
-    (budget) => budget.type === 'spending',
-  );
+  const spendingBudgets = seedBudgets.filter((budget) => isSimpleTargetBudget(budget));
 
   const transactionRows: Array<{
     externalId: string;
@@ -397,7 +500,7 @@ async function seedTransactions(
     'Аптека АНЦ',
     'Zara',
     'H&M',
-    'McDonald\u0027s',
+    'McDonald\'s',
     'Starbucks',
     'Multiplex',
   ];
@@ -502,13 +605,16 @@ async function main() {
 
     const seededAccounts = await seedAccounts();
     const seededCategories = await seedCategories();
-    const seededBudgets = await seedBudgets();
+    const seededBudgetGroups = await seedBudgetGroups();
+    const seededBudgets = await seedBudgets(seededBudgetGroups);
+    await seedBudgetTargets(seededBudgets);
     await seedAllocations(seededBudgets);
     await seedTransactions(seededAccounts, seededCategories, seededBudgets);
 
     console.log('\nSeed complete!');
     console.log(`  Accounts: ${seededAccounts.length}`);
     console.log(`  Categories: ${seededCategories.length}`);
+    console.log(`  Budget groups: ${seededBudgetGroups.length}`);
     console.log(`  Budgets: ${seededBudgets.length}`);
   } catch (error) {
     console.error('Seed failed:', error);

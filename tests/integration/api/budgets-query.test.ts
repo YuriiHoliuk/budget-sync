@@ -56,21 +56,18 @@ describe('Query: budgets', () => {
   test('should return all active budgets', async () => {
     await createTestBudget(harness.getDb(), {
       name: 'Groceries',
-      type: 'spending',
     });
     await createTestBudget(harness.getDb(), {
       name: 'Emergency Fund',
-      type: 'savings',
     });
 
     const result = await harness.executeQuery<{
-      budgets: Array<{ id: number; name: string; type: string }>;
+      budgets: Array<{ id: number; name: string }>;
     }>(`
       query {
         budgets {
           id
           name
-          type
         }
       }
     `);
@@ -86,10 +83,9 @@ describe('Query: budgets', () => {
   test('should return budget with all fields', async () => {
     await createTestBudget(harness.getDb(), {
       name: 'Vacation Fund',
-      type: 'goal',
       targetAmount: 10000000, // 100,000 UAH in minor units
-      targetCadence: 'monthly',
-      targetCadenceMonths: 6,
+      cadenceUnit: 'month',
+      cadenceCount: 6,
       targetDate: '2026-08-01',
       startDate: '2026-02-01',
       currency: 'UAH',
@@ -99,11 +95,10 @@ describe('Query: budgets', () => {
       budgets: Array<{
         id: number;
         name: string;
-        type: string;
         currency: string;
         targetAmount: number;
-        targetCadence: string | null;
-        targetCadenceMonths: number | null;
+        cadenceUnit: string | null;
+        cadenceCount: number | null;
         targetDate: string | null;
         startDate: string | null;
         isArchived: boolean;
@@ -113,11 +108,10 @@ describe('Query: budgets', () => {
         budgets {
           id
           name
-          type
           currency
           targetAmount
-          targetCadence
-          targetCadenceMonths
+          cadenceUnit
+          cadenceCount
           targetDate
           startDate
           isArchived
@@ -130,10 +124,9 @@ describe('Query: budgets', () => {
 
     const budget = result.data?.budgets[0];
     expect(budget?.name).toBe('Vacation Fund');
-    expect(budget?.type).toBe('GOAL');
     expect(budget?.targetAmount).toBe(100000); // major units
-    expect(budget?.targetCadence).toBe('MONTHLY');
-    expect(budget?.targetCadenceMonths).toBe(6);
+    expect(budget?.cadenceUnit).toBe('MONTH');
+    expect(budget?.cadenceCount).toBe(6);
     expect(budget?.isArchived).toBe(false);
   });
 

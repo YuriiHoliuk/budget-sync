@@ -46,8 +46,8 @@ import {
 } from "@/graphql/generated/graphql";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { CreateAccountDialog } from "./create-account-dialog";
-import { EditAccountDialog } from "./edit-account-dialog";
+import { CreateAccountSheet } from "./create-account-sheet";
+import { EditAccountSheet } from "./edit-account-sheet";
 import { ArchiveAccountDialog } from "./archive-account-dialog";
 
 type Account = GetAccountsQuery["accounts"][number];
@@ -99,7 +99,7 @@ interface AccountsTableProps {
 
 export function AccountsTable({ showArchived = false }: AccountsTableProps) {
   const [createAccountOpen, setCreateAccountOpen] = useState(false);
-  const [editAccountDialogOpen, setEditAccountDialogOpen] = useState(false);
+  const [editAccountDialogOpen, setEditAccountSheetOpen] = useState(false);
   const [archiveAccountDialogOpen, setArchiveAccountDialogOpen] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
 
@@ -143,7 +143,7 @@ export function AccountsTable({ showArchived = false }: AccountsTableProps) {
 
   const handleEditAccount = (accountId: number) => {
     setSelectedAccountId(accountId);
-    setEditAccountDialogOpen(true);
+    setEditAccountSheetOpen(true);
   };
 
   const handleArchiveAccount = (accountId: number) => {
@@ -180,7 +180,7 @@ export function AccountsTable({ showArchived = false }: AccountsTableProps) {
             Add Account
           </Button>
         </div>
-        <CreateAccountDialog
+        <CreateAccountSheet
           open={createAccountOpen}
           onOpenChange={setCreateAccountOpen}
         />
@@ -225,14 +225,14 @@ export function AccountsTable({ showArchived = false }: AccountsTableProps) {
           </TableBody>
         </Table>
       </div>
-      <CreateAccountDialog
+      <CreateAccountSheet
         open={createAccountOpen}
         onOpenChange={setCreateAccountOpen}
       />
       {accountData?.account && (
-        <EditAccountDialog
+        <EditAccountSheet
           open={editAccountDialogOpen}
-          onOpenChange={setEditAccountDialogOpen}
+          onOpenChange={setEditAccountSheetOpen}
           account={accountData.account}
         />
       )}

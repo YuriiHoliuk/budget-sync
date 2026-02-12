@@ -15,6 +15,7 @@ import {
   accounts,
   allocations,
   budgets,
+  budgetTargets,
   categories,
   transactionLinkMembers,
   transactionLinks,
@@ -123,29 +124,35 @@ export async function createTestCategory(
  */
 interface TestBudgetData {
   name?: string;
-  type?: 'spending' | 'savings' | 'goal';
   currency?: string;
   targetAmount?: number;
-  targetCadence?: 'monthly' | 'weekly' | 'yearly' | null;
-  targetCadenceMonths?: number | null;
+  cadenceUnit?: 'day' | 'week' | 'month' | 'year' | null;
+  cadenceCount?: number | null;
   targetDate?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  cap?: number | null;
   isArchived?: boolean;
+  sortOrder?: string | null;
+  budgetGroupId?: number | null;
 }
 
+let budgetCounter = 0;
+
 function getDefaultBudgetValues() {
+  budgetCounter++;
   return {
     name: `Test Budget ${Date.now()}`,
-    type: 'spending' as const,
     currency: 'UAH',
     targetAmount: 500000, // 5000.00 UAH
-    targetCadence: null,
-    targetCadenceMonths: null,
+    cadenceUnit: null,
+    cadenceCount: null,
     targetDate: null,
     startDate: null,
     endDate: null,
+    cap: null,
     isArchived: false,
+    sortOrder: `a${budgetCounter}`, // Default sortOrder for test budgets
   };
 }
 
@@ -283,9 +290,36 @@ export async function createTestTransactionLink(
  * Clear all test data from the database.
  * Use in beforeEach/afterEach to ensure clean state.
  */
+/**
+ * Budget target factory - creates test budget target history entries
+ */
+interface TestBudgetTargetData {
+  budgetId: number;
+  targetAmount: number;
+  effectiveFrom: string;
+}
+
+export async function createTestBudgetTarget(
+  db: Db,
+  data: TestBudgetTargetData,
+) {
+  const [result] = await db
+    .insert(budgetTargets)
+    .values({
+      budgetId: data.budgetId,
+      targetAmount: data.targetAmount,
+      effectiveFrom: data.effectiveFrom,
+    })
+    .returning();
+  if (!result) {
+    throw new Error('Failed to create test budget target');
+  }
+  return result;
+}
+
 export async function clearAllTestData(db: Db): Promise<void> {
   await db.execute(
-    sql`TRUNCATE TABLE transaction_link_members, transaction_links, allocations, transactions, budgets, categories, accounts RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE transaction_link_members, transaction_links, allocations, transactions, budget_targets, budgets, budget_groups, categories, accounts RESTART IDENTITY CASCADE`,
   );
 }
 
@@ -315,12 +349,10 @@ export async function seedMinimalTestData(db: Db) {
   // Budgets
   const groceriesBudget = await createTestBudget(db, {
     name: 'Groceries',
-    type: 'spending',
     targetAmount: 1000000,
   });
   const savingsBudget = await createTestBudget(db, {
     name: 'Emergency Fund',
-    type: 'savings',
     targetAmount: 5000000,
   });
 

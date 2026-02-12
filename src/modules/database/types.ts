@@ -1,8 +1,10 @@
 import type {
   accounts,
   allocations,
+  budgetGroups,
   budgetizationRules,
   budgets,
+  budgetTargets,
   categories,
   categorizationRules,
   exchangeRates,
@@ -27,6 +29,12 @@ export type NewCategoryRow = typeof categories.$inferInsert;
 
 export type BudgetRow = typeof budgets.$inferSelect;
 export type NewBudgetRow = typeof budgets.$inferInsert;
+
+export type BudgetGroupRow = typeof budgetGroups.$inferSelect;
+export type NewBudgetGroupRow = typeof budgetGroups.$inferInsert;
+
+export type BudgetTargetRow = typeof budgetTargets.$inferSelect;
+export type NewBudgetTargetRow = typeof budgetTargets.$inferInsert;
 
 export type AllocationRow = typeof allocations.$inferSelect;
 export type NewAllocationRow = typeof allocations.$inferInsert;

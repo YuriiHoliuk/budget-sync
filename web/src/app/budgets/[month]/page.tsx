@@ -32,7 +32,10 @@ export default function BudgetPage() {
       {loading ? (
         <BudgetTableSkeleton />
       ) : data ? (
-        <BudgetTable budgetSummaries={data.monthlyOverview.budgetSummaries} />
+        <BudgetTable
+          budgetSummaries={data.monthlyOverview.budgetSummaries}
+          budgetGroups={data.monthlyOverview.budgetGroups}
+        />
       ) : null}
 
       <UnbudgetedTransactionsWarning />

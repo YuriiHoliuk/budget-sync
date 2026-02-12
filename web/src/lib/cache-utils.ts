@@ -1,4 +1,5 @@
 import type { ApolloCache } from "@apollo/client";
+import { arrayMove } from "@dnd-kit/sortable";
 import {
   GetMonthlyOverviewDocument,
   type GetMonthlyOverviewQuery,
@@ -107,6 +108,63 @@ export function updateMonthlyOverviewCacheForMoveFunds(
           }
           return summary;
         }),
+      },
+    },
+  });
+}
+
+/**
+ * Updates the monthly overview cache after a budget reorder.
+ * Moves the budget from oldIndex to newIndex in the summaries array.
+ * Optionally updates the budgetGroupId for cross-group moves.
+ *
+ * @param cache - Apollo cache instance
+ * @param month - The period in YYYY-MM format
+ * @param oldIndex - The original index of the budget
+ * @param newIndex - The new index of the budget
+ * @param targetGroupId - Optional new group ID for cross-group moves
+ */
+export function reorderBudgetInCache(
+  cache: ApolloCache,
+  month: string,
+  oldIndex: number,
+  newIndex: number,
+  targetGroupId?: number | null,
+): void {
+  const existingData = cache.readQuery<GetMonthlyOverviewQuery>({
+    query: GetMonthlyOverviewDocument,
+    variables: { month },
+  });
+
+  if (!existingData?.monthlyOverview) {
+    return;
+  }
+
+  const overview = existingData.monthlyOverview;
+  const reorderedSummaries = arrayMove(
+    [...overview.budgetSummaries],
+    oldIndex,
+    newIndex,
+  );
+
+  // Update budgetGroupId if moving to a different group
+  if (targetGroupId !== undefined) {
+    const movedBudget = reorderedSummaries[newIndex];
+    if (movedBudget) {
+      reorderedSummaries[newIndex] = {
+        ...movedBudget,
+        budgetGroupId: targetGroupId,
+      };
+    }
+  }
+
+  cache.writeQuery<GetMonthlyOverviewQuery>({
+    query: GetMonthlyOverviewDocument,
+    variables: { month },
+    data: {
+      monthlyOverview: {
+        ...overview,
+        budgetSummaries: reorderedSummaries,
       },
     },
   });

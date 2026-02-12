@@ -29,6 +29,34 @@
       "when": 1770648453487,
       "tag": "0003_last_brood",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1770750000000,
+      "tag": "0004_cadence_unit_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1770750100000,
+      "tag": "0005_budget_targets",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1770750200000,
+      "tag": "0006_sort_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1770750300000,
+      "tag": "0007_budget_groups",
+      "breakpoints": true
     }
   ]
 }

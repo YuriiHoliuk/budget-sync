@@ -32,7 +32,6 @@ test('should release leftover funds to Ready to Assign when archiving', async ({
   // Create a budget and allocate funds to it
   const budget = await createBudget({
     name: `Archive Leftover ${Date.now()}`,
-    type: 'SPENDING',
     targetAmount: 10000,
   });
 
@@ -90,7 +89,6 @@ test('should not change Ready to Assign when archiving fully-spent budget', asyn
   // Create a budget
   const budget = await createBudget({
     name: `Archive Spent ${Date.now()}`,
-    type: 'SPENDING',
     targetAmount: budgetAmount,
   });
 

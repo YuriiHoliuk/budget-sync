@@ -12,7 +12,7 @@ test('should create a new budget via dialog', async ({ authenticatedPage }) => {
   const uniqueBudgetName = `Test Budget ${Date.now()}`;
 
   // Create the budget using the convenience method
-  await budgetPage.createBudget(uniqueBudgetName, 'Spending', '5000');
+  await budgetPage.createBudget(uniqueBudgetName, '5000');
 
   // Wait for the mutation and refetch
   await authenticatedPage.waitForLoadState('networkidle');
@@ -35,7 +35,6 @@ test('should create a budget with end date via dialog', async ({ authenticatedPa
   // Open dialog and fill all fields including end date
   const dialog = await budgetPage.openCreateBudgetDialog();
   await dialog.fillName(uniqueBudgetName);
-  await dialog.selectType('Spending');
   await dialog.fillTargetAmount('8000');
   await dialog.fillEndDate(endDate);
   await dialog.submit();

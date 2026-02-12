@@ -21,8 +21,10 @@ import { LLM_GATEWAY_TOKEN } from '@domain/gateways/LLMGateway.ts';
 import { MESSAGE_QUEUE_GATEWAY_TOKEN } from '@domain/gateways/MessageQueueGateway.ts';
 import { ACCOUNT_REPOSITORY_TOKEN } from '@domain/repositories/AccountRepository.ts';
 import { ALLOCATION_REPOSITORY_TOKEN } from '@domain/repositories/AllocationRepository.ts';
+import { BUDGET_GROUP_REPOSITORY_TOKEN } from '@domain/repositories/BudgetGroupRepository.ts';
 import { BUDGETIZATION_RULE_REPOSITORY_TOKEN } from '@domain/repositories/BudgetizationRuleRepository.ts';
 import { BUDGET_REPOSITORY_TOKEN } from '@domain/repositories/BudgetRepository.ts';
+import { BUDGET_TARGET_REPOSITORY_TOKEN } from '@domain/repositories/BudgetTargetRepository.ts';
 import { CATEGORIZATION_RULE_REPOSITORY_TOKEN } from '@domain/repositories/CategorizationRuleRepository.ts';
 import { CATEGORY_REPOSITORY_TOKEN } from '@domain/repositories/CategoryRepository.ts';
 import { TRANSACTION_LINK_REPOSITORY_TOKEN } from '@domain/repositories/TransactionLinkRepository.ts';
@@ -32,8 +34,10 @@ import { MockLLMGateway } from '@infrastructure/gateways/mocks/MockLLMGateway.ts
 import { MockMessageQueueGateway } from '@infrastructure/gateways/mocks/MockMessageQueueGateway.ts';
 import { DatabaseAccountRepository } from '@infrastructure/repositories/database/DatabaseAccountRepository.ts';
 import { DatabaseAllocationRepository } from '@infrastructure/repositories/database/DatabaseAllocationRepository.ts';
+import { DatabaseBudgetGroupRepository } from '@infrastructure/repositories/database/DatabaseBudgetGroupRepository.ts';
 import { DatabaseBudgetizationRuleRepository } from '@infrastructure/repositories/database/DatabaseBudgetizationRuleRepository.ts';
 import { DatabaseBudgetRepository } from '@infrastructure/repositories/database/DatabaseBudgetRepository.ts';
+import { DatabaseBudgetTargetRepository } from '@infrastructure/repositories/database/DatabaseBudgetTargetRepository.ts';
 import { DatabaseCategorizationRuleRepository } from '@infrastructure/repositories/database/DatabaseCategorizationRuleRepository.ts';
 import { DatabaseCategoryRepository } from '@infrastructure/repositories/database/DatabaseCategoryRepository.ts';
 import { DatabaseTransactionLinkRepository } from '@infrastructure/repositories/database/DatabaseTransactionLinkRepository.ts';
@@ -144,6 +148,12 @@ export function setupTestContainer(): typeof container {
   });
   container.register(TRANSACTION_LINK_REPOSITORY_TOKEN, {
     useClass: DatabaseTransactionLinkRepository,
+  });
+  container.register(BUDGET_TARGET_REPOSITORY_TOKEN, {
+    useClass: DatabaseBudgetTargetRepository,
+  });
+  container.register(BUDGET_GROUP_REPOSITORY_TOKEN, {
+    useClass: DatabaseBudgetGroupRepository,
   });
 
   // Mock gateways

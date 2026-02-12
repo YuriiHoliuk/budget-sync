@@ -17,6 +17,7 @@ import type { DependencyContainer, InjectionToken } from 'tsyringe';
 import type { Resolver, ResolverMap } from '../Resolver.ts';
 import { AccountsResolver } from './accountsResolver.ts';
 import { AllocationsResolver } from './allocationsResolver.ts';
+import { BudgetGroupsResolver } from './budgetGroupsResolver.ts';
 import { BudgetsResolver } from './budgetsResolver.ts';
 import { CategoriesResolver } from './categoriesResolver.ts';
 import { HealthResolver } from './healthResolver.ts';
@@ -30,6 +31,7 @@ export const RESOLVER_CLASSES: InjectionToken<Resolver>[] = [
   HealthResolver,
   AccountsResolver,
   AllocationsResolver,
+  BudgetGroupsResolver,
   BudgetsResolver,
   CategoriesResolver,
   MonthlyOverviewResolver,
@@ -58,6 +60,7 @@ export {
   HealthResolver,
   AccountsResolver,
   AllocationsResolver,
+  BudgetGroupsResolver,
   BudgetsResolver,
   CategoriesResolver,
   MonthlyOverviewResolver,

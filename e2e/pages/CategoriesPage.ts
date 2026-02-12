@@ -235,7 +235,7 @@ export class CategoriesPage extends BasePage {
  */
 class CreateCategoryDialog extends Dialog {
   constructor(page: Page) {
-    super(page, 'dialog-create-category');
+    super(page, 'sheet-create-category');
   }
 
   async fillName(name: string): Promise<void> {

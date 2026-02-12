@@ -25,82 +25,84 @@ extend type Mutation {
   Archive a budget (soft delete). Archived budgets are hidden from active lists.
   """
   archiveBudget(id: Int!): Budget!
+
+  """
+  Reorder a budget using fractional indexing.
+  At least one of afterBudgetId or beforeBudgetId must be provided.
+  """
+  reorderBudget(input: ReorderBudgetInput!): Budget!
 }
 
 input CreateBudgetInput {
   name: String!
-  type: BudgetType!
   currency: String!
   targetAmount: Float!
-  targetCadence: TargetCadence
-  targetCadenceMonths: Int
+  cadenceUnit: CadenceUnit
+  cadenceCount: Int
   targetDate: String
   startDate: String
   endDate: String
   cap: Float
+  """Optional budget group ID to assign the budget to."""
+  budgetGroupId: Int
 }
 
 input UpdateBudgetInput {
   id: Int!
+  """YYYY-MM format. Required for endDate validation and target history."""
+  month: String!
+  """Budget display name."""
   name: String
-  type: BudgetType
-  currency: String
+  """Target amount in major currency units."""
   targetAmount: Float
-  targetCadence: TargetCadence
-  targetCadenceMonths: Int
-  targetDate: String
-  startDate: String
+  """End date (YYYY-MM-DD). Must be >= first day of month. Set to null to clear."""
   endDate: String
+  """Maximum balance cap in major currency units."""
   cap: Float
+  """Budget group ID. Set to null to ungroup."""
+  budgetGroupId: Int
+}
+
+input ReorderBudgetInput {
+  """ID of the budget to reorder."""
+  budgetId: Int!
+  """ID of the budget that should come before this one (null = move to beginning)."""
+  afterBudgetId: Int
+  """ID of the budget that should come after this one (null = move to end)."""
+  beforeBudgetId: Int
+  """Optional budget group ID to move budget into (for cross-group drag)."""
+  budgetGroupId: Int
 }
 
 """
 YNAB-style budget envelope.
-Type determines rollover behavior and target calculation.
+Behavior is derived from settings (cadence, targetDate, cap).
 """
 type Budget {
   id: Int!
   name: String!
-  type: BudgetType!
   currency: String!
   targetAmount: Float!
-  targetCadence: TargetCadence
-  targetCadenceMonths: Int
+  cadenceUnit: CadenceUnit
+  cadenceCount: Int
   targetDate: String
   startDate: String
   endDate: String
   isArchived: Boolean!
-  """Maximum balance cap (for periodic/savings budgets)"""
+  """Maximum balance cap"""
   cap: Float
+  """Fractional indexing key for user-defined ordering"""
+  sortOrder: String
+  """Budget group ID if assigned to a group"""
+  budgetGroupId: Int
 }
 
 """
-Budget type determines rollover and target behavior.
+Cadence unit for periodic budgets.
 """
-enum BudgetType {
-  """
-  Monthly spending budget. Balance accumulates over time.
-  """
-  SPENDING
-  """
-  Monthly contribution. Everything accumulates over time.
-  """
-  SAVINGS
-  """
-  Save toward a total amount by a target date.
-  """
-  GOAL
-  """
-  Save toward a recurring bill on a cadence.
-  """
-  PERIODIC
-}
-
-"""
-Target cadence for periodic budgets.
-"""
-enum TargetCadence {
-  MONTHLY
-  YEARLY
-  CUSTOM
+enum CadenceUnit {
+  DAY
+  WEEK
+  MONTH
+  YEAR
 }
