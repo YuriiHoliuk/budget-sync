@@ -138,3 +138,33 @@ export class ManualTransactionNotAllowedError extends DomainError {
     );
   }
 }
+
+/**
+ * Thrown when a budget's end date is set to a date before the current month.
+ */
+export class InvalidBudgetEndDateError extends DomainError {
+  constructor(
+    public readonly endDate: string,
+    public readonly minDate: string,
+  ) {
+    super(`End date ${endDate} is before the minimum allowed date ${minDate}`);
+  }
+}
+
+/**
+ * Thrown when a budget group cannot be found by its identifier.
+ */
+export class BudgetGroupNotFoundError extends DomainError {
+  constructor(public readonly groupId: number) {
+    super(`Budget group not found with id: ${groupId}`);
+  }
+}
+
+/**
+ * Thrown when attempting to create a budget group with an empty name.
+ */
+export class BudgetGroupNameEmptyError extends DomainError {
+  constructor() {
+    super('Budget group name cannot be empty');
+  }
+}

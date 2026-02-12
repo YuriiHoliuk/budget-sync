@@ -1,61 +1,45 @@
-import type {
-  Budget,
-  BudgetType,
-  TargetCadence,
-} from '@domain/entities/Budget.ts';
+import type { Budget, CadenceUnit } from '@domain/entities/Budget.ts';
 
-export const BUDGET_TYPE_TO_GQL: Record<string, string> = {
-  spending: 'SPENDING',
-  savings: 'SAVINGS',
-  goal: 'GOAL',
-  periodic: 'PERIODIC',
+export const CADENCE_UNIT_TO_GQL: Record<string, string> = {
+  day: 'DAY',
+  week: 'WEEK',
+  month: 'MONTH',
+  year: 'YEAR',
 };
 
-export const GQL_TO_BUDGET_TYPE: Record<string, BudgetType> = {
-  SPENDING: 'spending',
-  SAVINGS: 'savings',
-  GOAL: 'goal',
-  PERIODIC: 'periodic',
-};
-
-export const CADENCE_TO_GQL: Record<string, string> = {
-  monthly: 'MONTHLY',
-  yearly: 'YEARLY',
-  custom: 'CUSTOM',
-};
-
-export const GQL_TO_CADENCE: Record<string, TargetCadence> = {
-  MONTHLY: 'monthly',
-  YEARLY: 'yearly',
-  CUSTOM: 'custom',
+export const GQL_TO_CADENCE_UNIT: Record<string, CadenceUnit> = {
+  DAY: 'day',
+  WEEK: 'week',
+  MONTH: 'month',
+  YEAR: 'year',
 };
 
 export interface BudgetGql {
   id: number | null;
   name: string;
-  type: string;
   currency: string;
   targetAmount: number;
-  targetCadence: string | null;
-  targetCadenceMonths: number | null;
+  cadenceUnit: string | null;
+  cadenceCount: number | null;
   targetDate: string | null;
   startDate: string | null;
   endDate: string | null;
   isArchived: boolean;
   cap: number | null;
+  sortOrder: string | null;
+  budgetGroupId: number | null;
 }
 
 export function mapBudgetToGql(budget: Budget): BudgetGql {
   return {
     id: budget.dbId,
     name: budget.name,
-    type: BUDGET_TYPE_TO_GQL[budget.type] ?? 'SPENDING',
     currency: budget.amount.currency.code,
     targetAmount: budget.amount.toMajorUnits(),
-    targetCadence: budget.targetCadence
-      ? (CADENCE_TO_GQL[budget.targetCadence] ?? null)
+    cadenceUnit: budget.cadenceUnit
+      ? (CADENCE_UNIT_TO_GQL[budget.cadenceUnit] ?? null)
       : null,
-    targetCadenceMonths: budget.targetCadenceMonths,
+    cadenceCount: budget.cadenceCount,
     targetDate: budget.targetDate
       ? budget.targetDate.toISOString().slice(0, 10)
       : null,
@@ -65,6 +49,8 @@ export function mapBudgetToGql(budget: Budget): BudgetGql {
     endDate: budget.endDate ? budget.endDate.toISOString().slice(0, 10) : null,
     isArchived: budget.isArchived,
     cap: budget.cap?.toMajorUnits() ?? null,
+    sortOrder: budget.sortOrder,
+    budgetGroupId: budget.budgetGroupId,
   };
 }
 

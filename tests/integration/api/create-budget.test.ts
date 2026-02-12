@@ -39,12 +39,11 @@ describe('Mutation: createBudget', () => {
     await clearAllTestData(harness.getDb());
   });
 
-  test('should create a spending budget', async () => {
+  test('should create a budget with basic fields', async () => {
     const result = await harness.executeQuery<{
       createBudget: {
         id: number;
         name: string;
-        type: string;
         currency: string;
         targetAmount: number;
       };
@@ -54,7 +53,6 @@ describe('Mutation: createBudget', () => {
         createBudget(input: $input) {
           id
           name
-          type
           currency
           targetAmount
         }
@@ -63,7 +61,6 @@ describe('Mutation: createBudget', () => {
       {
         input: {
           name: 'Restaurants',
-          type: 'SPENDING',
           currency: 'UAH',
           targetAmount: 5000,
         },
@@ -72,16 +69,14 @@ describe('Mutation: createBudget', () => {
 
     expect(result.errors).toBeUndefined();
     expect(result.data?.createBudget.name).toBe('Restaurants');
-    expect(result.data?.createBudget.type).toBe('SPENDING');
     expect(result.data?.createBudget.targetAmount).toBe(5000);
   });
 
-  test('should create a savings budget', async () => {
+  test('should create a budget with target amount', async () => {
     const result = await harness.executeQuery<{
       createBudget: {
         id: number;
         name: string;
-        type: string;
         targetAmount: number;
       };
     }>(
@@ -90,7 +85,6 @@ describe('Mutation: createBudget', () => {
         createBudget(input: $input) {
           id
           name
-          type
           targetAmount
         }
       }
@@ -98,7 +92,6 @@ describe('Mutation: createBudget', () => {
       {
         input: {
           name: 'Emergency Fund',
-          type: 'SAVINGS',
           currency: 'UAH',
           targetAmount: 50000,
         },
@@ -107,15 +100,14 @@ describe('Mutation: createBudget', () => {
 
     expect(result.errors).toBeUndefined();
     expect(result.data?.createBudget.name).toBe('Emergency Fund');
-    expect(result.data?.createBudget.type).toBe('SAVINGS');
+    expect(result.data?.createBudget.targetAmount).toBe(50000);
   });
 
-  test('should create a goal budget with target date', async () => {
+  test('should create a budget with target date', async () => {
     const result = await harness.executeQuery<{
       createBudget: {
         id: number;
         name: string;
-        type: string;
         targetDate: string | null;
         targetAmount: number;
       };
@@ -125,7 +117,6 @@ describe('Mutation: createBudget', () => {
         createBudget(input: $input) {
           id
           name
-          type
           targetDate
           targetAmount
         }
@@ -134,7 +125,6 @@ describe('Mutation: createBudget', () => {
       {
         input: {
           name: 'New Car',
-          type: 'GOAL',
           currency: 'UAH',
           targetAmount: 500000,
           targetDate: '2027-01-01',
@@ -144,7 +134,6 @@ describe('Mutation: createBudget', () => {
 
     expect(result.errors).toBeUndefined();
     expect(result.data?.createBudget.name).toBe('New Car');
-    expect(result.data?.createBudget.type).toBe('GOAL');
     expect(result.data?.createBudget.targetDate).toBe('2027-01-01');
   });
 });

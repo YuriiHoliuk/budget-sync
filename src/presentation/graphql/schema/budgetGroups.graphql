@@ -1,0 +1,48 @@
+extend type Query {
+  """
+  Get all budget groups ordered by sortOrder.
+  """
+  budgetGroups: [BudgetGroup!]!
+}
+
+extend type Mutation {
+  """
+  Create a new budget group.
+  """
+  createBudgetGroup(name: String!): BudgetGroup!
+
+  """
+  Update a budget group's name.
+  """
+  updateBudgetGroup(id: Int!, name: String!): BudgetGroup!
+
+  """
+  Delete a budget group. Budgets in the group become ungrouped.
+  """
+  deleteBudgetGroup(id: Int!): Boolean!
+
+  """
+  Reorder a budget group using fractional indexing.
+  At least one of afterGroupId or beforeGroupId must be provided.
+  """
+  reorderBudgetGroup(input: ReorderBudgetGroupInput!): BudgetGroup!
+}
+
+"""
+User-defined budget group for organizing budgets.
+"""
+type BudgetGroup {
+  id: Int!
+  name: String!
+  """Fractional indexing key for user-defined ordering"""
+  sortOrder: String
+}
+
+input ReorderBudgetGroupInput {
+  """ID of the group to reorder."""
+  groupId: Int!
+  """ID of the group that should come before this one (null = move to beginning)."""
+  afterGroupId: Int
+  """ID of the group that should come after this one (null = move to end)."""
+  beforeGroupId: Int
+}

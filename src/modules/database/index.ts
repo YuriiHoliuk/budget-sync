@@ -8,6 +8,7 @@ export {
 export type {
   AccountRow,
   AllocationRow,
+  BudgetGroupRow,
   BudgetizationRuleRow,
   BudgetRow,
   CategorizationRuleRow,
@@ -16,6 +17,7 @@ export type {
   ExchangeRateRow,
   NewAccountRow,
   NewAllocationRow,
+  NewBudgetGroupRow,
   NewBudgetizationRuleRow,
   NewBudgetRow,
   NewCategorizationRuleRow,

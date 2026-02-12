@@ -39,8 +39,8 @@ import {
   type GetCategoriesQuery,
 } from "@/graphql/generated/graphql";
 import { cn } from "@/lib/utils";
-import { CreateCategoryDialog } from "./create-category-dialog";
-import { EditCategoryDialog } from "./edit-category-dialog";
+import { CreateCategorySheet } from "./create-category-sheet";
+import { EditCategorySheet } from "./edit-category-sheet";
 import { ArchiveCategoryDialog } from "./archive-category-dialog";
 
 type Category = GetCategoriesQuery["categories"][number];
@@ -69,7 +69,7 @@ export function CategoriesTable({
 }: CategoriesTableProps) {
   const [showArchived, setShowArchived] = useState(initialShowArchived);
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false);
-  const [editCategoryDialogOpen, setEditCategoryDialogOpen] = useState(false);
+  const [editCategoryDialogOpen, setEditCategorySheetOpen] = useState(false);
   const [archiveCategoryDialogOpen, setArchiveCategoryDialogOpen] =
     useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
@@ -118,7 +118,7 @@ export function CategoriesTable({
 
   const handleEditCategory = (categoryId: number) => {
     setSelectedCategoryId(categoryId);
-    setEditCategoryDialogOpen(true);
+    setEditCategorySheetOpen(true);
   };
 
   const handleArchiveCategory = (categoryId: number) => {
@@ -174,7 +174,7 @@ export function CategoriesTable({
             Create Category
           </Button>
         </div>
-        <CreateCategoryDialog
+        <CreateCategorySheet
           open={createCategoryOpen}
           onOpenChange={setCreateCategoryOpen}
         />
@@ -227,14 +227,14 @@ export function CategoriesTable({
           </TableBody>
         </Table>
       </div>
-      <CreateCategoryDialog
+      <CreateCategorySheet
         open={createCategoryOpen}
         onOpenChange={setCreateCategoryOpen}
       />
       {categoryData?.category && (
-        <EditCategoryDialog
+        <EditCategorySheet
           open={editCategoryDialogOpen}
-          onOpenChange={setEditCategoryDialogOpen}
+          onOpenChange={setEditCategorySheetOpen}
           category={categoryData.category}
         />
       )}

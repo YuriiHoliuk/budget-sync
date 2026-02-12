@@ -3,7 +3,7 @@ import {
   updateMonthlyOverviewCache,
   updateMonthlyOverviewCacheForMoveFunds,
 } from "./cache-utils";
-import { GetMonthlyOverviewDocument, BudgetType } from "@/graphql/generated/graphql";
+import { GetMonthlyOverviewDocument } from "@/graphql/generated/graphql";
 
 interface MockWriteQueryArgs {
   query: unknown;
@@ -41,7 +41,6 @@ const sampleOverviewData = {
       {
         budgetId: 1,
         name: "Groceries",
-        type: BudgetType.Spending,
         targetAmount: 500,
         allocated: 400,
         spent: 200,
@@ -51,7 +50,6 @@ const sampleOverviewData = {
       {
         budgetId: 2,
         name: "Rent",
-        type: BudgetType.Spending,
         targetAmount: 1000,
         allocated: 1000,
         spent: 1000,
@@ -61,7 +59,6 @@ const sampleOverviewData = {
       {
         budgetId: 3,
         name: "Savings",
-        type: BudgetType.Savings,
         targetAmount: 500,
         allocated: 500,
         spent: 0,

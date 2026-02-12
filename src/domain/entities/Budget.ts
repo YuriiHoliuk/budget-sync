@@ -1,58 +1,30 @@
 import type { Money } from '../value-objects/index.ts';
 
-export type BudgetType = 'spending' | 'savings' | 'goal' | 'periodic';
-export type TargetCadence = 'monthly' | 'yearly' | 'custom';
+export type CadenceUnit = 'day' | 'week' | 'month' | 'year';
 
-const VALID_BUDGET_TYPES: readonly BudgetType[] = [
-  'spending',
-  'savings',
-  'goal',
-  'periodic',
-];
-const VALID_CADENCES: readonly TargetCadence[] = [
-  'monthly',
-  'yearly',
-  'custom',
+const VALID_CADENCE_UNITS: readonly CadenceUnit[] = [
+  'day',
+  'week',
+  'month',
+  'year',
 ];
 
 /**
- * Type guard to check if a string is a valid BudgetType.
- * Returns true if the value is one of: 'spending', 'savings', 'goal', 'periodic'
+ * Type guard to check if a string is a valid CadenceUnit.
+ * Returns true if the value is one of: 'day', 'week', 'month', 'year'
  */
-export function isBudgetType(value: string): value is BudgetType {
-  return VALID_BUDGET_TYPES.includes(value as BudgetType);
+export function isCadenceUnit(value: string): value is CadenceUnit {
+  return VALID_CADENCE_UNITS.includes(value as CadenceUnit);
 }
 
 /**
- * Type guard to check if a string is a valid TargetCadence.
- * Returns true if the value is one of: 'monthly', 'yearly', 'custom'
+ * Parse a string to CadenceUnit, returning null if invalid.
+ * Use this when cadence unit is optional.
  */
-export function isTargetCadence(value: string): value is TargetCadence {
-  return VALID_CADENCES.includes(value as TargetCadence);
-}
-
-/**
- * Parse a string to BudgetType, returning a default if invalid.
- * Use this when you need a guaranteed BudgetType value.
- */
-export function parseBudgetType(
+export function parseCadenceUnit(
   value: string | null | undefined,
-  defaultValue: BudgetType = 'spending',
-): BudgetType {
-  if (value && isBudgetType(value)) {
-    return value;
-  }
-  return defaultValue;
-}
-
-/**
- * Parse a string to TargetCadence, returning null if invalid.
- * Use this when cadence is optional.
- */
-export function parseTargetCadence(
-  value: string | null | undefined,
-): TargetCadence | null {
-  if (value && isTargetCadence(value)) {
+): CadenceUnit | null {
+  if (value && isCadenceUnit(value)) {
     return value;
   }
   return null;
@@ -60,15 +32,16 @@ export function parseTargetCadence(
 
 export interface BudgetProps {
   name: string;
-  type: BudgetType;
   amount: Money;
-  targetCadence: TargetCadence | null;
-  targetCadenceMonths: number | null;
+  cadenceUnit: CadenceUnit | null;
+  cadenceCount: number | null;
   targetDate: Date | null;
   startDate: Date | null;
   endDate: Date | null;
   isArchived: boolean;
   cap: Money | null;
+  sortOrder: string | null;
+  budgetGroupId: number | null;
   dbId?: number | null;
 }
 
@@ -86,20 +59,16 @@ export class Budget {
     return this.props.name;
   }
 
-  get type(): BudgetType {
-    return this.props.type;
-  }
-
   get amount(): Money {
     return this.props.amount;
   }
 
-  get targetCadence(): TargetCadence | null {
-    return this.props.targetCadence;
+  get cadenceUnit(): CadenceUnit | null {
+    return this.props.cadenceUnit;
   }
 
-  get targetCadenceMonths(): number | null {
-    return this.props.targetCadenceMonths;
+  get cadenceCount(): number | null {
+    return this.props.cadenceCount;
   }
 
   get targetDate(): Date | null {
@@ -120,6 +89,14 @@ export class Budget {
 
   get cap(): Money | null {
     return this.props.cap;
+  }
+
+  get sortOrder(): string | null {
+    return this.props.sortOrder;
+  }
+
+  get budgetGroupId(): number | null {
+    return this.props.budgetGroupId;
   }
 
   get dbId(): number | null {

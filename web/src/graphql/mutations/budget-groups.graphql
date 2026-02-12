@@ -1,0 +1,27 @@
+mutation CreateBudgetGroup($name: String!) {
+  createBudgetGroup(name: $name) {
+    id
+    name
+    sortOrder
+  }
+}
+
+mutation UpdateBudgetGroup($id: Int!, $name: String!) {
+  updateBudgetGroup(id: $id, name: $name) {
+    id
+    name
+    sortOrder
+  }
+}
+
+mutation DeleteBudgetGroup($id: Int!) {
+  deleteBudgetGroup(id: $id)
+}
+
+mutation ReorderBudgetGroup($input: ReorderBudgetGroupInput!) {
+  reorderBudgetGroup(input: $input) {
+    id
+    name
+    sortOrder
+  }
+}

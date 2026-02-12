@@ -14,11 +14,10 @@ describe('CreateBudgetUseCase', () => {
 
   const validRequest: CreateBudgetRequestDTO = {
     name: 'Groceries',
-    type: 'spending',
     currency: 'UAH',
     targetAmount: 1000000,
-    targetCadence: null,
-    targetCadenceMonths: null,
+    cadenceUnit: null,
+    cadenceCount: null,
     targetDate: null,
     startDate: null,
     endDate: null,
@@ -33,7 +32,6 @@ describe('CreateBudgetUseCase', () => {
     const result = await useCase.execute(validRequest);
 
     expect(result.name).toBe('Groceries');
-    expect(result.type).toBe('spending');
     expect(result.amount.amount).toBe(1000000);
     expect(result.amount.currency.code).toBe('UAH');
     expect(result.isArchived).toBe(false);
@@ -52,18 +50,16 @@ describe('CreateBudgetUseCase', () => {
     expect(mockBudgetRepository.saveAndReturn).not.toHaveBeenCalled();
   });
 
-  test('should create budget with goal type and target date', async () => {
+  test('should create budget with target date (goal behavior)', async () => {
     const goalRequest: CreateBudgetRequestDTO = {
       ...validRequest,
       name: 'Vacation',
-      type: 'goal',
       targetAmount: 5000000,
       targetDate: '2026-07-01',
     };
 
     const result = await useCase.execute(goalRequest);
 
-    expect(result.type).toBe('goal');
     expect(result.targetDate).toEqual(new Date('2026-07-01'));
     expect(result.amount.amount).toBe(5000000);
   });
@@ -72,15 +68,13 @@ describe('CreateBudgetUseCase', () => {
     const periodicRequest: CreateBudgetRequestDTO = {
       ...validRequest,
       name: 'Car Insurance',
-      type: 'periodic',
-      targetCadence: 'yearly',
-      targetCadenceMonths: null,
+      cadenceUnit: 'year',
+      cadenceCount: 1,
     };
 
     const result = await useCase.execute(periodicRequest);
 
-    expect(result.type).toBe('periodic');
-    expect(result.targetCadence).toBe('yearly');
+    expect(result.cadenceUnit).toBe('year');
   });
 
   test('should create budget with start and end dates', async () => {
@@ -94,5 +88,25 @@ describe('CreateBudgetUseCase', () => {
 
     expect(result.startDate).toEqual(new Date('2026-01-01'));
     expect(result.endDate).toEqual(new Date('2026-12-31'));
+  });
+
+  test('should assign sortOrder when creating first budget', async () => {
+    const result = await useCase.execute(validRequest);
+
+    expect(result.sortOrder).toBe('a0');
+  });
+
+  test('should assign sortOrder after last existing budget', async () => {
+    const existingBudget = createTestBudget({
+      name: 'Existing',
+      sortOrder: 'a5',
+    });
+    mockBudgetRepository.findAll = mock(() =>
+      Promise.resolve([existingBudget]),
+    );
+
+    const result = await useCase.execute(validRequest);
+
+    expect(result.sortOrder).toBe('a6');
   });
 });

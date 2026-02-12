@@ -19,6 +19,7 @@ export const typeDefs: string[] = [
   loadSchema('base.graphql'),
   loadSchema('accounts.graphql'),
   loadSchema('allocations.graphql'),
+  loadSchema('budgetGroups.graphql'),
   loadSchema('budgets.graphql'),
   loadSchema('categories.graphql'),
   loadSchema('monthlyOverview.graphql'),

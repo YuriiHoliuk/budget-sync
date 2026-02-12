@@ -60,15 +60,16 @@ export class SpreadsheetBudgetMapper {
 
     return Budget.create({
       name: record.name,
-      type: 'spending',
       amount: money,
-      targetCadence: null,
-      targetCadenceMonths: null,
+      cadenceUnit: null,
+      cadenceCount: null,
       targetDate: null,
       startDate: record.startDate ?? null,
       endDate: record.endDate ?? null,
       isArchived: false,
       cap: null,
+      sortOrder: null,
+      budgetGroupId: null,
       dbId: record.dbId,
     });
   }

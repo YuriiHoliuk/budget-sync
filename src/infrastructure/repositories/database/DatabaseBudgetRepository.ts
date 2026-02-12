@@ -2,7 +2,7 @@ import type { Budget } from '@domain/entities/Budget.ts';
 import type { BudgetRepository } from '@domain/repositories/BudgetRepository.ts';
 import type { DatabaseClient } from '@modules/database/DatabaseClient.ts';
 import { budgets } from '@modules/database/schema/index.ts';
-import { and, eq, gte, isNull, lte, or } from 'drizzle-orm';
+import { and, asc, eq, gte, isNull, lte, or } from 'drizzle-orm';
 import { inject, injectable } from 'tsyringe';
 import { DatabaseBudgetMapper } from '../../mappers/DatabaseBudgetMapper.ts';
 import { DATABASE_CLIENT_TOKEN } from './tokens.ts';
@@ -20,7 +20,10 @@ export class DatabaseBudgetRepository implements BudgetRepository {
   }
 
   async findAll(): Promise<Budget[]> {
-    const rows = await this.db.select().from(budgets);
+    const rows = await this.db
+      .select()
+      .from(budgets)
+      .orderBy(asc(budgets.sortOrder));
     return rows.map((row) => this.mapper.toEntity(row));
   }
 
@@ -55,7 +58,8 @@ export class DatabaseBudgetRepository implements BudgetRepository {
           or(isNull(budgets.startDate), lte(budgets.startDate, dateStr)),
           or(isNull(budgets.endDate), gte(budgets.endDate, dateStr)),
         ),
-      );
+      )
+      .orderBy(asc(budgets.sortOrder));
     return rows.map((row) => this.mapper.toEntity(row));
   }
 

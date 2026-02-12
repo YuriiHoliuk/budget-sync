@@ -1,16 +1,48 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { forwardRef, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useMutation, useQuery } from "@apollo/client/react";
 import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   ArrowLeftRight,
+  ChevronDown,
+  ChevronRight,
+  FolderPlus,
+  GripVertical,
   MoreHorizontal,
   Pencil,
   Plus,
   Archive,
+  Trash2,
+  Check,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +50,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -28,38 +61,39 @@ import {
 } from "@/components/ui/table";
 import {
   CreateAllocationDocument,
+  CreateBudgetGroupDocument,
+  DeleteBudgetGroupDocument,
   GetBudgetDocument,
+  GetMonthlyOverviewDocument,
+  ReorderBudgetDocument,
+  UpdateBudgetGroupDocument,
+  type BudgetGroup,
   type BudgetSummary,
-  BudgetType,
-  type TargetCadence,
+  type CadenceUnit,
 } from "@/graphql/generated/graphql";
 import { useMonth } from "@/hooks/use-month";
-import { updateMonthlyOverviewCache } from "@/lib/cache-utils";
+import {
+  updateMonthlyOverviewCache,
+  reorderBudgetInCache,
+} from "@/lib/cache-utils";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { InlineAllocationEditor } from "./inline-allocation-editor";
-import { MoveFundsDialog } from "./move-funds-dialog";
-import { CreateBudgetDialog } from "./create-budget-dialog";
-import { EditBudgetDialog } from "./edit-budget-dialog";
+import { MoveFundsSheet } from "./move-funds-sheet";
+import { CreateBudgetSheet } from "./create-budget-sheet";
+import { EditBudgetSheet } from "./edit-budget-sheet";
 import { ArchiveBudgetDialog } from "./archive-budget-dialog";
 
 interface BudgetTableProps {
   budgetSummaries: BudgetSummary[];
+  budgetGroups: BudgetGroup[];
 }
 
-const BUDGET_TYPE_LABELS: Record<BudgetType, string> = {
-  [BudgetType.Spending]: "Spending",
-  [BudgetType.Savings]: "Savings",
-  [BudgetType.Goal]: "Goals",
-  [BudgetType.Periodic]: "Periodic",
-};
-
-const BUDGET_TYPE_ORDER: BudgetType[] = [
-  BudgetType.Spending,
-  BudgetType.Savings,
-  BudgetType.Goal,
-  BudgetType.Periodic,
-];
+interface GroupedBudgets {
+  group: BudgetGroup | null;
+  budgets: BudgetSummary[];
+  totals: { targetAmount: number; allocated: number; spent: number; available: number };
+}
 
 function getAvailableColor(available: number): string {
   if (available < 0) return "text-red-600 dark:text-red-400";
@@ -72,19 +106,70 @@ function getProgressPercentage(spent: number, targetAmount: number): number {
   return Math.min(Math.round((Math.abs(spent) / targetAmount) * 100), 100);
 }
 
+function computeGroupTotals(budgets: BudgetSummary[]) {
+  return budgets.reduce(
+    (totals, budget) => ({
+      targetAmount: totals.targetAmount + budget.targetAmount,
+      allocated: totals.allocated + budget.allocated,
+      spent: totals.spent + budget.spent,
+      available: totals.available + budget.available,
+    }),
+    { targetAmount: 0, allocated: 0, spent: 0, available: 0 },
+  );
+}
+
+function groupBudgetsByGroup(
+  budgetSummaries: BudgetSummary[],
+  budgetGroups: BudgetGroup[],
+): GroupedBudgets[] {
+  const sortedGroups = [...budgetGroups].sort((groupA, groupB) =>
+    (groupA.sortOrder ?? "").localeCompare(groupB.sortOrder ?? ""),
+  );
+
+  const grouped: GroupedBudgets[] = [];
+
+  for (const group of sortedGroups) {
+    const groupBudgets = budgetSummaries.filter(
+      (summary) => summary.budgetGroupId === group.id,
+    );
+    if (groupBudgets.length > 0 || true) {
+      grouped.push({
+        group,
+        budgets: groupBudgets,
+        totals: computeGroupTotals(groupBudgets),
+      });
+    }
+  }
+
+  const ungroupedBudgets = budgetSummaries.filter(
+    (summary) => summary.budgetGroupId === null || summary.budgetGroupId === undefined,
+  );
+  if (ungroupedBudgets.length > 0) {
+    grouped.push({
+      group: null,
+      budgets: ungroupedBudgets,
+      totals: computeGroupTotals(ungroupedBudgets),
+    });
+  }
+
+  return grouped;
+}
+
 interface BudgetForDialog {
   id: number;
   name: string;
-  type: BudgetType;
+  currency: string;
   targetAmount: number;
-  targetCadence: TargetCadence | null;
-  targetCadenceMonths: number | null;
+  cadenceUnit: CadenceUnit | null;
+  cadenceCount: number | null;
   targetDate: string | null;
   startDate: string | null;
   endDate: string | null;
+  cap: number | null;
+  budgetGroupId: number | null;
 }
 
-export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
+export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps) {
   const { month } = useMonth();
   const [editingBudgetId, setEditingBudgetId] = useState<number | null>(null);
   const [moveFundsOpen, setMoveFundsOpen] = useState(false);
@@ -95,6 +180,9 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
   const [editBudgetDialogOpen, setEditBudgetDialogOpen] = useState(false);
   const [archiveBudgetDialogOpen, setArchiveBudgetDialogOpen] = useState(false);
   const [selectedBudgetId, setSelectedBudgetId] = useState<number | null>(null);
+  const [activeDragId, setActiveDragId] = useState<number | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
+  const [deleteGroupId, setDeleteGroupId] = useState<number | null>(null);
 
   const { data: budgetData } = useQuery(GetBudgetDocument, {
     variables: { id: selectedBudgetId ?? 0 },
@@ -102,6 +190,135 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
   });
 
   const [createAllocation] = useMutation(CreateAllocationDocument);
+  const [reorderBudget] = useMutation(ReorderBudgetDocument);
+  const [createBudgetGroup] = useMutation(CreateBudgetGroupDocument, {
+    refetchQueries: [
+      { query: GetMonthlyOverviewDocument, variables: { month } },
+    ],
+  });
+  const [updateBudgetGroup] = useMutation(UpdateBudgetGroupDocument, {
+    refetchQueries: [
+      { query: GetMonthlyOverviewDocument, variables: { month } },
+    ],
+  });
+  const [deleteBudgetGroup] = useMutation(DeleteBudgetGroupDocument, {
+    refetchQueries: [
+      { query: GetMonthlyOverviewDocument, variables: { month } },
+    ],
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor),
+  );
+
+  const groupedBudgets = useMemo(
+    () => groupBudgetsByGroup(budgetSummaries, budgetGroups),
+    [budgetSummaries, budgetGroups],
+  );
+
+  // Flat list of all budget IDs in display order for the sortable context
+  const sortableIds = useMemo(() => {
+    const ids: number[] = [];
+    for (const group of groupedBudgets) {
+      if (group.group && collapsedGroups.has(group.group.id)) continue;
+      for (const budget of group.budgets) {
+        ids.push(budget.budgetId);
+      }
+    }
+    return ids;
+  }, [groupedBudgets, collapsedGroups]);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as number);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragId(null);
+
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const activeId = active.id as number;
+    const overId = over.id as number;
+
+    // Build a flat ordered list of all visible budgets
+    const flatBudgets: BudgetSummary[] = [];
+    for (const group of groupedBudgets) {
+      if (group.group && collapsedGroups.has(group.group.id)) continue;
+      for (const budget of group.budgets) {
+        flatBudgets.push(budget);
+      }
+    }
+
+    const oldIndex = flatBudgets.findIndex(
+      (summary) => summary.budgetId === activeId,
+    );
+    const overIndex = flatBudgets.findIndex(
+      (summary) => summary.budgetId === overId,
+    );
+
+    if (oldIndex === -1 || overIndex === -1) {
+      return;
+    }
+
+    const newIndex = overIndex;
+
+    // Determine the target group based on the over item's group
+    const overBudget = flatBudgets[newIndex];
+    const targetGroupId = overBudget?.budgetGroupId ?? null;
+    const activeBudget = flatBudgets[oldIndex];
+    const sourceGroupId = activeBudget?.budgetGroupId ?? null;
+
+    const isMovingDown = oldIndex < newIndex;
+
+    const input = isMovingDown
+      ? {
+          budgetId: activeId,
+          afterBudgetId: flatBudgets[newIndex]?.budgetId ?? null,
+          beforeBudgetId:
+            newIndex < flatBudgets.length - 1
+              ? flatBudgets[newIndex + 1]?.budgetId ?? null
+              : null,
+          ...(targetGroupId !== sourceGroupId
+            ? { budgetGroupId: targetGroupId }
+            : {}),
+        }
+      : {
+          budgetId: activeId,
+          afterBudgetId:
+            newIndex > 0
+              ? flatBudgets[newIndex - 1]?.budgetId ?? null
+              : null,
+          beforeBudgetId: flatBudgets[newIndex]?.budgetId ?? null,
+          ...(targetGroupId !== sourceGroupId
+            ? { budgetGroupId: targetGroupId }
+            : {}),
+        };
+
+    const crossGroupMove = targetGroupId !== sourceGroupId;
+
+    reorderBudget({
+      variables: { input },
+      update: (cache) => {
+        reorderBudgetInCache(
+          cache,
+          month,
+          oldIndex,
+          newIndex,
+          crossGroupMove ? targetGroupId : undefined,
+        );
+      },
+    });
+  };
+
+  const handleDragCancel = () => {
+    setActiveDragId(null);
+  };
 
   const handleMoveFunds = (sourceBudgetId?: number) => {
     setMoveFundsSourceId(sourceBudgetId);
@@ -117,19 +334,6 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
     setSelectedBudgetId(budgetId);
     setArchiveBudgetDialogOpen(true);
   };
-
-  const groupedBudgets = useMemo(() => {
-    const groups = new Map<BudgetType, BudgetSummary[]>();
-    for (const budgetType of BUDGET_TYPE_ORDER) {
-      const budgets = budgetSummaries.filter(
-        (summary) => summary.type === budgetType,
-      );
-      if (budgets.length > 0) {
-        groups.set(budgetType, budgets);
-      }
-    }
-    return groups;
-  }, [budgetSummaries]);
 
   const handleAllocationSave = async (budgetId: number, amount: number) => {
     await createAllocation({
@@ -152,6 +356,38 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
     setEditingBudgetId(null);
   };
 
+  const handleToggleGroup = (groupId: number) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
+
+  const handleCreateGroup = async () => {
+    await createBudgetGroup({
+      variables: { name: "New Group" },
+    });
+  };
+
+  const handleRenameGroup = async (groupId: number, newName: string) => {
+    if (newName.trim() === "") return;
+    await updateBudgetGroup({
+      variables: { id: groupId, name: newName.trim() },
+    });
+  };
+
+  const handleDeleteGroup = async (groupId: number) => {
+    await deleteBudgetGroup({
+      variables: { id: groupId },
+    });
+    setDeleteGroupId(null);
+  };
+
   const selectedBudget = budgetSummaries.find(
     (budget) => budget.budgetId === selectedBudgetId,
   );
@@ -161,17 +397,27 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
       ? {
           id: budgetData.budget.id,
           name: budgetData.budget.name,
-          type: budgetData.budget.type,
+          currency: budgetData.budget.currency,
           targetAmount: budgetData.budget.targetAmount,
-          targetCadence: budgetData.budget.targetCadence ?? null,
-          targetCadenceMonths: budgetData.budget.targetCadenceMonths ?? null,
+          cadenceUnit: budgetData.budget.cadenceUnit ?? null,
+          cadenceCount: budgetData.budget.cadenceCount ?? null,
           targetDate: budgetData.budget.targetDate ?? null,
           startDate: budgetData.budget.startDate ?? null,
           endDate: budgetData.budget.endDate ?? null,
+          cap: budgetData.budget.cap ?? null,
+          budgetGroupId: budgetData.budget.budgetGroupId ?? null,
         }
       : null;
 
-  if (budgetSummaries.length === 0) {
+  const activeDragSummary = activeDragId
+    ? budgetSummaries.find((summary) => summary.budgetId === activeDragId)
+    : null;
+
+  const deleteGroup = deleteGroupId
+    ? budgetGroups.find((group) => group.id === deleteGroupId)
+    : null;
+
+  if (budgetSummaries.length === 0 && budgetGroups.length === 0) {
     return (
       <>
         <div className="rounded-xl border border-dashed p-8 text-center">
@@ -183,9 +429,10 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
             Create Budget
           </Button>
         </div>
-        <CreateBudgetDialog
+        <CreateBudgetSheet
           open={createBudgetOpen}
           onOpenChange={setCreateBudgetOpen}
+          budgetGroups={budgetGroups}
         />
       </>
     );
@@ -203,6 +450,15 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
           <ArrowLeftRight className="mr-2 h-4 w-4" />
           Move Funds
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleCreateGroup}
+          data-qa="btn-new-group"
+        >
+          <FolderPlus className="mr-2 h-4 w-4" />
+          New Group
+        </Button>
         <Button size="sm" onClick={() => setCreateBudgetOpen(true)} data-qa="btn-new-budget">
           <Plus className="mr-2 h-4 w-4" />
           New Budget
@@ -212,6 +468,7 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
         <Table data-qa="budget-table">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              <TableHead className="w-[32px]" />
               <TableHead className="w-[200px]">Budget</TableHead>
               <TableHead className="w-[100px] text-right">Target</TableHead>
               <TableHead className="w-[140px] text-right">Allocated</TableHead>
@@ -222,41 +479,95 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
               <TableHead className="w-[48px]" />
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {Array.from(groupedBudgets.entries()).map(
-              ([budgetType, summaries]) => (
-                <BudgetGroup
-                  key={budgetType}
-                  type={budgetType}
-                  summaries={summaries}
-                  editingBudgetId={editingBudgetId}
-                  onStartEdit={setEditingBudgetId}
-                  onSave={handleAllocationSave}
-                  onCancel={handleAllocationCancel}
-                  onMoveFunds={handleMoveFunds}
-                  onEditBudget={handleEditBudget}
-                  onArchiveBudget={handleArchiveBudget}
-                />
-              ),
-            )}
-          </TableBody>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
+            <SortableContext
+              items={sortableIds}
+              strategy={verticalListSortingStrategy}
+            >
+              <TableBody>
+                {groupedBudgets.map((groupData) => {
+                  const isCollapsed =
+                    groupData.group !== null &&
+                    collapsedGroups.has(groupData.group.id);
+
+                  return (
+                    <GroupSection
+                      key={groupData.group?.id ?? "ungrouped"}
+                      groupData={groupData}
+                      isCollapsed={isCollapsed}
+                      onToggle={
+                        groupData.group
+                          ? () => handleToggleGroup(groupData.group!.id)
+                          : undefined
+                      }
+                      onRename={
+                        groupData.group
+                          ? (newName: string) =>
+                              handleRenameGroup(groupData.group!.id, newName)
+                          : undefined
+                      }
+                      onDelete={
+                        groupData.group
+                          ? () => setDeleteGroupId(groupData.group!.id)
+                          : undefined
+                      }
+                      editingBudgetId={editingBudgetId}
+                      onStartEdit={setEditingBudgetId}
+                      onSaveAllocation={handleAllocationSave}
+                      onCancelAllocation={handleAllocationCancel}
+                      onMoveFunds={handleMoveFunds}
+                      onEditBudget={handleEditBudget}
+                      onArchiveBudget={handleArchiveBudget}
+                    />
+                  );
+                })}
+              </TableBody>
+            </SortableContext>
+            <DragOverlay>
+              {activeDragSummary ? (
+                <table className="w-full text-sm">
+                  <tbody>
+                    <BudgetRow
+                      summary={activeDragSummary}
+                      isEditing={false}
+                      isDragOverlay
+                      onStartEdit={() => {}}
+                      onSave={async () => {}}
+                      onCancel={() => {}}
+                      onMoveFunds={() => {}}
+                      onEditBudget={() => {}}
+                      onArchiveBudget={() => {}}
+                    />
+                  </tbody>
+                </table>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         </Table>
       </div>
-      <MoveFundsDialog
+      <MoveFundsSheet
         open={moveFundsOpen}
         onOpenChange={setMoveFundsOpen}
         budgetSummaries={budgetSummaries}
         initialSourceBudgetId={moveFundsSourceId}
       />
-      <CreateBudgetDialog
+      <CreateBudgetSheet
         open={createBudgetOpen}
         onOpenChange={setCreateBudgetOpen}
+        budgetGroups={budgetGroups}
       />
       {budgetForEdit && (
-        <EditBudgetDialog
+        <EditBudgetSheet
           open={editBudgetDialogOpen}
           onOpenChange={setEditBudgetDialogOpen}
           budget={budgetForEdit}
+          budgetGroups={budgetGroups}
         />
       )}
       {selectedBudget && (
@@ -269,91 +580,339 @@ export function BudgetTable({ budgetSummaries }: BudgetTableProps) {
           }}
         />
       )}
+      {deleteGroup && (
+        <DeleteGroupDialog
+          open={deleteGroupId !== null}
+          onOpenChange={(open) => {
+            if (!open) setDeleteGroupId(null);
+          }}
+          group={deleteGroup}
+          budgetCount={
+            budgetSummaries.filter(
+              (summary) => summary.budgetGroupId === deleteGroup.id,
+            ).length
+          }
+          onConfirm={() => handleDeleteGroup(deleteGroup.id)}
+        />
+      )}
     </>
   );
 }
 
-interface BudgetGroupProps {
-  type: BudgetType;
-  summaries: BudgetSummary[];
+// --- Group Section ---
+
+interface GroupSectionProps {
+  groupData: GroupedBudgets;
+  isCollapsed: boolean;
+  onToggle?: () => void;
+  onRename?: (newName: string) => void;
+  onDelete?: () => void;
   editingBudgetId: number | null;
   onStartEdit: (budgetId: number) => void;
-  onSave: (budgetId: number, amount: number) => Promise<void>;
-  onCancel: () => void;
+  onSaveAllocation: (budgetId: number, amount: number) => Promise<void>;
+  onCancelAllocation: () => void;
   onMoveFunds: (sourceBudgetId: number) => void;
   onEditBudget: (budgetId: number) => void;
   onArchiveBudget: (budgetId: number) => void;
 }
 
-function BudgetGroup({
-  type,
-  summaries,
+function GroupSection({
+  groupData,
+  isCollapsed,
+  onToggle,
+  onRename,
+  onDelete,
   editingBudgetId,
   onStartEdit,
-  onSave,
-  onCancel,
+  onSaveAllocation,
+  onCancelAllocation,
   onMoveFunds,
   onEditBudget,
   onArchiveBudget,
-}: BudgetGroupProps) {
-  const groupAllocated = summaries.reduce(
-    (sum, summary) => sum + summary.allocated,
-    0,
-  );
-  const groupSpent = summaries.reduce(
-    (sum, summary) => sum + summary.spent,
-    0,
-  );
-  const groupAvailable = summaries.reduce(
-    (sum, summary) => sum + summary.available,
-    0,
-  );
-
+}: GroupSectionProps) {
   return (
     <>
-      <TableRow className="bg-muted/30 hover:bg-muted/30">
-        <TableCell className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-          {BUDGET_TYPE_LABELS[type]}
-        </TableCell>
-        <TableCell />
-        <TableCell className="text-right text-xs font-medium text-muted-foreground">
-          {formatCurrency(groupAllocated)}
-        </TableCell>
-        <TableCell />
-        <TableCell className="text-right text-xs font-medium text-muted-foreground">
-          {formatCurrency(groupSpent)}
-        </TableCell>
-        <TableCell
-          className={cn(
-            "text-right text-xs font-medium",
-            getAvailableColor(groupAvailable),
-          )}
-        >
-          {formatCurrency(groupAvailable)}
-        </TableCell>
-        <TableCell />
-        <TableCell />
-      </TableRow>
-      {summaries.map((summary) => (
-        <BudgetRow
-          key={summary.budgetId}
-          summary={summary}
-          isEditing={editingBudgetId === summary.budgetId}
-          onStartEdit={() => onStartEdit(summary.budgetId)}
-          onSave={(amount) => onSave(summary.budgetId, amount)}
-          onCancel={onCancel}
-          onMoveFunds={() => onMoveFunds(summary.budgetId)}
-          onEditBudget={() => onEditBudget(summary.budgetId)}
-          onArchiveBudget={() => onArchiveBudget(summary.budgetId)}
+      {groupData.group && (
+        <GroupHeaderRow
+          group={groupData.group}
+          totals={groupData.totals}
+          isCollapsed={isCollapsed}
+          budgetCount={groupData.budgets.length}
+          onToggle={onToggle!}
+          onRename={onRename!}
+          onDelete={onDelete!}
         />
-      ))}
+      )}
+      {groupData.group === null && groupData.budgets.length > 0 && (
+        <TableRow className="bg-muted/30 hover:bg-muted/30" data-qa="group-header-ungrouped">
+          <TableCell className="w-[32px]" />
+          <TableCell
+            colSpan={8}
+            className="py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+          >
+            Ungrouped
+          </TableCell>
+        </TableRow>
+      )}
+      {!isCollapsed &&
+        groupData.budgets.map((summary) => (
+          <SortableBudgetRow
+            key={summary.budgetId}
+            summary={summary}
+            isEditing={editingBudgetId === summary.budgetId}
+            onStartEdit={() => onStartEdit(summary.budgetId)}
+            onSave={(amount) =>
+              onSaveAllocation(summary.budgetId, amount)
+            }
+            onCancel={onCancelAllocation}
+            onMoveFunds={() => onMoveFunds(summary.budgetId)}
+            onEditBudget={() => onEditBudget(summary.budgetId)}
+            onArchiveBudget={() => onArchiveBudget(summary.budgetId)}
+          />
+        ))}
     </>
   );
 }
 
+// --- Group Header Row ---
+
+interface GroupHeaderRowProps {
+  group: BudgetGroup;
+  totals: { targetAmount: number; allocated: number; spent: number; available: number };
+  isCollapsed: boolean;
+  budgetCount: number;
+  onToggle: () => void;
+  onRename: (newName: string) => void;
+  onDelete: () => void;
+}
+
+function GroupHeaderRow({
+  group,
+  totals,
+  isCollapsed,
+  budgetCount,
+  onToggle,
+  onRename,
+  onDelete,
+}: GroupHeaderRowProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(group.name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleStartEdit = () => {
+    setEditName(group.name);
+    setIsEditing(true);
+    setTimeout(() => inputRef.current?.select(), 0);
+  };
+
+  const handleSave = () => {
+    if (editName.trim() !== "" && editName.trim() !== group.name) {
+      onRename(editName.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditName(group.name);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Enter") {
+      handleSave();
+    } else if (event.key === "Escape") {
+      handleCancel();
+    }
+  };
+
+  const ChevronIcon = isCollapsed ? ChevronRight : ChevronDown;
+
+  return (
+    <TableRow
+      className="bg-muted/30 hover:bg-muted/40"
+      data-qa={`group-header-${group.id}`}
+    >
+      <TableCell className="w-[32px] px-1">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
+          data-qa={`group-toggle-${group.id}`}
+        >
+          <ChevronIcon className="h-4 w-4" />
+        </button>
+      </TableCell>
+      <TableCell className="py-2">
+        <div className="flex items-center gap-2">
+          {isEditing ? (
+            <div className="flex items-center gap-1">
+              <Input
+                ref={inputRef}
+                value={editName}
+                onChange={(event) => setEditName(event.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={handleSave}
+                className="h-7 w-40 text-sm font-semibold"
+                data-qa={`group-name-input-${group.id}`}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={handleSave}
+                className="flex h-6 w-6 items-center justify-center rounded text-green-600 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900/30"
+              >
+                <Check className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={handleCancel}
+                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleStartEdit}
+              className="text-sm font-semibold hover:underline cursor-pointer"
+              data-qa={`group-name-${group.id}`}
+            >
+              {group.name}
+            </button>
+          )}
+          <span className="text-xs text-muted-foreground">
+            ({budgetCount})
+          </span>
+        </div>
+      </TableCell>
+      <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
+        {totals.targetAmount > 0 ? formatCurrency(totals.targetAmount) : "\u2014"}
+      </TableCell>
+      <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
+        {formatCurrency(totals.allocated)}
+      </TableCell>
+      <TableCell />
+      <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
+        {totals.spent !== 0 ? formatCurrency(totals.spent) : "\u2014"}
+      </TableCell>
+      <TableCell
+        className={cn(
+          "text-right text-xs font-medium tabular-nums",
+          getAvailableColor(totals.available),
+        )}
+      >
+        {formatCurrency(totals.available)}
+      </TableCell>
+      <TableCell />
+      <TableCell>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              data-qa={`group-menu-${group.id}`}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleStartEdit}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onDelete} variant="destructive">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Group
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// --- Delete Group Confirmation Dialog ---
+
+interface DeleteGroupDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  group: BudgetGroup;
+  budgetCount: number;
+  onConfirm: () => void;
+}
+
+function DeleteGroupDialog({
+  open,
+  onOpenChange,
+  group,
+  budgetCount,
+  onConfirm,
+}: DeleteGroupDialogProps) {
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      await onConfirm();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]" data-qa="dialog-delete-group">
+        <DialogHeader>
+          <DialogTitle>Delete Group</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete &quot;{group.name}&quot;?
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          {budgetCount > 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {budgetCount} budget{budgetCount !== 1 ? "s" : ""} in this group
+              will become ungrouped. No budgets will be deleted.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              This group is empty and will be removed.
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={loading}
+            data-qa="btn-delete-group-cancel"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleConfirm}
+            disabled={loading}
+            data-qa="btn-delete-group-confirm"
+          >
+            {loading ? "Deleting..." : "Delete"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// --- Sortable Budget Row ---
+
 interface BudgetRowProps {
   summary: BudgetSummary;
   isEditing: boolean;
+  isDragOverlay?: boolean;
   onStartEdit: () => void;
   onSave: (amount: number) => Promise<void>;
   onCancel: () => void;
@@ -362,16 +921,62 @@ interface BudgetRowProps {
   onArchiveBudget: () => void;
 }
 
-function BudgetRow({
-  summary,
-  isEditing,
-  onStartEdit,
-  onSave,
-  onCancel,
-  onMoveFunds,
-  onEditBudget,
-  onArchiveBudget,
-}: BudgetRowProps) {
+function SortableBudgetRow(props: BudgetRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.summary.budgetId });
+
+  const style = {
+    transform: CSS.Transform.toString(
+      transform ? { ...transform, x: 0 } : null,
+    ),
+    transition,
+  };
+
+  return (
+    <BudgetRow
+      ref={setNodeRef}
+      style={style}
+      isDragging={isDragging}
+      dragHandleProps={{ ...attributes, ...listeners }}
+      {...props}
+    />
+  );
+}
+
+interface DragHandleProps {
+  [key: string]: unknown;
+}
+
+const BudgetRow = forwardRef<
+  HTMLTableRowElement,
+  BudgetRowProps & {
+    style?: CSSProperties;
+    isDragging?: boolean;
+    dragHandleProps?: DragHandleProps;
+  }
+>(function BudgetRow(
+  {
+    summary,
+    isEditing,
+    isDragOverlay,
+    onStartEdit,
+    onSave,
+    onCancel,
+    onMoveFunds,
+    onEditBudget,
+    onArchiveBudget,
+    style,
+    isDragging,
+    dragHandleProps,
+  },
+  ref,
+) {
   const progressPercentage = getProgressPercentage(
     summary.spent,
     summary.targetAmount,
@@ -380,7 +985,30 @@ function BudgetRow({
   const budgetId = summary.budgetId;
 
   return (
-    <TableRow data-qa={`budget-row-${budgetId}`} className={cn(summary.isExpired && "opacity-60")}>
+    <TableRow
+      ref={ref}
+      style={style}
+      data-qa={`budget-row-${budgetId}`}
+      className={cn(
+        summary.isExpired && "opacity-60",
+        isDragging && "opacity-50",
+        isDragOverlay && "bg-background shadow-lg border rounded-md",
+      )}
+    >
+      <TableCell className="w-[32px] px-1">
+        <button
+          type="button"
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded text-muted-foreground/40",
+            "hover:text-muted-foreground cursor-grab",
+            isDragOverlay && "cursor-grabbing",
+          )}
+          data-qa={`budget-drag-${budgetId}`}
+          {...dragHandleProps}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      </TableCell>
       <TableCell className="font-medium">
         <span className="flex items-center gap-2">
           {summary.name}
@@ -487,7 +1115,7 @@ function BudgetRow({
       </TableCell>
     </TableRow>
   );
-}
+});
 
 function getProgressBarColor(percentage: number): string {
   if (percentage >= 100) return "bg-red-500";

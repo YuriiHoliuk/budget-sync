@@ -4,6 +4,14 @@ import {
   type AllocationProps,
 } from '@domain/entities/Allocation.ts';
 import { Budget, type BudgetProps } from '@domain/entities/Budget.ts';
+import {
+  BudgetGroup,
+  type BudgetGroupProps,
+} from '@domain/entities/BudgetGroup.ts';
+import {
+  BudgetTarget,
+  type BudgetTargetProps,
+} from '@domain/entities/BudgetTarget.ts';
 import { Category, type CategoryProps } from '@domain/entities/Category.ts';
 import { Transaction } from '@domain/entities/Transaction.ts';
 import { CategoryStatus } from '@domain/value-objects/CategoryStatus.ts';
@@ -267,15 +275,16 @@ export function createTestAllocation(
  */
 const DEFAULT_BUDGET_PROPS: BudgetProps = {
   name: 'Test Budget',
-  type: 'spending',
   amount: Money.create(1000000, Currency.UAH),
-  targetCadence: null,
-  targetCadenceMonths: null,
+  cadenceUnit: null,
+  cadenceCount: null,
   targetDate: null,
   startDate: null,
   endDate: null,
   isArchived: false,
   cap: null,
+  sortOrder: null,
+  budgetGroupId: null,
   dbId: 1,
 };
 
@@ -308,6 +317,51 @@ export function createTestCategory(
 ): Category {
   return Category.create({
     ...DEFAULT_CATEGORY_PROPS,
+    ...overrides,
+  });
+}
+
+/**
+ * Default values for test BudgetTarget entities.
+ */
+const DEFAULT_BUDGET_TARGET_PROPS: BudgetTargetProps = {
+  budgetId: 1,
+  targetAmount: Money.create(500000, Currency.UAH),
+  effectiveFrom: '2026-02',
+  dbId: 1,
+};
+
+/**
+ * Creates a test BudgetTarget entity with sensible defaults.
+ * Override any property as needed for specific test scenarios.
+ */
+export function createTestBudgetTarget(
+  overrides: Partial<BudgetTargetProps> = {},
+): BudgetTarget {
+  return BudgetTarget.create({
+    ...DEFAULT_BUDGET_TARGET_PROPS,
+    ...overrides,
+  });
+}
+
+/**
+ * Default values for test BudgetGroup entities.
+ */
+const DEFAULT_BUDGET_GROUP_PROPS: BudgetGroupProps = {
+  name: 'Test Group',
+  sortOrder: 'a0',
+  dbId: 1,
+};
+
+/**
+ * Creates a test BudgetGroup entity with sensible defaults.
+ * Override any property as needed for specific test scenarios.
+ */
+export function createTestBudgetGroup(
+  overrides: Partial<BudgetGroupProps> = {},
+): BudgetGroup {
+  return BudgetGroup.create({
+    ...DEFAULT_BUDGET_GROUP_PROPS,
     ...overrides,
   });
 }

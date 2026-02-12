@@ -13,14 +13,17 @@ export {
 } from './allocation.ts';
 
 export {
-  BUDGET_TYPE_TO_GQL,
   type BudgetGql,
-  CADENCE_TO_GQL,
-  GQL_TO_BUDGET_TYPE,
-  GQL_TO_CADENCE,
+  CADENCE_UNIT_TO_GQL,
+  GQL_TO_CADENCE_UNIT,
   mapBudgetToGql,
   mapOptionalGqlEnum,
 } from './budget.ts';
+
+export {
+  type BudgetGroupGql,
+  mapBudgetGroupToGql,
+} from './budgetGroup.ts';
 
 export {
   CATEGORY_STATUS_TO_GQL,

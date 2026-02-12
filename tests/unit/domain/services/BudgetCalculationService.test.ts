@@ -43,11 +43,10 @@ describe('BudgetCalculationService', () => {
     return {
       budgetId: 1,
       name: 'Test Budget',
-      type: 'spending',
       targetAmount: 1000000,
       isArchived: false,
-      targetCadence: null,
-      targetCadenceMonths: null,
+      cadenceUnit: null,
+      cadenceCount: null,
       targetDate: null,
       cap: null,
       startDate: null,
@@ -405,9 +404,9 @@ describe('BudgetCalculationService', () => {
     });
   });
 
-  describe('spending budget summaries', () => {
+  describe('simple budget summaries', () => {
     test('should compute allocated, spent, available with accumulation', () => {
-      const budget = makeBudget({ budgetId: 1, type: 'spending' });
+      const budget = makeBudget({ budgetId: 1 });
       const allocations = [
         makeAllocation({ budgetId: 1, amount: 300000, period: '2026-01' }),
         makeAllocation({ budgetId: 1, amount: 500000, period: MONTH }),
@@ -426,7 +425,7 @@ describe('BudgetCalculationService', () => {
     });
 
     test('should accumulate negative balance from previous months', () => {
-      const budget = makeBudget({ budgetId: 1, type: 'spending' });
+      const budget = makeBudget({ budgetId: 1 });
       // Jan: allocated 100000, spent 150000
       // Feb: allocated 500000, spent 200000
       const allocations = [
@@ -454,7 +453,7 @@ describe('BudgetCalculationService', () => {
     });
 
     test('should accumulate across multiple months', () => {
-      const budget = makeBudget({ budgetId: 1, type: 'spending' });
+      const budget = makeBudget({ budgetId: 1 });
       // Dec: allocated 100000, spent 200000
       // Jan: allocated 100000, spent 50000
       // Feb: allocated 500000
@@ -484,9 +483,9 @@ describe('BudgetCalculationService', () => {
     });
   });
 
-  describe('savings budget summaries', () => {
+  describe('accumulating budget summaries', () => {
     test('should accumulate all allocations and spending up to month', () => {
-      const budget = makeBudget({ budgetId: 1, type: 'savings' });
+      const budget = makeBudget({ budgetId: 1 });
       const allocations = [
         makeAllocation({ budgetId: 1, amount: 500000, period: '2026-01' }),
         makeAllocation({ budgetId: 1, amount: 500000, period: MONTH }),
@@ -512,12 +511,12 @@ describe('BudgetCalculationService', () => {
     });
   });
 
-  describe('goal budget summaries', () => {
-    test('should accumulate like savings', () => {
+  describe('goal budget summaries (has targetDate)', () => {
+    test('should accumulate like other budgets', () => {
       const budget = makeBudget({
         budgetId: 1,
-        type: 'goal',
         targetAmount: 5000000,
+        targetDate: '2026-12-01',
       });
       const allocations = [
         makeAllocation({ budgetId: 1, amount: 1000000, period: '2025-12' }),
@@ -533,9 +532,13 @@ describe('BudgetCalculationService', () => {
     });
   });
 
-  describe('periodic budget summaries', () => {
-    test('should accumulate like savings', () => {
-      const budget = makeBudget({ budgetId: 1, type: 'periodic' });
+  describe('periodic budget summaries (has cadenceUnit + cadenceCount)', () => {
+    test('should accumulate like other budgets', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
+      });
       const allocations = [
         makeAllocation({ budgetId: 1, amount: 200000, period: '2026-01' }),
         makeAllocation({ budgetId: 1, amount: 200000, period: MONTH }),
@@ -558,8 +561,8 @@ describe('BudgetCalculationService', () => {
   describe('multiple budgets', () => {
     test('should compute summaries for all active budgets', () => {
       const budgets = [
-        makeBudget({ budgetId: 1, name: 'Groceries', type: 'spending' }),
-        makeBudget({ budgetId: 2, name: 'Emergency Fund', type: 'savings' }),
+        makeBudget({ budgetId: 1, name: 'Groceries' }),
+        makeBudget({ budgetId: 2, name: 'Emergency Fund' }),
         makeBudget({ budgetId: 3, name: 'Archived', isArchived: true }),
       ];
       const allocations = [
@@ -585,10 +588,9 @@ describe('BudgetCalculationService', () => {
   });
 
   describe('suggestedAllocation', () => {
-    test('should suggest targetAmount minus available for spending budgets', () => {
+    test('should suggest targetAmount minus available for simple budgets', () => {
       const budget = makeBudget({
         budgetId: 1,
-        type: 'spending',
         targetAmount: 500000,
       });
       const allocations = [
@@ -603,7 +605,6 @@ describe('BudgetCalculationService', () => {
     test('should suggest 0 when available meets or exceeds target', () => {
       const budget = makeBudget({
         budgetId: 1,
-        type: 'spending',
         targetAmount: 500000,
       });
       const allocations = [
@@ -617,7 +618,6 @@ describe('BudgetCalculationService', () => {
     test('should suggest 0 when targetAmount is 0', () => {
       const budget = makeBudget({
         budgetId: 1,
-        type: 'spending',
         targetAmount: 0,
       });
       const result = service.compute(MONTH, [budget], [], [], []);
@@ -625,10 +625,9 @@ describe('BudgetCalculationService', () => {
       expect(summary.suggestedAllocation).toBe(0);
     });
 
-    test('should divide remaining by months for goal budgets', () => {
+    test('should divide remaining by months for goal budgets (has targetDate)', () => {
       const budget = makeBudget({
         budgetId: 1,
-        type: 'goal',
         targetAmount: 1200000,
         targetDate: '2026-06-15',
       });
@@ -646,7 +645,6 @@ describe('BudgetCalculationService', () => {
     test('should suggest full remaining for goal without target date', () => {
       const budget = makeBudget({
         budgetId: 1,
-        type: 'goal',
         targetAmount: 1000000,
         targetDate: null,
       });
@@ -655,12 +653,12 @@ describe('BudgetCalculationService', () => {
       expect(summary.suggestedAllocation).toBe(1000000);
     });
 
-    test('should compute monthly amount for yearly periodic budget', () => {
+    test('should compute monthly amount for year cadence periodic budget', () => {
       const budget = makeBudget({
         budgetId: 1,
-        type: 'periodic',
         targetAmount: 1200000,
-        targetCadence: 'yearly',
+        cadenceUnit: 'year',
+        cadenceCount: 1,
       });
       // monthly = ceil(1200000 / 12) = 100000
       // available = 0, no cap, suggestion = max(0, 100000 - 0) = 100000
@@ -672,27 +670,47 @@ describe('BudgetCalculationService', () => {
     test('should respect cap for periodic budget', () => {
       const budget = makeBudget({
         budgetId: 1,
-        type: 'periodic',
         targetAmount: 100000,
-        targetCadence: 'monthly',
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         cap: 250000,
       });
       const allocations = [
-        makeAllocation({ budgetId: 1, amount: 200000, period: '2026-01' }),
+        makeAllocation({ budgetId: 1, amount: 50000, period: '2026-01' }),
       ];
-      // available = 200000, cap = 250000, monthly = 100000
-      // suggestion = min(100000, max(0, 250000 - 200000)) = min(100000, 50000) = 50000
+      // available = 50000, cap = 250000, monthly = 100000
+      // periodic suggestion = max(0, 100000 - 50000) = 50000
+      // cap post-processing = min(50000, max(0, 250000 - 50000)) = 50000
       const result = service.compute(MONTH, [budget], allocations, [], []);
       const summary = getSummary(result, 0);
       expect(summary.suggestedAllocation).toBe(50000);
     });
 
+    test('should limit suggestion by cap when near cap limit', () => {
+      const budget = makeBudget({
+        budgetId: 1,
+        targetAmount: 100000,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
+        cap: 120000,
+      });
+      const allocations = [
+        makeAllocation({ budgetId: 1, amount: 90000, period: '2026-01' }),
+      ];
+      // available = 90000, cap = 120000, monthly = 100000
+      // periodic suggestion = max(0, 100000 - 90000) = 10000
+      // cap post-processing = min(10000, max(0, 120000 - 90000)) = min(10000, 30000) = 10000
+      const result = service.compute(MONTH, [budget], allocations, [], []);
+      const summary = getSummary(result, 0);
+      expect(summary.suggestedAllocation).toBe(10000);
+    });
+
     test('should suggest 0 when available reaches cap', () => {
       const budget = makeBudget({
         budgetId: 1,
-        type: 'periodic',
         targetAmount: 100000,
-        targetCadence: 'monthly',
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         cap: 200000,
       });
       const allocations = [
@@ -705,13 +723,12 @@ describe('BudgetCalculationService', () => {
       expect(summary.suggestedAllocation).toBe(0);
     });
 
-    test('should compute custom cadence monthly amount', () => {
+    test('should compute multi-month cadence monthly amount', () => {
       const budget = makeBudget({
         budgetId: 1,
-        type: 'periodic',
         targetAmount: 600000,
-        targetCadence: 'custom',
-        targetCadenceMonths: 6,
+        cadenceUnit: 'month',
+        cadenceCount: 6,
       });
       // monthly = ceil(600000 / 6) = 100000
       const result = service.compute(MONTH, [budget], [], [], []);
@@ -719,10 +736,9 @@ describe('BudgetCalculationService', () => {
       expect(summary.suggestedAllocation).toBe(100000);
     });
 
-    test('should suggest targetAmount minus available for savings budgets', () => {
+    test('should suggest targetAmount minus available for accumulating budgets', () => {
       const budget = makeBudget({
         budgetId: 1,
-        type: 'savings',
         targetAmount: 500000,
       });
       const allocations = [
@@ -806,10 +822,9 @@ describe('BudgetCalculationService', () => {
       expect(summary.isExpired).toBe(false);
     });
 
-    test('goal budget past targetDate (no endDate): excluded if zero balance', () => {
+    test('budget with targetDate past (no endDate): excluded if zero balance', () => {
       const budget = makeBudget({
         budgetId: 1,
-        type: 'goal',
         targetAmount: 1000000,
         targetDate: '2026-01-15',
         endDate: null,
@@ -820,10 +835,9 @@ describe('BudgetCalculationService', () => {
       expect(result.budgetSummaries.length).toBe(0);
     });
 
-    test('goal budget past targetDate with funds: included as expired', () => {
+    test('budget with targetDate past and funds: included as expired', () => {
       const budget = makeBudget({
         budgetId: 1,
-        type: 'goal',
         targetAmount: 1000000,
         targetDate: '2026-01-15',
         endDate: null,
@@ -874,7 +888,7 @@ describe('BudgetCalculationService', () => {
     });
 
     test('should handle transactions without budget assignment', () => {
-      const budget = makeBudget({ budgetId: 1, type: 'spending' });
+      const budget = makeBudget({ budgetId: 1 });
       const allocations = [makeAllocation({ budgetId: 1, amount: 500000 })];
       const txns = [
         makeTransaction({ budgetId: null, amount: 50000 }),

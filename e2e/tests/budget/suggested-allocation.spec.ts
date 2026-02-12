@@ -26,7 +26,6 @@ test('should show target amount as suggested for unallocated spending budget', a
   const targetAmount = 5000;
   const budget = await createBudget({
     name: `Suggested Test ${Date.now()}`,
-    type: 'SPENDING',
     targetAmount,
   });
 
@@ -65,7 +64,6 @@ test('should decrease suggested allocation after partial allocation', async ({
 
   const budget = await createBudget({
     name: `Partial Alloc ${Date.now()}`,
-    type: 'SPENDING',
     targetAmount,
   });
 
@@ -105,7 +103,6 @@ test('should show no suggested allocation when fully allocated', async ({
 
   const budget = await createBudget({
     name: `Full Alloc ${Date.now()}`,
-    type: 'SPENDING',
     targetAmount,
   });
 

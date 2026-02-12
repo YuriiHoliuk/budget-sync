@@ -66,7 +66,6 @@ describe('ArchiveBudgetUseCase', () => {
   test('should preserve all other fields when archiving', async () => {
     const existing = createTestBudget({
       name: 'My Budget',
-      type: 'savings',
       isArchived: false,
       dbId: 1,
     });
@@ -78,7 +77,6 @@ describe('ArchiveBudgetUseCase', () => {
       mockBudgetRepository.update as ReturnType<typeof mock>,
     );
     expect(archivedBudget.name).toBe('My Budget');
-    expect(archivedBudget.type).toBe('savings');
     expect(archivedBudget.isArchived).toBe(true);
   });
 

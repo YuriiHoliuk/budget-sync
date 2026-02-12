@@ -56,7 +56,6 @@ test('should hide budget with past endDate and zero balance', async ({
   // Create budget with endDate in the past and no funds
   await createBudget({
     name: budgetName,
-    type: 'SPENDING',
     targetAmount: 5000,
     startDate: getPastStartDate(),
     endDate: getPastEndDate(),
@@ -83,7 +82,6 @@ test('should show expired badge for past budget with remaining funds', async ({
   // Create budget with endDate in the past
   const budget = await createBudget({
     name: budgetName,
-    type: 'SPENDING',
     targetAmount: 5000,
     startDate: getPastStartDate(),
     endDate: getPastEndDate(),
@@ -124,7 +122,6 @@ test('should always show recurring budget without endDate', async ({
 
   await createBudget({
     name: budgetName,
-    type: 'SPENDING',
     targetAmount: 5000,
   });
 
@@ -159,7 +156,6 @@ test('should hide budget with future startDate', async ({
 
   await createBudget({
     name: budgetName,
-    type: 'SPENDING',
     targetAmount: 5000,
     startDate: getFutureStartDate(),
   });

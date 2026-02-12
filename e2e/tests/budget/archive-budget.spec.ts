@@ -7,7 +7,6 @@ test('should archive budget and remove from list', async ({ authenticatedPage })
   // First, create a test budget via API that we'll archive
   const testBudget = await createBudget({
     name: `Archive Test ${Date.now()}`,
-    type: 'SPENDING',
     targetAmount: 1000,
   });
 
