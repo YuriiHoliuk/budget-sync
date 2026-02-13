@@ -4,16 +4,12 @@ import { Currency, Money } from '@domain/value-objects/index.ts';
 import { DatabaseBudgetMapper } from '@infrastructure/mappers/DatabaseBudgetMapper.ts';
 import type { BudgetRow, NewBudgetRow } from '@modules/database/types.ts';
 
-// Helper to create a default BudgetRow with old columns for backward compatibility
 function createBudgetRow(overrides: Partial<BudgetRow>): BudgetRow {
   return {
     id: 1,
     name: 'Test Budget',
-    type: 'spending',
     currency: 'UAH',
     targetAmount: 100000,
-    targetCadence: null,
-    targetCadenceMonths: null,
     cadenceUnit: null,
     cadenceCount: null,
     targetDate: null,
@@ -124,16 +120,15 @@ describe('DatabaseBudgetMapper', () => {
       const budget = mapper.toEntity(row);
 
       expect(budget.cadenceUnit).toBe('year');
+      expect(budget.cadenceCount).toBe(1);
       expect(budget.targetDate).toEqual(new Date('2026-06-01'));
     });
 
-    test('should fallback to old cadence columns when new ones are null', () => {
+    test('should default cadenceCount to 1 when cadenceUnit is set but count is null', () => {
       const row = createBudgetRow({
-        name: 'Legacy Periodic Budget',
-        targetAmount: 1200000,
-        targetCadence: 'monthly',
-        targetCadenceMonths: null,
-        cadenceUnit: null,
+        name: 'Monthly Budget',
+        targetAmount: 500000,
+        cadenceUnit: 'month',
         cadenceCount: null,
       });
 
@@ -141,22 +136,6 @@ describe('DatabaseBudgetMapper', () => {
 
       expect(budget.cadenceUnit).toBe('month');
       expect(budget.cadenceCount).toBe(1);
-    });
-
-    test('should fallback to old custom cadence', () => {
-      const row = createBudgetRow({
-        name: 'Legacy Custom Cadence',
-        targetAmount: 900000,
-        targetCadence: 'custom',
-        targetCadenceMonths: 3,
-        cadenceUnit: null,
-        cadenceCount: null,
-      });
-
-      const budget = mapper.toEntity(row);
-
-      expect(budget.cadenceUnit).toBe('month');
-      expect(budget.cadenceCount).toBe(3);
     });
 
     test('should map isArchived', () => {
@@ -217,10 +196,6 @@ describe('DatabaseBudgetMapper', () => {
       expect(row.targetDate).toBeNull();
       expect(row.isArchived).toBe(false);
       expect(row.sortOrder).toBe('a0');
-      // Dual-write: old columns should also be set
-      expect(row.type).toBe('spending');
-      expect(row.targetCadence).toBeNull();
-      expect(row.targetCadenceMonths).toBeNull();
     });
 
     test('should format startDate correctly', () => {
@@ -383,7 +358,7 @@ describe('DatabaseBudgetMapper', () => {
       expect(row.targetDate).toBe('2026-12-01');
     });
 
-    test('should dual-write cadence to old columns', () => {
+    test('should map cadence unit and count to insert row', () => {
       const budget = Budget.create({
         name: 'Monthly Budget',
         amount: Money.create(500000, Currency.UAH),
@@ -402,12 +377,9 @@ describe('DatabaseBudgetMapper', () => {
 
       expect(row.cadenceUnit).toBe('month');
       expect(row.cadenceCount).toBe(1);
-      // Dual-write to old columns
-      expect(row.targetCadence).toBe('monthly');
-      expect(row.targetCadenceMonths).toBeNull();
     });
 
-    test('should dual-write custom cadence to old columns', () => {
+    test('should map quarterly cadence to insert row', () => {
       const budget = Budget.create({
         name: 'Quarterly Budget',
         amount: Money.create(900000, Currency.UAH),
@@ -426,9 +398,6 @@ describe('DatabaseBudgetMapper', () => {
 
       expect(row.cadenceUnit).toBe('month');
       expect(row.cadenceCount).toBe(3);
-      // Dual-write to old columns as 'custom'
-      expect(row.targetCadence).toBe('custom');
-      expect(row.targetCadenceMonths).toBe(3);
     });
 
     test('should map sortOrder to insert row', () => {
