@@ -6,13 +6,14 @@ import {
 } from '../../fixtures/index.ts';
 
 /**
- * Get the current month in YYYY-MM format.
+ * Get the first day of the previous month as YYYY-MM-DD.
  */
-function getCurrentMonth(): string {
+function getFirstDayOfPreviousMonth(): string {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  return `${year}-${month}`;
+  const date = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
 }
 
 /**
@@ -34,9 +35,9 @@ function getFutureDate(monthsAhead: number): string {
 }
 
 /**
- * Verify that end date input has a min attribute set to first day of current month.
+ * Verify that end date input has a min attribute set to first day of previous month.
  */
-test('should set end date min attribute to first day of current month', async ({
+test('should set end date min attribute to first day of previous month', async ({
   authenticatedPage,
 }) => {
   const budget = await createBudget({
@@ -51,7 +52,7 @@ test('should set end date min attribute to first day of current month', async ({
   const dialog = await budgetPage.openEditBudgetDialog(budget.id);
 
   const minValue = await dialog.getEndDateMin();
-  const expectedMin = `${getCurrentMonth()}-01`;
+  const expectedMin = getFirstDayOfPreviousMonth();
   expect(minValue).toBe(expectedMin);
 
   await dialog.close();
