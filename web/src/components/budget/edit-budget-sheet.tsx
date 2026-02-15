@@ -89,8 +89,18 @@ function formatMonthDisplay(month: string): string {
   return date.toLocaleDateString("en-US", { year: "numeric", month: "long" });
 }
 
-function getFirstDayOfMonth(month: string): string {
-  return `${month}-01`;
+function getFirstDayOfPreviousMonth(month: string): string {
+  const date = new Date(`${month}-01`);
+  date.setMonth(date.getMonth() - 1);
+  const year = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${m}-01`;
+}
+
+function getPreviousMonthDisplay(month: string): string {
+  const date = new Date(`${month}-01`);
+  date.setMonth(date.getMonth() - 1);
+  return date.toLocaleDateString("en-US", { year: "numeric", month: "long" });
 }
 
 const NONE_GROUP_VALUE = "__none__";
@@ -164,7 +174,7 @@ function EditBudgetSheetContent({
     }
   };
 
-  const minEndDate = getFirstDayOfMonth(month);
+  const minEndDate = getFirstDayOfPreviousMonth(month);
 
   return (
     <>
@@ -299,7 +309,7 @@ function EditBudgetSheetContent({
             />
             <p className="text-xs text-muted-foreground">
               Leave empty for recurring budgets. Cannot be set earlier than{" "}
-              {formatMonthDisplay(month)}.
+              {getPreviousMonthDisplay(month)}.
             </p>
           </div>
 

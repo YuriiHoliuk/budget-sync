@@ -163,7 +163,7 @@ export class UpdateBudgetUseCase extends UseCase<
 
     const endDateString = request.endDate;
     const endDateValue = new Date(endDateString);
-    const minDate = this.getFirstDayOfMonth(request.month);
+    const minDate = this.getFirstDayOfPreviousMonth(request.month);
 
     if (endDateValue < minDate) {
       const minDateString = minDate.toISOString().split('T')[0] ?? '';
@@ -173,7 +173,9 @@ export class UpdateBudgetUseCase extends UseCase<
     return endDateValue;
   }
 
-  private getFirstDayOfMonth(month: string): Date {
-    return new Date(`${month}-01T00:00:00.000Z`);
+  private getFirstDayOfPreviousMonth(month: string): Date {
+    const date = new Date(`${month}-01T00:00:00.000Z`);
+    date.setUTCMonth(date.getUTCMonth() - 1);
+    return date;
   }
 }
