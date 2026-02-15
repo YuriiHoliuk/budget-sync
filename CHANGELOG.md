@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-02-15
+
+### Fixed
+- Budget progress bar now shows red only when overspent (available < 0), not at exactly 100% usage (UI-002)
+- Month selector on transactions page no longer redirects to budgets page (UI-003)
+- Budget filter dropdown in transactions now shows all non-archived budgets, including expired ones (UI-004)
+
+### Added
+- Sticky budget table header so column names remain visible when scrolling (UI-001)
+
 ## 2026-02-06
 
 ### Added

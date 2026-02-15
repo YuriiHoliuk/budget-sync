@@ -198,7 +198,7 @@ export function TransactionsTable() {
   });
 
   const { data: budgetsData } = useQuery(GetBudgetsDocument, {
-    variables: { activeOnly: true },
+    variables: { activeOnly: false },
   });
 
   const [updateCategory] = useMutation(UpdateTransactionCategoryDocument, {

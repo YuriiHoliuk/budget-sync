@@ -466,7 +466,7 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
       </div>
       <div className="rounded-xl border">
         <Table data-qa="budget-table">
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[32px]" />
               <TableHead className="w-[200px]">Budget</TableHead>
@@ -1085,7 +1085,7 @@ const BudgetRow = forwardRef<
       </TableCell>
       <TableCell>
         {summary.targetAmount > 0 ? (
-          <BudgetProgressBar percentage={progressPercentage} />
+          <BudgetProgressBar percentage={progressPercentage} available={summary.available} />
         ) : null}
       </TableCell>
       <TableCell>
@@ -1117,20 +1117,20 @@ const BudgetRow = forwardRef<
   );
 });
 
-function getProgressBarColor(percentage: number): string {
-  if (percentage >= 100) return "bg-red-500";
+function getProgressBarColor(percentage: number, available: number): string {
+  if (available < 0) return "bg-red-500";
   if (percentage >= 80) return "bg-yellow-500";
   return "bg-green-500";
 }
 
-function BudgetProgressBar({ percentage }: { percentage: number }) {
+function BudgetProgressBar({ percentage, available }: { percentage: number; available: number }) {
   return (
     <div className="flex items-center gap-2">
       <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
         <div
           className={cn(
             "absolute inset-y-0 left-0 rounded-full transition-all",
-            getProgressBarColor(percentage),
+            getProgressBarColor(percentage, available),
           )}
           style={{ width: `${percentage}%` }}
         />
