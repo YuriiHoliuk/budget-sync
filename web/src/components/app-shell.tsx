@@ -15,7 +15,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <MonthProvider>
           <SidebarProvider>
             <AppSidebar />
-            <SidebarInset>
+            <SidebarInset className="max-h-svh overflow-hidden">
               <AppHeader />
               <main className="min-w-0 flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
             </SidebarInset>

@@ -344,7 +344,7 @@ export function TransactionsTable() {
             </div>
           ) : (
             <>
-              <div className="overflow-clip rounded-xl border">
+              <div className="rounded-xl border">
                 <Table data-qa="transactions-table">
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
