@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useMutation, useQuery } from "@apollo/client/react";
 import {
   ChevronLeft,
@@ -57,11 +58,12 @@ import {
 } from "@/graphql/generated/graphql";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { parseTransactionFiltersFromParams } from "@/lib/url-utils";
 import { TransactionDetailPanel } from "./transaction-detail-panel";
 
 type Transaction = GetTransactionsQuery["transactions"]["items"][number];
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 50;
 
 const TYPE_CONFIG: Record<TransactionTypeEnum, { icon: typeof ArrowDownCircle; color: string; label: string }> = {
   [TransactionTypeEnum.Credit]: {
@@ -174,11 +176,58 @@ function countActiveFilters(filters: TransactionFilters): number {
   return count;
 }
 
+function filtersToUrlParams(filters: TransactionFilters, page: number): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filters.search) params.set("search", filters.search);
+  if (filters.accountId !== null) params.set("accountId", String(filters.accountId));
+  if (filters.categoryId !== null) params.set("categoryId", String(filters.categoryId));
+  if (filters.budgetId !== null) params.set("budgetId", String(filters.budgetId));
+  if (filters.type !== null) params.set("type", filters.type);
+  if (filters.status !== null) params.set("status", filters.status);
+  if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
+  if (filters.dateTo) params.set("dateTo", filters.dateTo);
+  if (page > 0) params.set("page", String(page + 1));
+  return params;
+}
+
 export function TransactionsTable() {
-  const [filters, setFilters] = useState<TransactionFilters>(emptyFilters);
-  const [page, setPage] = useState(0);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const isInitialMount = useRef(true);
+
+  const [filters, setFilters] = useState<TransactionFilters>(() => {
+    const parsed = parseTransactionFiltersFromParams(searchParams);
+    return {
+      search: parsed.search ?? "",
+      accountId: parsed.accountId ?? null,
+      categoryId: parsed.categoryId ?? null,
+      budgetId: parsed.budgetId ?? null,
+      type: parsed.type ?? null,
+      status: parsed.status ?? null,
+      dateFrom: parsed.dateFrom ?? "",
+      dateTo: parsed.dateTo ?? "",
+    };
+  });
+  const [page, setPage] = useState(() => {
+    const pageParam = searchParams.get("page");
+    if (!pageParam) return 0;
+    const parsed = Number.parseInt(pageParam, 10);
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed - 1 : 0;
+  });
   const [editingTransaction, setEditingTransaction] = useState<number | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<number | null>(null);
+
+  // Sync state changes back to URL
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const params = filtersToUrlParams(filters, page);
+    const query = params.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+  }, [filters, page, router, pathname]);
 
   const gqlFilter = useMemo(() => filtersToGraphQL(filters), [filters]);
 
