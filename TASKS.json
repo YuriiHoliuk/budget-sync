@@ -40,7 +40,7 @@
     "id": "NAV-001",
     "phase": "NAV: Budget-to-Transactions Navigation",
     "title": "Add URL search params support to Transactions page",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/budget-to-transactions-nav.md",
     "description": "Extract getDateRangeFromMonth() to shared web/src/lib/url-utils.ts with buildTransactionsUrl() helper. Update TransactionsTable to accept optional initialFilters prop. Update transactions page.tsx to read URL search params (budgetId, dateFrom, dateTo, etc.) via useSearchParams() and pass as initialFilters. Update unbudgeted-transactions-warning.tsx to import from shared utility.",
     "dependencies": []
@@ -49,7 +49,7 @@
     "id": "NAV-002",
     "phase": "NAV: Budget-to-Transactions Navigation",
     "title": "Add clickable navigation from budget rows to filtered transactions",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/budget-to-transactions-nav.md",
     "description": "In budget-table.tsx, make budget name a next/link pointing to /transactions?budgetId=<id>&dateFrom=<first>&dateTo=<last> using the month from useMonth() and buildTransactionsUrl() helper. Also add 'View Transactions' item to the budget row dropdown menu (three dots). Ensure link does not interfere with drag-and-drop (drag handle is separate).",
     "dependencies": ["NAV-001"]
@@ -58,7 +58,7 @@
     "id": "NAV-003",
     "phase": "NAV: Budget-to-Transactions Navigation",
     "title": "Sync transaction filters to URL search params (optional enhancement)",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/budget-to-transactions-nav.md",
     "description": "When user changes filters on the transactions page, update URL search params using router.replace() so filtered views are shareable and bookmarkable. Ensures URL stays in sync with filter state after initial load from search params.",
     "dependencies": ["NAV-001"]
@@ -151,7 +151,7 @@
     "id": "PAG-001",
     "phase": "PAG: Transaction Pagination Improvements",
     "title": "Increase transaction page size from 25 to 50",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/transaction-pagination-url.md",
     "description": "Change PAGE_SIZE constant from 25 to 50 in web/src/components/transactions/transactions-table.tsx to show more transactions per page. The backend already defaults to 50 and supports up to 200, so no server changes needed.",
     "dependencies": []
@@ -160,7 +160,7 @@
     "id": "PAG-002",
     "phase": "PAG: Transaction Pagination Improvements",
     "title": "Add page number to URL search params for pagination state preservation",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/transaction-pagination-url.md",
     "description": "In TransactionsTable, use useSearchParams/useRouter/usePathname from next/navigation to read initial page from ?page= URL param and sync page changes back to URL via router.replace(). Page 1 omits the param for clean URLs. Wrap TransactionsTable in Suspense in page.tsx. Update handleFilterChange and handleClearFilters to also clear the URL param when resetting to page 0.",
     "dependencies": ["PAG-001"]
@@ -255,5 +255,115 @@
     "plan": "claude_plans/categorization-queue.md",
     "description": "Update docs/infrastructure.md with new Pub/Sub resources (categorization-queue topic, subscription, DLQ). Document the push-based categorization flow and retry behavior.",
     "dependencies": ["CATQ-001"]
+  },
+
+  {
+    "id": "SRCH-001",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Install cmdk and add ShadCN Command UI component",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "Install cmdk ^1.0.0 in web/. Create web/src/components/ui/command.tsx with the standard ShadCN Command component wrapper (Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem, CommandSeparator).",
+    "dependencies": []
+  },
+  {
+    "id": "SRCH-002",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Create generic SearchableSelect wrapper component",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "Create web/src/components/ui/searchable-select.tsx that combines Popover + Command into a reusable searchable select. Supports grouped options, optional clear/none option, custom item rendering, search filtering, keyboard navigation, and data-qa attributes. Trigger visually matches the existing SelectTrigger style.",
+    "dependencies": ["SRCH-001"]
+  },
+  {
+    "id": "SRCH-003",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Create CategoryCombobox component",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "Create web/src/components/categories/category-combobox.tsx. Wraps SearchableSelect with category-specific logic: groups child categories under parent headers using CommandGroup, searches against both name and fullPath, supports rootOnly mode (for parent selection), excludeIds (for edit forms), allowNone and allowAll modes.",
+    "dependencies": ["SRCH-002"]
+  },
+  {
+    "id": "SRCH-004",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Create BudgetCombobox component",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "Create web/src/components/budget/budget-combobox.tsx. Wraps SearchableSelect with budget-specific logic: flat list of budgets, supports allowNone and allowAll modes, optional showBalance variant that displays available balance next to each budget name (for move funds), disabledIds to prevent selecting specific budgets.",
+    "dependencies": ["SRCH-002"]
+  },
+  {
+    "id": "SRCH-005",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Replace selects in transaction detail panel",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "In web/src/components/transactions/transaction-detail-panel.tsx, replace the category Select with CategoryCombobox (allowNone mode) and the budget Select with BudgetCombobox (allowNone mode). Remove Select import if no longer needed. Preserve data-qa attributes and existing mutation handlers.",
+    "dependencies": ["SRCH-003", "SRCH-004"]
+  },
+  {
+    "id": "SRCH-006",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Replace selects in transactions table (filters and inline edits)",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "In web/src/components/transactions/transactions-table.tsx, replace: category filter Select with CategoryCombobox (allowAll), budget filter Select with BudgetCombobox (allowAll), inline category edit Select with CategoryCombobox (allowNone, compact h-8), inline budget edit Select with BudgetCombobox (allowNone, compact h-8). Keep account/type/status selects as plain Select.",
+    "dependencies": ["SRCH-003", "SRCH-004"]
+  },
+  {
+    "id": "SRCH-007",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Replace selects in unbudgeted transactions warning",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "In web/src/components/budget/unbudgeted-transactions-warning.tsx, replace the budget assignment Select with BudgetCombobox. Each transaction row gets a searchable budget picker instead of a plain dropdown.",
+    "dependencies": ["SRCH-004"]
+  },
+  {
+    "id": "SRCH-008",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Replace selects in move funds dialog and sheet",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "In web/src/components/budget/move-funds-dialog.tsx and move-funds-sheet.tsx, replace source and destination budget Select with BudgetCombobox (showBalance mode). Pass balanceMap from budgetSummaries to display available balance next to each option. Use disabledIds to prevent selecting the same budget as source and destination.",
+    "dependencies": ["SRCH-004"]
+  },
+  {
+    "id": "SRCH-009",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Replace selects in category create/edit dialogs and sheets",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "In create-category-dialog.tsx, create-category-sheet.tsx, edit-category-dialog.tsx, and edit-category-sheet.tsx, replace parent category Select with CategoryCombobox (rootOnly mode). For edit variants, use excludeIds to prevent selecting the category being edited as its own parent. Keep status Select as plain Select (only 2-3 options).",
+    "dependencies": ["SRCH-003"]
+  },
+  {
+    "id": "SRCH-010",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Update E2E test helpers and page objects for combobox interactions",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "Add searchAndSelectOption(qaAttribute, searchText, optionText) method to e2e/components/Dialog.ts for combobox interactions (click trigger, type search text, select matching option). Update TransactionsPage.ts (filterByCategory, filterByBudget), CategoriesPage.ts (selectParent), BudgetPage.ts (selectSourceBudget, selectDestinationBudget), and move-funds.spec.ts to use the new combobox interaction pattern.",
+    "dependencies": ["SRCH-005", "SRCH-006", "SRCH-007", "SRCH-008", "SRCH-009"]
+  },
+
+  {
+    "id": "UI-005",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Add padding to transaction detail sidebar content",
+    "status": "pending",
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "The transaction detail panel (SheetContent in transaction-detail-panel.tsx) has no horizontal padding on its body content, so text and controls touch the edges of the sidebar. The SheetHeader already has p-4 from the Sheet UI component, but the body div (line 292: <div className=\"mt-6 space-y-6\">) has no px-* or pb-* classes. Fix by adding px-4 pb-6 (or px-6 pb-6 to match a wider feel) to the body content div. Also consider adding px-4 to SheetContent itself for consistency, but note this would double-pad the SheetHeader which already has p-4. The cleanest fix is to add px-4 pb-6 to the body div at line 292.",
+    "dependencies": []
+  },
+  {
+    "id": "UI-006",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Add prominent verify button for AI-categorized transactions",
+    "status": "pending",
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "When a transaction has categorizationStatus='categorized' (AI-assigned), there should be a quick, prominent way to approve the categorization without changing category or budget. Currently, the detail panel has a full-width 'Verify Categorization' outline button (lines 357-371) and the table has a small ghost checkmark icon in the last column (lines 790-803). The table's inline verify button is too subtle for categorized transactions -- it's the same small ghost icon for both 'pending' and 'categorized' statuses. Improvements: (1) In the transactions table, make the verify button more prominent specifically for 'categorized' status -- use a colored variant (e.g., blue outline or a filled icon matching the blue 'Categorized' badge color) to draw attention. Consider adding a tooltip 'Approve AI categorization'. (2) In the detail panel, make the verify button more prominent when status is 'categorized' -- change from outline to default/primary variant with a label like 'Approve AI Categorization' and use the blue/green color scheme. For 'pending' status, keep the current subtle outline style. The VerifyTransaction GraphQL mutation already exists (mutations/transactions.graphql) and is already wired up in both components.",
+    "dependencies": []
   }
 ]

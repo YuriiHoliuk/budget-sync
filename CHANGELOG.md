@@ -2,13 +2,21 @@
 
 ## 2026-02-15
 
+### Added
+- Budget names in budget table are clickable links to filtered transactions view (NAV-002)
+- "View Transactions" item in budget row dropdown menu (NAV-002)
+- Transaction filters and pagination synced to URL search params — shareable and bookmarkable (NAV-001, NAV-003, PAG-002)
+- Shared URL utilities: `getDateRangeFromMonth()`, `buildTransactionsUrl()`, `parseTransactionFiltersFromParams()` in `web/src/lib/url-utils.ts` (NAV-001)
+- Suspense boundary around TransactionsTable for `useSearchParams()` compatibility (PAG-002)
+- Sticky budget table header so column names remain visible when scrolling (UI-001)
+
+### Changed
+- Increased transaction page size from 25 to 50 (PAG-001)
+
 ### Fixed
 - Budget progress bar now shows red only when overspent (available < 0), not at exactly 100% usage (UI-002)
 - Month selector on transactions page no longer redirects to budgets page (UI-003)
 - Budget filter dropdown in transactions now shows all non-archived budgets, including expired ones (UI-004)
-
-### Added
-- Sticky budget table header so column names remain visible when scrolling (UI-001)
 
 ## 2026-02-06
 
