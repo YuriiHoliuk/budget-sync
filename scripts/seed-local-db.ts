@@ -215,11 +215,13 @@ async function seedBudgets(groups: Array<{ id: number; name: string }>) {
   return await db
     .insert(budgets)
     .values([
-      // Everyday group budgets
+      // Everyday group budgets (monthly)
       {
         name: 'Продукти',
         currency: 'UAH',
         targetAmount: 1000000,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         sortOrder: 'a0',
         budgetGroupId: everydayId,
       },
@@ -227,6 +229,8 @@ async function seedBudgets(groups: Array<{ id: number; name: string }>) {
         name: 'Ресторани та кав\'ярні',
         currency: 'UAH',
         targetAmount: 500000,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         sortOrder: 'a1',
         budgetGroupId: everydayId,
       },
@@ -234,6 +238,8 @@ async function seedBudgets(groups: Array<{ id: number; name: string }>) {
         name: 'Транспорт',
         currency: 'UAH',
         targetAmount: 300000,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         sortOrder: 'a2',
         budgetGroupId: everydayId,
       },
@@ -241,6 +247,8 @@ async function seedBudgets(groups: Array<{ id: number; name: string }>) {
         name: 'Розваги',
         currency: 'UAH',
         targetAmount: 400000,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         sortOrder: 'a3',
         budgetGroupId: everydayId,
       },
@@ -248,6 +256,8 @@ async function seedBudgets(groups: Array<{ id: number; name: string }>) {
         name: 'Одяг',
         currency: 'UAH',
         targetAmount: 300000,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         sortOrder: 'a4',
         budgetGroupId: everydayId,
       },
@@ -255,14 +265,18 @@ async function seedBudgets(groups: Array<{ id: number; name: string }>) {
         name: 'Здоров\'я',
         currency: 'UAH',
         targetAmount: 200000,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         sortOrder: 'a5',
         budgetGroupId: everydayId,
       },
-      // Bills & Housing group budgets
+      // Bills & Housing group budgets (monthly)
       {
         name: 'Підписки',
         currency: 'UAH',
         targetAmount: 150000,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         sortOrder: 'a6',
         budgetGroupId: billsId,
       },
@@ -270,6 +284,8 @@ async function seedBudgets(groups: Array<{ id: number; name: string }>) {
         name: 'Комунальні послуги',
         currency: 'UAH',
         targetAmount: 400000,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         sortOrder: 'a7',
         budgetGroupId: billsId,
       },
@@ -277,14 +293,18 @@ async function seedBudgets(groups: Array<{ id: number; name: string }>) {
         name: 'Оренда',
         currency: 'UAH',
         targetAmount: 1500000,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         sortOrder: 'a8',
         budgetGroupId: billsId,
       },
-      // Ungrouped budget
+      // Ungrouped budget (monthly)
       {
         name: 'Інше',
         currency: 'UAH',
         targetAmount: 200000,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         sortOrder: 'a9',
       },
       // Goals & Savings group budgets
@@ -292,6 +312,8 @@ async function seedBudgets(groups: Array<{ id: number; name: string }>) {
         name: 'Фонд безпеки',
         currency: 'UAH',
         targetAmount: 500000,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         cap: 20000000,
         sortOrder: 'aA',
         budgetGroupId: goalsId,
@@ -312,7 +334,7 @@ async function seedBudgets(groups: Array<{ id: number; name: string }>) {
         sortOrder: 'aC',
         budgetGroupId: goalsId,
       },
-      // Periodic budgets in Bills group
+      // Periodic budgets (non-standard cadence)
       {
         name: 'Страховка авто',
         currency: 'UAH',
@@ -353,6 +375,8 @@ async function seedBudgets(groups: Array<{ id: number; name: string }>) {
         name: 'Погашення кредиту',
         currency: 'UAH',
         targetAmount: 500000,
+        cadenceUnit: 'month',
+        cadenceCount: 1,
         sortOrder: 'aH',
         budgetGroupId: billsId,
       },
@@ -368,6 +392,7 @@ interface SeedBudget {
   id: number;
   name: string;
   cadenceUnit: string | null;
+  cadenceCount: number | null;
   targetDate: string | null;
   cap: number | null;
 }
@@ -411,8 +436,8 @@ async function seedBudgetTargets(seedBudgets: SeedBudget[]) {
   }
 }
 
-function isSimpleTargetBudget(budget: SeedBudget): boolean {
-  return !budget.cadenceUnit && !budget.targetDate;
+function isRegularMonthlyBudget(budget: SeedBudget): boolean {
+  return budget.cadenceUnit === 'month' && budget.cadenceCount === 1 && !budget.targetDate;
 }
 
 async function seedAllocations(seedBudgets: SeedBudget[]) {
@@ -428,7 +453,7 @@ async function seedAllocations(seedBudgets: SeedBudget[]) {
 
   for (const budget of seedBudgets) {
     for (const period of periods) {
-      const amount = isSimpleTargetBudget(budget)
+      const amount = isRegularMonthlyBudget(budget)
         ? budget.name === 'Оренда'
           ? 1500000
           : budget.name === 'Продукти'
@@ -468,7 +493,7 @@ async function seedTransactions(
   const incomeCategories = seedCategories.filter((category) =>
     ['Зарплата', 'Фріланс'].includes(category.name),
   );
-  const spendingBudgets = seedBudgets.filter((budget) => isSimpleTargetBudget(budget));
+  const spendingBudgets = seedBudgets.filter((budget) => isRegularMonthlyBudget(budget));
 
   const transactionRows: Array<{
     externalId: string;
