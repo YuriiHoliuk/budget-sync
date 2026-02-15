@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
-  Search,
   X,
   Check,
   Tag,
@@ -19,7 +18,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -38,11 +36,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Label } from "@/components/ui/label";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   GetTransactionsDocument,
   GetAccountsDocument,
@@ -60,6 +58,12 @@ import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { parseTransactionFiltersFromParams } from "@/lib/url-utils";
 import { TransactionDetailPanel } from "./transaction-detail-panel";
+import {
+  TransactionFiltersSidebar,
+  type TransactionFilters,
+  emptyFilters,
+  countActiveFilters,
+} from "./transaction-filters-sidebar";
 
 type Transaction = GetTransactionsQuery["transactions"]["items"][number];
 
@@ -111,28 +115,6 @@ function formatDate(dateString: string): string {
   });
 }
 
-interface TransactionFilters {
-  search: string;
-  accountId: number | null;
-  categoryId: number | null;
-  budgetId: number | null;
-  type: TransactionTypeEnum | null;
-  status: CategorizationStatusEnum | null;
-  dateFrom: string;
-  dateTo: string;
-}
-
-const emptyFilters: TransactionFilters = {
-  search: "",
-  accountId: null,
-  categoryId: null,
-  budgetId: null,
-  type: null,
-  status: null,
-  dateFrom: "",
-  dateTo: "",
-};
-
 function filtersToGraphQL(filters: TransactionFilters): TransactionFilter {
   const gqlFilter: TransactionFilter = {};
 
@@ -162,18 +144,6 @@ function filtersToGraphQL(filters: TransactionFilters): TransactionFilter {
   }
 
   return gqlFilter;
-}
-
-function countActiveFilters(filters: TransactionFilters): number {
-  let count = 0;
-  if (filters.search) count++;
-  if (filters.accountId !== null) count++;
-  if (filters.categoryId !== null) count++;
-  if (filters.budgetId !== null) count++;
-  if (filters.type !== null) count++;
-  if (filters.status !== null) count++;
-  if (filters.dateFrom || filters.dateTo) count++;
-  return count;
 }
 
 function filtersToUrlParams(filters: TransactionFilters, page: number): URLSearchParams {
@@ -217,6 +187,7 @@ export function TransactionsTable() {
   });
   const [editingTransaction, setEditingTransaction] = useState<number | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<number | null>(null);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Sync state changes back to URL
   useEffect(() => {
@@ -270,7 +241,7 @@ export function TransactionsTable() {
   const accounts = useMemo(() => accountsData?.accounts ?? [], [accountsData]);
   const categories = useMemo(() => categoriesData?.categories ?? [], [categoriesData]);
   const budgets = useMemo(
-    () => (budgetsData?.budgets ?? []).filter((b) => !b.isArchived),
+    () => (budgetsData?.budgets ?? []).filter((budget) => !budget.isArchived),
     [budgetsData]
   );
 
@@ -323,267 +294,127 @@ export function TransactionsTable() {
     );
   }
 
+  const sidebarProps = {
+    filters,
+    accounts,
+    categories,
+    budgets,
+    activeFilterCount,
+    onFilterChange: handleFilterChange,
+    onClearFilters: handleClearFilters,
+  };
+
   return (
     <>
-      <div className="space-y-4">
-        <TransactionFiltersBar
-          filters={filters}
-          accounts={accounts}
-          categories={categories}
-          budgets={budgets}
-          activeFilterCount={activeFilterCount}
-          onFilterChange={handleFilterChange}
-          onClearFilters={handleClearFilters}
-        />
-
-        {transactions.length === 0 ? (
-          <div className="rounded-xl border border-dashed p-8 text-center">
-            <p className="text-sm text-muted-foreground" data-qa="text-no-transactions">
-              {activeFilterCount > 0
-                ? "No transactions match your filters."
-                : "No transactions yet."}
-            </p>
+      <div className="flex gap-6">
+        {/* Main content */}
+        <div className="min-w-0 flex-1 space-y-4">
+          {/* Mobile filter button */}
+          <div className="flex items-center gap-2 lg:hidden">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setMobileFiltersOpen(true)}
+              data-qa="btn-filters"
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+              {activeFilterCount > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0">
+                  {activeFilterCount}
+                </Badge>
+              )}
+            </Button>
+            {activeFilterCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={handleClearFilters} className="gap-1" data-qa="btn-clear-filters-mobile">
+                <X className="h-4 w-4" />
+                Clear
+              </Button>
+            )}
           </div>
-        ) : (
-          <>
-            <div className="rounded-xl border">
-              <Table data-qa="transactions-table">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-28">Date</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="w-32">Account</TableHead>
-                    <TableHead className="w-40">Category</TableHead>
-                    <TableHead className="w-40">Budget</TableHead>
-                    <TableHead className="w-24">Status</TableHead>
-                    <TableHead className="w-28 text-right">Amount</TableHead>
-                    <TableHead className="w-16" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transactions.map((transaction) => (
-                    <TransactionRow
-                      key={transaction.id}
-                      transaction={transaction}
-                      categories={categories}
-                      budgets={budgets}
-                      isEditing={editingTransaction === transaction.id}
-                      onStartEdit={() => setEditingTransaction(transaction.id)}
-                      onCancelEdit={() => setEditingTransaction(null)}
-                      onCategoryChange={handleCategoryChange}
-                      onBudgetChange={handleBudgetChange}
-                      onVerify={handleVerify}
-                      onViewDetails={() => setSelectedTransaction(transaction.id)}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
 
-            <TransactionPagination
-              page={page}
-              totalPages={totalPages}
-              totalCount={totalCount}
-              pageSize={PAGE_SIZE}
-              hasMore={hasMore}
-              onPageChange={setPage}
-            />
-          </>
-        )}
+          {transactions.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-8 text-center">
+              <p className="text-sm text-muted-foreground" data-qa="text-no-transactions">
+                {activeFilterCount > 0
+                  ? "No transactions match your filters."
+                  : "No transactions yet."}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-xl border">
+                <Table data-qa="transactions-table">
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-28">Date</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="w-32">Account</TableHead>
+                      <TableHead className="w-40">Category</TableHead>
+                      <TableHead className="w-40">Budget</TableHead>
+                      <TableHead className="w-24">Status</TableHead>
+                      <TableHead className="w-28 text-right">Amount</TableHead>
+                      <TableHead className="w-16" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {transactions.map((transaction) => (
+                      <TransactionRow
+                        key={transaction.id}
+                        transaction={transaction}
+                        categories={categories}
+                        budgets={budgets}
+                        isEditing={editingTransaction === transaction.id}
+                        onStartEdit={() => setEditingTransaction(transaction.id)}
+                        onCancelEdit={() => setEditingTransaction(null)}
+                        onCategoryChange={handleCategoryChange}
+                        onBudgetChange={handleBudgetChange}
+                        onVerify={handleVerify}
+                        onViewDetails={() => setSelectedTransaction(transaction.id)}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <TransactionPagination
+                page={page}
+                totalPages={totalPages}
+                totalCount={totalCount}
+                pageSize={PAGE_SIZE}
+                hasMore={hasMore}
+                onPageChange={setPage}
+              />
+            </>
+          )}
+        </div>
+
+        {/* Filter sidebar — desktop only */}
+        <aside className="hidden w-[260px] shrink-0 lg:block">
+          <div className="sticky top-20 rounded-xl border bg-card p-4">
+            <TransactionFiltersSidebar {...sidebarProps} />
+          </div>
+        </aside>
       </div>
+
+      {/* Filter sheet — mobile only */}
+      <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+        <SheetContent side="right" className="w-[300px] overflow-y-auto sm:max-w-[300px]">
+          <SheetHeader>
+            <SheetTitle>Filters</SheetTitle>
+          </SheetHeader>
+          <div className="px-4 pb-4">
+            <TransactionFiltersSidebar {...sidebarProps} />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <TransactionDetailPanel
         transactionId={selectedTransaction}
         onClose={() => setSelectedTransaction(null)}
       />
     </>
-  );
-}
-
-interface TransactionFiltersBarProps {
-  filters: TransactionFilters;
-  accounts: Array<{ id: number; name: string }>;
-  categories: Array<{ id: number; name: string; fullPath: string }>;
-  budgets: Array<{ id: number; name: string }>;
-  activeFilterCount: number;
-  onFilterChange: (key: keyof TransactionFilters, value: string | number | null) => void;
-  onClearFilters: () => void;
-}
-
-function TransactionFiltersBar({
-  filters,
-  accounts,
-  categories,
-  budgets,
-  activeFilterCount,
-  onFilterChange,
-  onClearFilters,
-}: TransactionFiltersBarProps) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search transactions..."
-          value={filters.search}
-          onChange={(e) => onFilterChange("search", e.target.value)}
-          className="pl-9"
-          data-qa="input-search"
-        />
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2" data-qa="btn-filters">
-              <Filter className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0" data-qa="badge-active-filters">
-                  {activeFilterCount}
-                </Badge>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80" align="end">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Account</Label>
-                <Select
-                  value={filters.accountId?.toString() ?? "all"}
-                  onValueChange={(value) =>
-                    onFilterChange("accountId", value === "all" ? null : parseInt(value, 10))
-                  }
-                >
-                  <SelectTrigger data-qa="select-account-filter">
-                    <SelectValue placeholder="All accounts" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All accounts</SelectItem>
-                    {accounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id.toString()}>
-                        {account.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select
-                  value={filters.categoryId?.toString() ?? "all"}
-                  onValueChange={(value) =>
-                    onFilterChange("categoryId", value === "all" ? null : parseInt(value, 10))
-                  }
-                >
-                  <SelectTrigger data-qa="select-category-filter">
-                    <SelectValue placeholder="All categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All categories</SelectItem>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id.toString()}>
-                        {category.fullPath}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Budget</Label>
-                <Select
-                  value={filters.budgetId?.toString() ?? "all"}
-                  onValueChange={(value) =>
-                    onFilterChange("budgetId", value === "all" ? null : parseInt(value, 10))
-                  }
-                >
-                  <SelectTrigger data-qa="select-budget-filter">
-                    <SelectValue placeholder="All budgets" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All budgets</SelectItem>
-                    {budgets.map((budget) => (
-                      <SelectItem key={budget.id} value={budget.id.toString()}>
-                        {budget.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select
-                  value={filters.type ?? "all"}
-                  onValueChange={(value) =>
-                    onFilterChange("type", value === "all" ? null : (value as TransactionTypeEnum))
-                  }
-                >
-                  <SelectTrigger data-qa="select-type-filter">
-                    <SelectValue placeholder="All types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All types</SelectItem>
-                    <SelectItem value={TransactionTypeEnum.Debit}>Expense</SelectItem>
-                    <SelectItem value={TransactionTypeEnum.Credit}>Income</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select
-                  value={filters.status ?? "all"}
-                  onValueChange={(value) =>
-                    onFilterChange("status", value === "all" ? null : (value as CategorizationStatusEnum))
-                  }
-                >
-                  <SelectTrigger data-qa="select-status-filter">
-                    <SelectValue placeholder="All statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All statuses</SelectItem>
-                    <SelectItem value={CategorizationStatusEnum.Pending}>Pending</SelectItem>
-                    <SelectItem value={CategorizationStatusEnum.Categorized}>Categorized</SelectItem>
-                    <SelectItem value={CategorizationStatusEnum.Verified}>Verified</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-2">
-                  <Label>From</Label>
-                  <Input
-                    type="date"
-                    value={filters.dateFrom}
-                    onChange={(e) => onFilterChange("dateFrom", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>To</Label>
-                  <Input
-                    type="date"
-                    value={filters.dateTo}
-                    onChange={(e) => onFilterChange("dateTo", e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        {activeFilterCount > 0 && (
-          <Button variant="ghost" size="sm" onClick={onClearFilters} className="gap-1" data-qa="btn-clear-filters">
-            <X className="h-4 w-4" />
-            Clear
-          </Button>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -620,6 +451,7 @@ function TransactionRow({
 
   const description = transaction.counterpartyName || transaction.description || "Unknown";
   const isVerified = transaction.categorizationStatus === CategorizationStatusEnum.Verified;
+  const isCategorized = transaction.categorizationStatus === CategorizationStatusEnum.Categorized;
 
   const handleCategorySelect = async (value: string) => {
     setIsUpdating(true);
@@ -789,12 +621,15 @@ function TransactionRow({
           </Button>
         ) : !isVerified ? (
           <Button
-            variant="ghost"
+            variant={isCategorized ? "outline" : "ghost"}
             size="sm"
-            className="h-8 w-8 p-0"
+            className={cn(
+              "h-8 w-8 p-0",
+              isCategorized && "border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/30"
+            )}
             onClick={handleVerify}
             disabled={isUpdating}
-            title="Verify transaction"
+            title={isCategorized ? "Approve AI categorization" : "Verify transaction"}
             data-qa={`btn-verify-${transaction.id}`}
           >
             <Check className="h-4 w-4" />

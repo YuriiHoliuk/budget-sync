@@ -3,6 +3,18 @@
 ## 2026-02-15
 
 ### Added
+- Always-visible transaction filter sidebar on desktop (lg+) with all filters (search, account, category, budget, type, status, date range) rendered vertically (FILT-001, FILT-002)
+- Mobile filter Sheet overlay triggered by "Filters" button on smaller screens (FILT-002)
+- Prominent blue-styled verify button for AI-categorized transactions in both table and detail panel (UI-006)
+
+### Changed
+- Removed popover-based filter UI in favor of persistent sidebar layout (FILT-002)
+- Updated E2E TransactionsPage page object to interact with sidebar filters directly without popover (FILT-003)
+
+### Fixed
+- Added horizontal padding and bottom padding to transaction detail panel body content (UI-005)
+
+### Added
 - Budget names in budget table are clickable links to filtered transactions view (NAV-002)
 - "View Transactions" item in budget row dropdown menu (NAV-002)
 - Transaction filters and pagination synced to URL search params — shareable and bookmarkable (NAV-001, NAV-003, PAG-002)

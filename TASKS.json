@@ -68,7 +68,7 @@
     "id": "FILT-001",
     "phase": "FILT: Transaction Sidebar Filters",
     "title": "Extract TransactionFiltersSidebar component",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/transaction-sidebar-filters.md",
     "description": "Extract filter controls from TransactionFiltersBar (inside transactions-table.tsx) into a new TransactionFiltersSidebar component in web/src/components/transactions/transaction-filters-sidebar.tsx. Renders all filters vertically (search, account, category, budget, type, status, date range) with a header showing active count and clear-all button. Same props interface as current TransactionFiltersBar.",
     "dependencies": []
@@ -77,7 +77,7 @@
     "id": "FILT-002",
     "phase": "FILT: Transaction Sidebar Filters",
     "title": "Restructure TransactionsTable to two-column layout with sidebar",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/transaction-sidebar-filters.md",
     "description": "Modify TransactionsTable to render a two-column flex layout on lg+ screens: left column contains the table and pagination, right column (280px, sticky) contains the TransactionFiltersSidebar. Remove the old TransactionFiltersBar and Popover-based filter UI. On mobile (below lg), show a filter button that opens filters in a Sheet overlay.",
     "dependencies": ["FILT-001"]
@@ -86,7 +86,7 @@
     "id": "FILT-003",
     "phase": "FILT: Transaction Sidebar Filters",
     "title": "Update E2E page object and tests for sidebar filters",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/transaction-sidebar-filters.md",
     "description": "Update TransactionsPage.ts page object: remove openFilters() popover step from filter methods since filters are always visible on desktop. Update filterByAccount/Category/Budget/Type/Status to directly interact with select elements. Update verify-transaction.spec.ts and any other E2E tests that use the filter methods. Add data-qa attributes to the new sidebar container.",
     "dependencies": ["FILT-002"]
@@ -95,7 +95,7 @@
     "id": "FILT-004",
     "phase": "FILT: Transaction Sidebar Filters",
     "title": "Update frontend architecture documentation",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/transaction-sidebar-filters.md",
     "description": "Update docs/frontend-architecture.md to document the new sidebar filter pattern on the transactions page. Add the TransactionFiltersSidebar to the component organization section. Note the responsive behavior (always-visible sidebar on desktop, Sheet on mobile).",
     "dependencies": ["FILT-002"]
@@ -352,7 +352,7 @@
     "id": "UI-005",
     "phase": "UI: Small Frontend Fixes",
     "title": "Add padding to transaction detail sidebar content",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/small-ui-fixes.md",
     "description": "The transaction detail panel (SheetContent in transaction-detail-panel.tsx) has no horizontal padding on its body content, so text and controls touch the edges of the sidebar. The SheetHeader already has p-4 from the Sheet UI component, but the body div (line 292: <div className=\"mt-6 space-y-6\">) has no px-* or pb-* classes. Fix by adding px-4 pb-6 (or px-6 pb-6 to match a wider feel) to the body content div. Also consider adding px-4 to SheetContent itself for consistency, but note this would double-pad the SheetHeader which already has p-4. The cleanest fix is to add px-4 pb-6 to the body div at line 292.",
     "dependencies": []
@@ -361,9 +361,119 @@
     "id": "UI-006",
     "phase": "UI: Small Frontend Fixes",
     "title": "Add prominent verify button for AI-categorized transactions",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/small-ui-fixes.md",
     "description": "When a transaction has categorizationStatus='categorized' (AI-assigned), there should be a quick, prominent way to approve the categorization without changing category or budget. Currently, the detail panel has a full-width 'Verify Categorization' outline button (lines 357-371) and the table has a small ghost checkmark icon in the last column (lines 790-803). The table's inline verify button is too subtle for categorized transactions -- it's the same small ghost icon for both 'pending' and 'categorized' statuses. Improvements: (1) In the transactions table, make the verify button more prominent specifically for 'categorized' status -- use a colored variant (e.g., blue outline or a filled icon matching the blue 'Categorized' badge color) to draw attention. Consider adding a tooltip 'Approve AI categorization'. (2) In the detail panel, make the verify button more prominent when status is 'categorized' -- change from outline to default/primary variant with a label like 'Approve AI Categorization' and use the blue/green color scheme. For 'pending' status, keep the current subtle outline style. The VerifyTransaction GraphQL mutation already exists (mutations/transactions.graphql) and is already wired up in both components.",
+    "dependencies": []
+  },
+
+  {
+    "id": "RULES-001",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Create Rule domain entity and expand repository interfaces",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create src/domain/entities/Rule.ts with id, rule (text), priority, createdAt, updatedAt following the project entity pattern (private constructor, static create(), extends Entity<TId>). Expand CategorizationRuleRepository and BudgetizationRuleRepository abstract classes with findAllRules(): Promise<Rule[]>, findById(id: number): Promise<Rule | null>, save(rule: Rule): Promise<Rule>, update(rule: Rule): Promise<Rule>, delete(id: number): Promise<void>. Keep existing findAll(): Promise<string[]> for backward compatibility with CategorizeTransactionUseCase.",
+    "dependencies": []
+  },
+  {
+    "id": "RULES-002",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Implement CRUD in database repository classes",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Implement the new repository methods in DatabaseCategorizationRuleRepository and DatabaseBudgetizationRuleRepository: findAllRules() returns Rule entities ordered by priority DESC, findById() queries by primary key, save() inserts and returns the created Rule, update() updates rule text and/or priority with updated_at timestamp, delete() removes by id. Also update DualWriteCategorizationRuleRepository and DualWriteBudgetizationRuleRepository to delegate new methods to the DB repo (no spreadsheet dual-write needed for rule writes).",
+    "dependencies": ["RULES-001"]
+  },
+  {
+    "id": "RULES-003",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Create rule CRUD use cases",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create three use cases: CreateRuleUseCase (input: { rule: string, priority?: number }, output: Rule), UpdateRuleUseCase (input: { id: number, rule?: string, priority?: number }, output: Rule), DeleteRuleUseCase (input: { id: number }, output: void). Use cases accept the repository as a constructor-injected dependency. Since both rule types share identical logic, use a single set of use cases that work with the abstract repository interface. The resolver layer will inject the correct repository.",
+    "dependencies": ["RULES-001"]
+  },
+  {
+    "id": "RULES-004",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Add GraphQL schema, resolver, and mapper for rules",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create src/presentation/graphql/schema/rules.graphql with Rule type (id, rule, priority, createdAt, updatedAt), queries (categorizationRules, budgetizationRules), mutations (createCategorizationRule, updateCategorizationRule, deleteCategorizationRule, createBudgetizationRule, updateBudgetizationRule, deleteBudgetizationRule), and CreateRuleInput/UpdateRuleInput input types. Create src/presentation/graphql/mappers/rule.ts with mapRuleToGql. Create src/presentation/graphql/resolvers/rulesResolver.ts that injects both repository tokens and wires queries/mutations. Register in schema/index.ts and resolvers/index.ts.",
+    "dependencies": ["RULES-002", "RULES-003"]
+  },
+  {
+    "id": "RULES-005",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Write unit tests for Rule entity and use cases",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create tests/unit/domain/entities/Rule.test.ts testing entity creation, validation, and edge cases. Create tests/unit/application/use-cases/CreateRule.test.ts, UpdateRule.test.ts, DeleteRule.test.ts with mocked repositories testing happy paths, validation errors, and not-found cases.",
+    "dependencies": ["RULES-003"]
+  },
+  {
+    "id": "RULES-006",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Write API integration tests for rules GraphQL endpoints",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create API integration tests against Docker DB: categorization-rules-query.test.ts, create-categorization-rule.test.ts, update-categorization-rule.test.ts, delete-categorization-rule.test.ts, and equivalent tests for budgetization rules. Cover happy paths, input validation (empty rule text), not-found on update/delete, and priority ordering.",
+    "dependencies": ["RULES-004"]
+  },
+  {
+    "id": "RULES-007",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Add frontend GraphQL operations and run codegen",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create web/src/graphql/queries/rules.graphql with GetCategorizationRules and GetBudgetizationRules queries. Create web/src/graphql/mutations/rules.graphql with CreateCategorizationRule, UpdateCategorizationRule, DeleteCategorizationRule, CreateBudgetizationRule, UpdateBudgetizationRule, DeleteBudgetizationRule mutations. Run 'just codegen' to generate TypeScript types.",
+    "dependencies": ["RULES-004"]
+  },
+  {
+    "id": "RULES-008",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Build rules management UI on Settings page",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Rewrite web/src/app/settings/page.tsx from placeholder to show two rule sections (categorization rules, budgetization rules). Create reusable components: web/src/components/rules/rules-section.tsx (section with title, description, 'Add Rule' button, table), web/src/components/rules/rules-table.tsx (table with Priority, Rule text, Actions columns sorted by priority DESC), web/src/components/rules/create-rule-sheet.tsx (Sheet with textarea for rule text + number input for priority), web/src/components/rules/edit-rule-sheet.tsx (pre-filled edit sheet), web/src/components/rules/delete-rule-dialog.tsx (AlertDialog confirmation). Add data-qa attributes to all interactive elements.",
+    "dependencies": ["RULES-007"]
+  },
+  {
+    "id": "RULES-009",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Add rule seed data for local development",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Update scripts/seed-local-db.ts to insert sample categorization rules (e.g., 'Assign Bolt transactions to Transport > Taxi', 'MCC 5411 transactions are Food > Supermarket') and budgetization rules (e.g., 'Assign Transport category transactions to Transport budget') into the database. Provides demo data for 'just dev'.",
+    "dependencies": ["RULES-002"]
+  },
+  {
+    "id": "RULES-010",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Add E2E tests for rules management",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create e2e/pages/SettingsPage.ts page object with methods for interacting with rule sections (navigateToSettings, addRule, editRule, deleteRule, getRuleCount, getRuleText). Create e2e/tests/settings/manage-rules.spec.ts covering: create a categorization rule, verify it appears in the table, edit its text, delete it, verify empty state. Add data-qa selectors used by the page object.",
+    "dependencies": ["RULES-008"]
+  },
+  {
+    "id": "RULES-011",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Update frontend architecture documentation",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Update docs/frontend-architecture.md to document the Settings page structure with rules management sections. Add the new route (/settings) to the App Router Structure section. Document the rules components (rules-section, rules-table, create/edit sheets, delete dialog) in the component organization section.",
+    "dependencies": ["RULES-008"]
+  },
+
+  {
+    "id": "UI-007",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Fix wide tables causing entire page to scroll horizontally",
+    "status": "pending",
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "When any table (budgets, transactions) is wider than the viewport, the entire main content area scrolls horizontally, pushing the app header above the left sidebar. Instead, tables should have their own horizontal scroll container (overflow-x-auto on the table wrapper) while the page layout remains fixed. Check app-shell.tsx main element and table wrappers in budget-table.tsx and transactions-table.tsx. The fix is to constrain the main content area width and add overflow-x-auto to individual table containers.",
     "dependencies": []
   }
 ]
