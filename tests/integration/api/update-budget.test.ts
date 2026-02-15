@@ -294,17 +294,17 @@ describe('Mutation: updateBudget', () => {
     expect(result.data?.updateBudget.endDate).toBeNull();
   });
 
-  test('should reject endDate set to past month', async () => {
+  test('should reject endDate set to two months ago', async () => {
     const budget = await createTestBudget(harness.getDb(), {
       name: 'Budget',
       targetAmount: 100000,
     });
 
     const month = getCurrentMonth();
-    // Calculate a date in the previous month
+    // Calculate a date two months ago (before the previous month)
     const now = new Date();
-    const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15);
-    const pastEndDate = previousMonth.toISOString().split('T')[0];
+    const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 15);
+    const pastEndDate = twoMonthsAgo.toISOString().split('T')[0];
 
     const result = await harness.executeQuery<{
       updateBudget: {
@@ -331,6 +331,45 @@ describe('Mutation: updateBudget', () => {
 
     expect(result.errors).toBeDefined();
     expect(result.errors?.[0]?.message).toContain('End date');
+  });
+
+  test('should allow endDate set to previous month', async () => {
+    const budget = await createTestBudget(harness.getDb(), {
+      name: 'Budget',
+      targetAmount: 100000,
+    });
+
+    const month = getCurrentMonth();
+    // Last day of the previous month
+    const now = new Date();
+    const lastDayOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    const endDate = lastDayOfPrevMonth.toISOString().split('T')[0];
+
+    const result = await harness.executeQuery<{
+      updateBudget: {
+        id: number;
+        endDate: string | null;
+      };
+    }>(
+      `
+      mutation UpdateBudget($input: UpdateBudgetInput!) {
+        updateBudget(input: $input) {
+          id
+          endDate
+        }
+      }
+    `,
+      {
+        input: {
+          id: budget.id,
+          month,
+          endDate,
+        },
+      },
+    );
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.updateBudget.endDate).toBe(endDate);
   });
 
   test('should require month field', async () => {
