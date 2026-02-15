@@ -222,13 +222,13 @@ describe('UpdateBudgetUseCase', () => {
       expect(updatedBudget.endDate).toBeNull();
     });
 
-    test('should reject endDate before first day of month', async () => {
+    test('should reject endDate before first day of previous month', async () => {
       const existing = createTestBudget({ dbId: 1 });
       mockBudgetRepository.findById = mock(() => Promise.resolve(existing));
 
       const now = new Date();
-      const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15);
-      const pastEndDate = previousMonth.toISOString().split('T')[0];
+      const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 15);
+      const pastEndDate = twoMonthsAgo.toISOString().split('T')[0];
 
       await expect(
         useCase.execute({
@@ -237,6 +237,26 @@ describe('UpdateBudgetUseCase', () => {
           endDate: pastEndDate,
         }),
       ).rejects.toThrow(InvalidBudgetEndDateError);
+    });
+
+    test('should allow endDate in previous month', async () => {
+      const existing = createTestBudget({ dbId: 1 });
+      mockBudgetRepository.findById = mock(() => Promise.resolve(existing));
+
+      const now = new Date();
+      const lastDayOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+      const endDate = lastDayOfPrevMonth.toISOString().split('T')[0];
+
+      await useCase.execute({
+        id: 1,
+        month: getCurrentMonth(),
+        endDate,
+      });
+
+      const updatedBudget = getFirstCallArg(
+        mockBudgetRepository.update as ReturnType<typeof mock>,
+      );
+      expect(updatedBudget.endDate).toBeDefined();
     });
 
     test('should preserve endDate when undefined', async () => {
