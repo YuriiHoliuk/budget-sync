@@ -103,48 +103,39 @@
 
   {
     "id": "APPLY-001",
-    "phase": "APPLY: Transaction Filter Apply Button",
-    "title": "Add debounced search input for transactions",
+    "phase": "APPLY: Sidebar Filter Apply Button",
+    "title": "Add debounced search input for transaction sidebar filters",
     "status": "pending",
     "plan": "claude_plans/transaction-filter-apply-button.md",
-    "description": "Implement a useDebouncedValue hook and apply a 300ms debounce to the search input in TransactionFiltersBar. This prevents a GraphQL refetch on every keystroke. The search input remains outside the filter popover and continues to trigger filtering independently of the Apply button flow.",
+    "description": "Implement a useDebouncedValue hook in web/src/hooks/use-debounced-value.ts and apply a 300ms debounce to the search input in TransactionFiltersSidebar. This prevents a GraphQL refetch on every keystroke. The search input continues to update the local input value immediately for responsive UX, but the debounced value drives the actual filter state.",
     "dependencies": []
   },
   {
     "id": "APPLY-002",
-    "phase": "APPLY: Transaction Filter Apply Button",
-    "title": "Split filter state into draft and applied",
+    "phase": "APPLY: Sidebar Filter Apply Button",
+    "title": "Split sidebar filter state into draft and applied",
     "status": "pending",
     "plan": "claude_plans/transaction-filter-apply-button.md",
-    "description": "In TransactionsTable, replace the single `filters` state with `draftFilters` and `appliedFilters`. Wire useQuery to appliedFilters only (so draft changes do not trigger refetch). Wire TransactionFiltersBar to read/write draftFilters. Sync draftFilters from appliedFilters when the filter popover opens. Update the Clear button to reset both states.",
+    "description": "In TransactionsTable, replace the single `filters` state with `draftFilters` and `appliedFilters`. Wire useQuery to appliedFilters only (so draft changes in the sidebar do not trigger refetch). Wire TransactionFiltersSidebar to read/write draftFilters. Update the Clear button to reset both states. URL sync should use appliedFilters.",
     "dependencies": []
   },
   {
     "id": "APPLY-003",
-    "phase": "APPLY: Transaction Filter Apply Button",
-    "title": "Add Apply and Reset buttons to filter popover",
+    "phase": "APPLY: Sidebar Filter Apply Button",
+    "title": "Add Apply and Reset buttons to filter sidebar",
     "status": "pending",
     "plan": "claude_plans/transaction-filter-apply-button.md",
-    "description": "Add a sticky footer to the filter PopoverContent with Apply and Reset buttons. Apply copies draftFilters to appliedFilters, resets page to 0, and closes the popover. Reset clears draftFilters to emptyFilters without closing. Apply button is primary when there are unapplied changes, disabled/secondary otherwise. Add data-qa attributes: btn-apply-filters, btn-reset-filters.",
+    "description": "Add Apply and Reset buttons at the bottom of TransactionFiltersSidebar. Apply copies draftFilters to appliedFilters, resets page to 0. Reset clears draftFilters to emptyFilters. Apply button is primary when there are unapplied changes, disabled/secondary otherwise. For mobile Sheet, add same buttons. Add data-qa attributes: btn-apply-filters, btn-reset-filters.",
     "dependencies": ["APPLY-002"]
   },
   {
     "id": "APPLY-004",
-    "phase": "APPLY: Transaction Filter Apply Button",
-    "title": "Prevent filter popover from closing on Select interaction",
+    "phase": "APPLY: Sidebar Filter Apply Button",
+    "title": "Update E2E page object and tests for sidebar Apply button",
     "status": "pending",
     "plan": "claude_plans/transaction-filter-apply-button.md",
-    "description": "Add onInteractOutside handler to the filter PopoverContent that prevents the popover from closing when the user interacts with a Radix Select portal (dropdown overlay). The popover should only close when Apply is clicked, the Filters button is toggled, or the user clicks outside both the popover and any open Select dropdowns.",
-    "dependencies": ["APPLY-002"]
-  },
-  {
-    "id": "APPLY-005",
-    "phase": "APPLY: Transaction Filter Apply Button",
-    "title": "Update E2E page object and tests for Apply button",
-    "status": "pending",
-    "plan": "claude_plans/transaction-filter-apply-button.md",
-    "description": "Update TransactionsPage.ts page object: add applyFilters() method that clicks the Apply button. Update filterByAccount(), filterByCategory(), filterByBudget(), filterByType(), filterByStatus() to set the filter value and then call applyFilters() instead of pressing Escape. Update verify-transaction.spec.ts to work with the new flow. Add data-qa selectors for new buttons.",
-    "dependencies": ["APPLY-003", "APPLY-004"]
+    "description": "Update TransactionsPage.ts page object: add applyFilters() method that clicks the Apply button in the sidebar. Update filterByAccount(), filterByCategory(), filterByBudget(), filterByType(), filterByStatus() to set the filter value and then call applyFilters(). Update verify-transaction.spec.ts and other E2E tests to work with the new flow. Add data-qa selectors for new buttons.",
+    "dependencies": ["APPLY-003"]
   },
 
   {
@@ -471,9 +462,28 @@
     "id": "UI-007",
     "phase": "UI: Small Frontend Fixes",
     "title": "Fix wide tables causing entire page to scroll horizontally",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/small-ui-fixes.md",
     "description": "When any table (budgets, transactions) is wider than the viewport, the entire main content area scrolls horizontally, pushing the app header above the left sidebar. Instead, tables should have their own horizontal scroll container (overflow-x-auto on the table wrapper) while the page layout remains fixed. Check app-shell.tsx main element and table wrappers in budget-table.tsx and transactions-table.tsx. The fix is to constrain the main content area width and add overflow-x-auto to individual table containers.",
+    "dependencies": []
+  },
+
+  {
+    "id": "UI-008",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Make pagination bar sticky at bottom of transactions view",
+    "status": "done",
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "The pagination controls (Previous/Next buttons + page indicator) at the bottom of the transactions table should be sticky so they're always visible without scrolling to the bottom. Add sticky bottom-0 z-10 bg-background with a top border to the pagination wrapper div in transactions-table.tsx.",
+    "dependencies": []
+  },
+  {
+    "id": "UI-009",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Add page number selector to transaction pagination",
+    "status": "done",
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "Currently pagination only has Previous/Next buttons and a 'Page X of Y' label. Add clickable page numbers so users can jump to any page directly. Use a compact pagination pattern: show first page, last page, current page with neighbors, and ellipsis for gaps (e.g., 1 ... 4 5 [6] 7 8 ... 12). Each page number is a clickable button. Consider using ShadCN Pagination component if available, or build a simple one.",
     "dependencies": []
   }
 ]

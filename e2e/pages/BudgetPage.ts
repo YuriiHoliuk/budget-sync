@@ -278,7 +278,7 @@ export class BudgetPage extends BasePage {
    * Check if a budget row shows the "Expired" badge
    */
   isExpired(budgetName: string): Locator {
-    return this.getBudgetRow(budgetName).locator('text=Expired');
+    return this.getBudgetRow(budgetName).locator('[data-slot="badge"]', { hasText: 'Expired' });
   }
 
   /**

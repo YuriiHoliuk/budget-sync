@@ -2,6 +2,17 @@
 
 ## 2026-02-15
 
+### Fixed
+- Wide tables (budgets, transactions) no longer cause entire page to scroll horizontally — tables now have their own horizontal scroll container (UI-007)
+- Main content area constrained with `min-w-0` to prevent flex overflow pushing layout (UI-007)
+
+### Added
+- Sticky pagination bar at bottom of transactions view — always visible without scrolling (UI-008)
+- Clickable page number selector in transaction pagination with ellipsis pattern (1 ... 4 5 [6] 7 8 ... 12) for quick page navigation (UI-009)
+
+### Changed
+- Removed obsolete APPLY-001 to APPLY-005 filter popover tasks, replaced with sidebar-adapted equivalents (APPLY phase now targets sidebar filters)
+
 ### Added
 - Always-visible transaction filter sidebar on desktop (lg+) with all filters (search, account, category, budget, type, status, date range) rendered vertically (FILT-001, FILT-002)
 - Mobile filter Sheet overlay triggered by "Filters" button on smaller screens (FILT-002)

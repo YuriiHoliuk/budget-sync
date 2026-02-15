@@ -344,7 +344,7 @@ export function TransactionsTable() {
             </div>
           ) : (
             <>
-              <div className="rounded-xl border">
+              <div className="overflow-x-auto rounded-xl border">
                 <Table data-qa="transactions-table">
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -650,6 +650,38 @@ interface TransactionPaginationProps {
   onPageChange: (page: number) => void;
 }
 
+function getPageNumbers(currentPage: number, totalPages: number): Array<number | "ellipsis"> {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index);
+  }
+
+  const pages: Array<number | "ellipsis"> = [];
+
+  // Always show first page
+  pages.push(0);
+
+  if (currentPage > 2) {
+    pages.push("ellipsis");
+  }
+
+  // Pages around current
+  const start = Math.max(1, currentPage - 1);
+  const end = Math.min(totalPages - 2, currentPage + 1);
+
+  for (let pageIndex = start; pageIndex <= end; pageIndex++) {
+    pages.push(pageIndex);
+  }
+
+  if (currentPage < totalPages - 3) {
+    pages.push("ellipsis");
+  }
+
+  // Always show last page
+  pages.push(totalPages - 1);
+
+  return pages;
+}
+
 function TransactionPagination({
   page,
   totalPages,
@@ -660,35 +692,53 @@ function TransactionPagination({
 }: TransactionPaginationProps) {
   const startItem = page * pageSize + 1;
   const endItem = Math.min((page + 1) * pageSize, totalCount);
+  const pageNumbers = getPageNumbers(page, totalPages);
 
   return (
-    <div className="flex items-center justify-between text-sm text-muted-foreground">
+    <div className="sticky bottom-0 z-10 flex items-center justify-between border-t bg-background py-3 text-sm text-muted-foreground">
       <div data-qa="text-pagination-info">
         Showing {startItem} - {endItem} of {totalCount} transactions
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <Button
           variant="outline"
           size="sm"
+          className="h-8 w-8 p-0"
           onClick={() => onPageChange(page - 1)}
           disabled={page === 0}
           data-qa="btn-pagination-previous"
         >
           <ChevronLeft className="h-4 w-4" />
-          Previous
+          <span className="sr-only">Previous</span>
         </Button>
-        <span className="px-2" data-qa="text-pagination-page">
-          Page {page + 1} of {totalPages}
-        </span>
+        {pageNumbers.map((pageNum, index) =>
+          pageNum === "ellipsis" ? (
+            <span key={`ellipsis-${index}`} className="px-1 text-muted-foreground">
+              ...
+            </span>
+          ) : (
+            <Button
+              key={pageNum}
+              variant={pageNum === page ? "default" : "outline"}
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => onPageChange(pageNum)}
+              data-qa={pageNum === page ? "text-pagination-page" : undefined}
+            >
+              {pageNum + 1}
+            </Button>
+          ),
+        )}
         <Button
           variant="outline"
           size="sm"
+          className="h-8 w-8 p-0"
           onClick={() => onPageChange(page + 1)}
           disabled={!hasMore}
           data-qa="btn-pagination-next"
         >
-          Next
           <ChevronRight className="h-4 w-4" />
+          <span className="sr-only">Next</span>
         </Button>
       </div>
     </div>
