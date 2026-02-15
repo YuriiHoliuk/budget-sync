@@ -215,7 +215,9 @@ TEST_SPREADSHEET_ID=test-123 bun test tests/integration/repositories
 
 ## E2E Tests (Playwright)
 
-E2E tests run the full stack (database, API, frontend) in an isolated environment.
+E2E tests run the full stack (database, API, frontend) in an isolated Docker Compose environment. The frontend runs as a production build (`next build` + `next start`) for faster page loads and closer fidelity to production.
+
+**CI configuration**: 4 parallel workers, Playwright browser cache (`~/.cache/ms-playwright`), 1 retry on failure. Locally, tests run with 1 worker by default.
 
 ### Structure
 

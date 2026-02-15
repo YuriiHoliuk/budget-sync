@@ -136,13 +136,30 @@ State backend: `gs://budget-sync-terraform-state/terraform/state`
 
 ## CI/CD Pipelines
 
-Three GitHub Actions workflows handle all automation. Authentication uses the `GCP_SA_KEY` secret (deployer service account key).
+Two GitHub Actions workflows handle all automation. Authentication uses `google-github-actions/auth@v2` with the `GCP_SA_KEY` secret (deployer service account key). gcloud CLI is pre-installed on GitHub runners -- no `setup-gcloud` action needed.
 
-### CI (`ci.yml`)
+### CI/CD (`ci.yml`)
 
-**Trigger**: Every push and PR to `main`.
+**Trigger**: Every push and PR to `main`, or `workflow_dispatch`.
 
-Steps: checkout, install dependencies, typecheck, lint, unit tests.
+On PRs: runs tests only (lint, unit, API integration, E2E). On `main`: runs tests, then conditionally builds and deploys.
+
+Docker builds use `docker/build-push-action@v6` with BuildKit and GitHub Actions cache (`type=gha`) for layer caching across runs.
+
+| Stage | Condition | What it does |
+|-------|-----------|-------------|
+| Test | Always | Lint, typecheck, unit tests |
+| Test API | Always | API integration tests against isolated Docker DB |
+| Test E2E | Always | Full-stack E2E tests with Playwright (4 workers, production build) |
+| Check | Main only, after tests pass | Determines if backend and/or web files changed |
+| Migrate | Backend or web changed | Fetches `database-url` secret, runs `bunx drizzle-kit migrate` |
+| Build Backend | Backend files changed | Builds and pushes `budget-sync` image (BuildKit + GHA cache) |
+| Build Web | Web files changed | Builds and pushes `budget-sync-web` image (BuildKit + GHA cache) |
+| Deploy Backend | Backend built + migrated | Updates `sync-accounts` job and `webhook` service via `gcloud run` |
+| Deploy Web | Web built + migrated | Updates `web` service via `gcloud run` |
+| Cleanup | After successful deploy | Deletes old images from Artifact Registry (keeps latest 2) |
+
+Image tags use the git commit SHA.
 
 ### Terraform (`terraform.yml`)
 
@@ -153,24 +170,6 @@ Steps: checkout, install dependencies, typecheck, lint, unit tests.
 | Validate | Push + PR | `terraform init`, `fmt -check`, `validate` |
 | Plan | Push + PR | `terraform plan`, uploads plan artifact |
 | Apply | Push to `main` only | Downloads plan artifact, `terraform apply -auto-approve` |
-
-### Deploy (`deploy.yml`)
-
-**Trigger**: Runs after CI workflow completes successfully on `main`, or on `workflow_dispatch`.
-
-The workflow detects which files changed and only builds/deploys what is needed:
-
-| Stage | Condition | What it does |
-|-------|-----------|-------------|
-| Check | Always | Determines if backend and/or web files changed |
-| Migrate | Backend or web changed | Fetches `database-url` secret, runs `bunx drizzle-kit migrate` |
-| Build Backend | Backend files changed | Builds and pushes `budget-sync` image |
-| Build Web | Web files changed | Builds and pushes `budget-sync-web` image (with auth secrets as build args) |
-| Deploy Backend | Backend built + migrated | Updates `sync-accounts` job and `webhook` service via `gcloud run` |
-| Deploy Web | Web built + migrated | Updates `web` service via `gcloud run` |
-| Cleanup | After successful deploy | Deletes old images from Artifact Registry (keeps latest 2) |
-
-Image tags use the git commit SHA.
 
 ## Neon PostgreSQL (External Database)
 

@@ -99,31 +99,19 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package.json') }}
+
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
 
       - name: Start E2E environment
         run: docker compose -f docker-compose.e2e.yml up -d --wait
         timeout-minutes: 5
-
-      - name: Warm up Next.js dev server
-        run: |
-          echo "Pre-compiling pages..."
-          for path in / /budgets/2026-02 /transactions /accounts /categories; do
-            for i in 1 2 3; do
-              if curl -sf "http://localhost:3001${path}" > /dev/null 2>&1; then
-                echo "  ✓ ${path}"
-                break
-              fi
-              echo "  Retry ${i}/3 for ${path}..."
-              sleep 3
-            done
-          done
-          echo "Verifying GraphQL proxy..."
-          curl -sf http://localhost:3001/api/graphql \
-            -H 'Content-Type: application/json' \
-            -d '{"query":"{ __typename }"}' > /dev/null
-          echo "All pages compiled and API proxy verified"
 
       - name: Run E2E tests
         run: bunx playwright test --retries=1
@@ -174,9 +162,6 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
 
       - name: Get deployed backend SHA
         id: backend_sha
@@ -278,9 +263,6 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
-
       - name: Run migrations
         run: |
           DATABASE_URL=$(gcloud secrets versions access latest --secret=database-url --project=${{ env.PROJECT_ID }})
@@ -296,13 +278,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Configure Docker
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+      - name: Login to Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGION }}-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set image tag
         id: meta
@@ -311,9 +295,13 @@ jobs:
           echo "image=${REGISTRY}/budget-sync:${{ github.sha }}" >> $GITHUB_OUTPUT
 
       - name: Build and push
-        run: |
-          docker build -t ${{ steps.meta.outputs.image }} .
-          docker push ${{ steps.meta.outputs.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+          cache-from: type=gha,scope=build-backend
+          cache-to: type=gha,scope=build-backend,mode=max
 
   build-web:
     name: Build Web App
@@ -330,11 +318,15 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Configure Docker
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+      - name: Login to Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGION }}-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.GCP_SA_KEY }}
 
       - name: Get webhook service URL
         id: webhook
@@ -356,15 +348,18 @@ jobs:
           echo "image=${REGISTRY}/budget-sync-web:${{ github.sha }}" >> $GITHUB_OUTPUT
 
       - name: Build and push
-        run: |
-          docker build \
-            -f Dockerfile.web \
-            --build-arg NEXT_PUBLIC_ALLOWED_EMAIL="${{ secrets.ALLOWED_EMAIL }}" \
-            --build-arg NEXT_PUBLIC_ALLOWED_PASSWORD="${{ secrets.ALLOWED_PASSWORD }}" \
-            --build-arg API_URL="${{ steps.webhook.outputs.url }}" \
-            -t ${{ steps.meta.outputs.image }} \
-            .
-          docker push ${{ steps.meta.outputs.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.web
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+          build-args: |
+            NEXT_PUBLIC_ALLOWED_EMAIL=${{ secrets.ALLOWED_EMAIL }}
+            NEXT_PUBLIC_ALLOWED_PASSWORD=${{ secrets.ALLOWED_PASSWORD }}
+            API_URL=${{ steps.webhook.outputs.url }}
+          cache-from: type=gha,scope=build-web
+          cache-to: type=gha,scope=build-web,mode=max
 
   deploy-backend:
     name: Deploy Backend
@@ -376,9 +371,6 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
 
       - name: Deploy sync-accounts job
         run: |
@@ -409,9 +401,6 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
-
       - name: Deploy web service
         run: |
           gcloud run services update web \
@@ -433,9 +422,6 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
 
       - name: Cleanup old backend images
         if: needs.deploy-backend.result == 'success'
