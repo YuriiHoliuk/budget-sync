@@ -12,6 +12,7 @@ import {
 } from "@/graphql/generated/graphql";
 import { useMonth } from "@/hooks/use-month";
 import { formatCurrency } from "@/lib/format";
+import { getDateRangeFromMonth } from "@/lib/url-utils";
 import {
   Select,
   SelectContent,
@@ -31,17 +32,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 type UnbudgetedTransaction =
   GetUnbudgetedTransactionsQuery["transactions"]["items"][number];
-
-function getDateRangeFromMonth(month: string): { dateFrom: string; dateTo: string } {
-  const [year, monthNum] = month.split("-").map(Number);
-  const firstDay = new Date(year, monthNum - 1, 1);
-  const lastDay = new Date(year, monthNum, 0);
-
-  return {
-    dateFrom: firstDay.toISOString().split("T")[0],
-    dateTo: lastDay.toISOString().split("T")[0],
-  };
-}
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);

@@ -21,6 +21,12 @@ function getCurrentMonth(): string {
 }
 
 /**
+ * These tests modify global readyToAssign metrics and must run serially
+ * to avoid data races when parallel workers execute other budget tests.
+ */
+test.describe.configure({ mode: 'serial' });
+
+/**
  * Archive a budget with leftover funds and verify Ready to Assign increases.
  */
 test('should release leftover funds to Ready to Assign when archiving', async ({

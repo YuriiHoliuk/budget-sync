@@ -1,5 +1,46 @@
 # Changelog
 
+## 2026-02-15
+
+### Fixed
+- Wide tables (budgets, transactions) no longer cause entire page to scroll horizontally — tables now have their own horizontal scroll container (UI-007)
+- Main content area constrained with `min-w-0` to prevent flex overflow pushing layout (UI-007)
+
+### Added
+- Sticky pagination bar at bottom of transactions view — always visible without scrolling (UI-008)
+- Clickable page number selector in transaction pagination with ellipsis pattern (1 ... 4 5 [6] 7 8 ... 12) for quick page navigation (UI-009)
+
+### Changed
+- Removed obsolete APPLY-001 to APPLY-005 filter popover tasks, replaced with sidebar-adapted equivalents (APPLY phase now targets sidebar filters)
+
+### Added
+- Always-visible transaction filter sidebar on desktop (lg+) with all filters (search, account, category, budget, type, status, date range) rendered vertically (FILT-001, FILT-002)
+- Mobile filter Sheet overlay triggered by "Filters" button on smaller screens (FILT-002)
+- Prominent blue-styled verify button for AI-categorized transactions in both table and detail panel (UI-006)
+
+### Changed
+- Removed popover-based filter UI in favor of persistent sidebar layout (FILT-002)
+- Updated E2E TransactionsPage page object to interact with sidebar filters directly without popover (FILT-003)
+
+### Fixed
+- Added horizontal padding and bottom padding to transaction detail panel body content (UI-005)
+
+### Added
+- Budget names in budget table are clickable links to filtered transactions view (NAV-002)
+- "View Transactions" item in budget row dropdown menu (NAV-002)
+- Transaction filters and pagination synced to URL search params — shareable and bookmarkable (NAV-001, NAV-003, PAG-002)
+- Shared URL utilities: `getDateRangeFromMonth()`, `buildTransactionsUrl()`, `parseTransactionFiltersFromParams()` in `web/src/lib/url-utils.ts` (NAV-001)
+- Suspense boundary around TransactionsTable for `useSearchParams()` compatibility (PAG-002)
+- Sticky budget table header so column names remain visible when scrolling (UI-001)
+
+### Changed
+- Increased transaction page size from 25 to 50 (PAG-001)
+
+### Fixed
+- Budget progress bar now shows red only when overspent (available < 0), not at exactly 100% usage (UI-002)
+- Month selector on transactions page no longer redirects to budgets page (UI-003)
+- Budget filter dropdown in transactions now shows all non-archived budgets, including expired ones (UI-004)
+
 ## 2026-02-06
 
 ### Added

@@ -20,8 +20,8 @@ export class TransactionsPage extends BasePage {
     return this.byQa('input-search');
   }
 
-  get filtersButton(): Locator {
-    return this.byQa('btn-filters');
+  get filtersSidebar(): Locator {
+    return this.byQa('filters-sidebar');
   }
 
   get clearFiltersButton(): Locator {
@@ -38,13 +38,6 @@ export class TransactionsPage extends BasePage {
   async search(query: string): Promise<void> {
     await this.searchInput.fill(query);
     await this.searchInput.press('Enter');
-  }
-
-  /**
-   * Open filters popover
-   */
-  async openFilters(): Promise<void> {
-    await this.filtersButton.click();
   }
 
   /**
@@ -68,53 +61,43 @@ export class TransactionsPage extends BasePage {
   }
 
   /**
-   * Filter by account
+   * Filter by account (sidebar is always visible on desktop)
    */
   async filterByAccount(accountName: string): Promise<void> {
-    await this.openFilters();
     await this.byQa('select-account-filter').click();
     await this.page.getByRole('option', { name: accountName }).click();
-    await this.page.keyboard.press('Escape'); // Close popover
   }
 
   /**
    * Filter by category
    */
   async filterByCategory(categoryName: string): Promise<void> {
-    await this.openFilters();
     await this.byQa('select-category-filter').click();
     await this.page.getByRole('option', { name: categoryName }).click();
-    await this.page.keyboard.press('Escape');
   }
 
   /**
    * Filter by budget
    */
   async filterByBudget(budgetName: string): Promise<void> {
-    await this.openFilters();
     await this.byQa('select-budget-filter').click();
     await this.page.getByRole('option', { name: budgetName }).click();
-    await this.page.keyboard.press('Escape');
   }
 
   /**
    * Filter by transaction type
    */
   async filterByType(type: 'Income' | 'Expense'): Promise<void> {
-    await this.openFilters();
     await this.byQa('select-type-filter').click();
     await this.page.getByRole('option', { name: type }).click();
-    await this.page.keyboard.press('Escape');
   }
 
   /**
    * Filter by status
    */
   async filterByStatus(status: 'Pending' | 'Categorized' | 'Verified'): Promise<void> {
-    await this.openFilters();
     await this.byQa('select-status-filter').click();
     await this.page.getByRole('option', { name: status }).click();
-    await this.page.keyboard.press('Escape');
   }
 
   // ========== TABLE ==========

@@ -125,8 +125,9 @@ web/src/components/
     move-funds-dialog.tsx
     unbudgeted-transactions-warning.tsx
   transactions/
-    transactions-table.tsx        # Full transaction list with filters and pagination
-    transaction-detail-panel.tsx  # Side panel for transaction details
+    transactions-table.tsx            # Full transaction list with two-column layout
+    transaction-filters-sidebar.tsx   # Always-visible filter sidebar (desktop) / Sheet (mobile)
+    transaction-detail-panel.tsx      # Side panel for transaction details
   accounts/
     accounts-table.tsx
     create-account-dialog.tsx
@@ -154,7 +155,7 @@ Top-level components that compose the shell:
 ### Component Design Patterns
 
 - **Pages are thin**: Each page component is a simple layout that delegates to feature components. Pages handle the `useQuery` call and pass data down as props. Example: `BudgetPage` queries `GetMonthlyOverview` and passes summaries to `BudgetTable`.
-- **Smart table components**: Table components like `TransactionsTable` own their own queries, filters, pagination, and mutation logic. They are self-contained widgets.
+- **Smart table components**: Table components like `TransactionsTable` own their own queries, filters, pagination, and mutation logic. They are self-contained widgets. The transactions page uses a two-column layout on desktop (lg+): the table/pagination on the left and a persistent filter sidebar (`TransactionFiltersSidebar`) on the right. On mobile, filters are accessible via a Sheet overlay triggered by a "Filters" button.
 - **Dialog pattern**: CRUD operations use controlled dialogs (open state managed by parent). Each entity has create/edit/archive dialogs.
 - **Inline editing**: Budget allocations use click-to-edit inline inputs (`InlineAllocationEditor`) that submit on Enter/blur and cancel on Escape.
 - **`data-qa` attributes**: Interactive elements carry `data-qa` attributes for E2E test selectors.

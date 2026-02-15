@@ -214,7 +214,11 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       .select()
       .from(transactions)
       .where(
-        and(isNull(transactions.categoryId), isNull(transactions.budgetId)),
+        or(
+          eq(transactions.categorizationStatus, 'pending'),
+          eq(transactions.categorizationStatus, 'failed'),
+          isNull(transactions.categorizationStatus),
+        ),
       );
     return rows.map((row) => this.mapper.toEntity(row));
   }

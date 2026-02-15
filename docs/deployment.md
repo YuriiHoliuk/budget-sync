@@ -19,19 +19,17 @@ Both images are stored in Artifact Registry at `europe-central2-docker.pkg.dev/b
 
 ## CI/CD Pipeline
 
-Three GitHub Actions workflows run in sequence:
+Two GitHub Actions workflows handle everything:
 
-### 1. CI (`ci.yml`)
+### 1. CI/CD (`ci.yml`)
 
-Triggers on every push and PR to `main`. Runs typecheck, lint, and unit tests.
+Triggers on every push and PR to `main`, or manually via `workflow_dispatch`. On PRs, runs tests only. On `main`, runs tests then conditionally builds and deploys.
+
+Authentication uses `google-github-actions/auth@v2` (gcloud is pre-installed on GitHub runners, no `setup-gcloud` needed). Docker builds use `docker/build-push-action@v6` with BuildKit and GitHub Actions cache (`type=gha`) for layer caching across runs.
 
 ### 2. Terraform (`terraform.yml`)
 
 Triggers only when `terraform/**` files change. On PRs it runs `plan`; on merge to `main` it runs `apply`. This manages infrastructure independently from application deploys.
-
-### 3. Deploy (`deploy.yml`)
-
-Triggers after a successful CI run on `main`, or manually via `workflow_dispatch`. This is the main deployment workflow.
 
 #### Pipeline Stages
 

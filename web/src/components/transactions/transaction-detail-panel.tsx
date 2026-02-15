@@ -133,7 +133,7 @@ export function TransactionDetailPanel({
   });
 
   const { data: budgetsData } = useQuery(GetBudgetsDocument, {
-    variables: { activeOnly: true },
+    variables: { activeOnly: false },
   });
 
   const categories = useMemo(
@@ -192,6 +192,8 @@ function TransactionDetailContent({
 
   const isVerified =
     transaction.categorizationStatus === CategorizationStatusEnum.Verified;
+  const isCategorized =
+    transaction.categorizationStatus === CategorizationStatusEnum.Categorized;
   const isManualAccount = transaction.account?.source === AccountSource.Manual;
 
   const [updateCategory] = useMutation(UpdateTransactionCategoryDocument, {
@@ -289,7 +291,7 @@ function TransactionDetailContent({
         </div>
       </SheetHeader>
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-6 space-y-6 px-4 pb-6">
         <div className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground">
             Classification
@@ -358,15 +360,18 @@ function TransactionDetailContent({
             <Button
               onClick={handleVerify}
               disabled={isUpdating}
-              className="w-full"
-              variant="outline"
+              className={cn(
+                "w-full",
+                isCategorized && "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
+              )}
+              variant={isCategorized ? "outline" : "outline"}
             >
               {isUpdating ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Check className="mr-2 h-4 w-4" />
               )}
-              Verify Categorization
+              {isCategorized ? "Approve AI Categorization" : "Verify Categorization"}
             </Button>
           )}
         </div>

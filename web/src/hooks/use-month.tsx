@@ -5,9 +5,10 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useState,
   type ReactNode,
 } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 
 function getCurrentMonth(): string {
   const now = new Date();
@@ -26,21 +27,28 @@ const MonthContext = createContext<MonthContextValue | null>(null);
 export function MonthProvider({ children }: { children: ReactNode }) {
   const params = useParams<{ month?: string }>();
   const router = useRouter();
+  const pathname = usePathname();
+  const [overrideMonth, setOverrideMonth] = useState<string | null>(null);
 
   const month = useMemo(() => {
     if (params.month && MONTH_PATTERN.test(params.month)) {
       return params.month;
     }
-    return getCurrentMonth();
-  }, [params.month]);
+    return overrideMonth ?? getCurrentMonth();
+  }, [params.month, overrideMonth]);
 
   const setMonth = useCallback(
     (newMonth: string) => {
       if (!MONTH_PATTERN.test(newMonth)) return;
 
-      router.push(`/budgets/${newMonth}`);
+      if (pathname.startsWith("/budgets")) {
+        setOverrideMonth(null);
+        router.push(`/budgets/${newMonth}`);
+      } else {
+        setOverrideMonth(newMonth);
+      }
     },
-    [router],
+    [router, pathname],
   );
 
   const value = useMemo(() => ({ month, setMonth }), [month, setMonth]);

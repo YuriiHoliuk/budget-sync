@@ -1,467 +1,489 @@
 [
   {
-    "id": "P1-001",
-    "phase": "P1: Local Dev Environment",
-    "title": "Set up Docker Compose with PostgreSQL for local development",
-    "description": "Update docker-compose.yml to include a local PostgreSQL service (postgres:16-alpine) with health checks, volume persistence, and proper env vars. Add a .env.local template with DATABASE_URL pointing to the local DB. Ensure `just db-migrate` works against local DB.",
+    "id": "UI-001",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Sticky budget table header",
     "status": "done",
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "Add sticky positioning to the budget table header so column names remain visible when scrolling through many budget rows. Add 'sticky top-0 z-10 bg-background' classes to the TableHeader in budget-table.tsx.",
     "dependencies": []
   },
   {
-    "id": "P1-002",
-    "phase": "P1: Local Dev Environment",
-    "title": "Create local development container setup with mocks",
-    "description": "Create src/container.local.ts that sets up DI container for local development: uses real DB, mocks spreadsheet repositories (no-op), mocks Monobank gateway (returns empty), mocks PubSub. Reuse all database repositories directly (skip dual-write). Create a MockSpreadsheetsClient, MockBankGateway, MockPubSubClient.",
+    "id": "UI-002",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Fix budget progress bar color at 100%",
     "status": "done",
-    "dependencies": ["P1-001"]
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "The progress bar shows red at exactly 100% usage, but 100% means fully used (not overspent). Change getProgressBarColor to use the budget's 'available' amount instead of percentage to determine red: only show red when available < 0 (overspent). Pass 'available' prop to BudgetProgressBar component.",
+    "dependencies": []
   },
   {
-    "id": "P1-003",
-    "phase": "P1: Local Dev Environment",
-    "title": "Create local dev server entry point",
-    "description": "Create src/server.ts as the main entry point for the local dev web server. It should: load .env, set up local container, start HTTP server on configurable port (default 4001). Add `just dev-server` command to justfile. This will later host both the webhook endpoints AND GraphQL.",
+    "id": "UI-003",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Fix month change redirecting to budgets from transactions page",
     "status": "done",
-    "dependencies": ["P1-002"]
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "The MonthProvider's setMonth always navigates to /budgets/{month}, so changing the month on the transactions page redirects to budgets. Fix by using usePathname() to conditionally navigate: only push to /budgets/{month} when on the budgets page, otherwise update month via local state override without changing the route.",
+    "dependencies": []
   },
   {
-    "id": "P1-004",
-    "phase": "P1: Local Dev Environment",
-    "title": "Add seed script for local database",
-    "description": "Create scripts/seed-local-db.ts that seeds the local DB with realistic test data: 5 accounts (3 operational, 2 savings), 23 categories (hierarchical), 15 budgets (mix of spending/savings/goal), 45 allocations across 3 months, 186 transactions across 3 months. Add `just db-seed` to justfile.",
+    "id": "UI-004",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Show all non-archived budgets in transaction filter dropdown",
     "status": "done",
-    "dependencies": ["P1-001"]
-  },
-
-  {
-    "id": "P2-001",
-    "phase": "P2: GraphQL API Foundation",
-    "title": "Install GraphQL dependencies and configure Apollo Server",
-    "description": "Install @apollo/server, graphql, @graphql-tools/schema. Create src/modules/graphql/ module with ApolloServer setup that integrates with the existing Bun HttpServer. Set up basic schema with Query type and health check query. Wire into the dev server entry point at /graphql endpoint.",
-    "status": "done",
-    "dependencies": ["P1-003"]
-  },
-  {
-    "id": "P2-002",
-    "phase": "P2: GraphQL API Foundation",
-    "title": "Define GraphQL schema for Accounts",
-    "description": "Create src/presentation/graphql/schema/accounts.graphql with Account type, AccountRole enum, AccountType enum. Add Query { accounts, account(id: Int!) }. Create AccountResolver in src/presentation/graphql/resolvers/AccountResolver.ts that reads from AccountRepository. Register in schema.",
-    "status": "done",
-    "dependencies": ["P2-001"]
-  },
-  {
-    "id": "P2-003",
-    "phase": "P2: GraphQL API Foundation",
-    "title": "Define GraphQL schema for Budgets with CRUD mutations",
-    "description": "Create budgets.graphql with Budget type, BudgetType enum, queries (budgets, budget(id)), mutations (createBudget, updateBudget, archiveBudget). Create BudgetResolver. Implement CreateBudget and UpdateBudget use cases in application layer.",
-    "status": "done",
-    "dependencies": ["P2-001"]
-  },
-  {
-    "id": "P2-004",
-    "phase": "P2: GraphQL API Foundation",
-    "title": "Define GraphQL schema for Categories with CRUD mutations",
-    "description": "Create categories.graphql with Category type (including parent/children hierarchy), CategoryStatus enum, queries (categories, category(id)), mutations (createCategory, updateCategory, archiveCategory). Create CategoryResolver. Implement use cases.",
-    "status": "done",
-    "dependencies": ["P2-001"]
-  },
-  {
-    "id": "P2-005",
-    "phase": "P2: GraphQL API Foundation",
-    "title": "Define GraphQL schema for Allocations with CRUD mutations",
-    "description": "Create allocations.graphql with Allocation type, queries (allocations(budgetId, period)), mutations (createAllocation, updateAllocation, deleteAllocation, moveFunds(sourceBudgetId, destBudgetId, amount, period)). Create AllocationResolver. Implement use cases. moveFunds creates two allocations atomically.",
-    "status": "done",
-    "dependencies": ["P2-001"]
-  },
-  {
-    "id": "P2-006",
-    "phase": "P2: GraphQL API Foundation",
-    "title": "Define GraphQL schema for Transactions with queries",
-    "description": "Create transactions.graphql with Transaction type, TransactionType enum, CategorizationStatus enum. Add queries: transactions(filters: TransactionFilter), transaction(id). Add mutations: updateTransactionCategory, updateTransactionBudget, verifyTransaction. Create TransactionResolver with pagination support. Add child resolvers for account, category, budget fields.",
-    "status": "done",
-    "dependencies": ["P2-001"]
-  },
-  {
-    "id": "P2-007",
-    "phase": "P2: GraphQL API Foundation",
-    "title": "Implement Monthly Overview computed query",
-    "description": "Add GraphQL query monthlyOverview(month: String!) that returns: readyToAssign, totalAllocated, totalSpent, capitalBalance, availableFunds, savingsRate. Also returns budgetSummaries[] with per-budget: allocated, spent, available, carryover. Implement BudgetCalculationService in domain layer with pure computation logic per PRD.",
-    "status": "done",
-    "dependencies": ["P2-005", "P2-006"]
-  },
-  {
-    "id": "P2-008",
-    "phase": "P2: GraphQL API Foundation",
-    "title": "Add Accounts CRUD mutations with sync field protection",
-    "description": "Add mutations: createAccount, updateAccount, archiveAccount. Accounts can be created manually (for non-Monobank banks, cash accounts, etc.). Add 'source' enum field (bank_sync | manual) to Account. For synced accounts (source = 'bank_sync'), disallow editing protected fields (IBAN, currency). Manual accounts can be fully edited. Implement CreateAccount, UpdateAccount, ArchiveAccount use cases with appropriate validation.",
-    "status": "done",
-    "dependencies": ["P2-002", "TX-001"]
-  },
-  {
-    "id": "P2-009",
-    "phase": "P2: GraphQL API Foundation",
-    "title": "Add createTransaction mutation for manual accounts",
-    "description": "Add createTransaction mutation for adding transactions to manual (non-synced) accounts. Required fields: accountId, amount, date, description. Optional: categoryId, budgetId. Validate that target account is not synced. Implement CreateTransaction use case.",
-    "status": "done",
-    "dependencies": ["P2-006", "P2-008"]
-  },
-  {
-    "id": "P2-010",
-    "phase": "P2: GraphQL API Foundation",
-    "title": "Add WebSocket subscriptions infrastructure",
-    "description": "Set up GraphQL subscriptions using graphql-ws. Add subscriptions for: monthlyOverviewUpdated, budgetUpdated, allocationUpdated, transactionUpdated. Return full entity types (not custom types) for cache updates. Configure Apollo Server with WebSocket support. Update frontend Apollo Client to use WebSocket link.",
-    "status": "done",
-    "dependencies": ["P2-007", "TX-006"]
-  },
-  {
-    "id": "P2-011",
-    "phase": "P2: GraphQL API Foundation",
-    "title": "Research and improve GraphQL schema management",
-    "description": "Researched schema-first vs code-first approaches. Compared Pothos, TypeGraphQL, and Nexus. Decision: Keep current SDL-first approach. Schema is stable, codegen pipeline works well, migration cost not justified. Documented in ADR-002.",
-    "status": "done",
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "The budget filter dropdown in transactions uses GetBudgetsDocument with activeOnly: true, which calls findActive(new Date()) on the backend. This excludes expired (past endDate) budgets that may still have transactions. Change to activeOnly: false so all non-archived budgets appear in the filter dropdown. Also check transaction-detail-panel.tsx for the same issue.",
     "dependencies": []
   },
 
   {
-    "id": "P3-001",
-    "phase": "P3: Next.js Frontend Setup",
-    "title": "Initialize Next.js app with ShadCN UI and Tailwind CSS",
-    "description": "Create web/ directory with Next.js 14+ app (App Router). Install and configure: Tailwind CSS, ShadCN UI (init with default theme), Apollo Client, graphql-codegen. Set up path aliases. Configure proxy to backend API at localhost:4000/graphql. Add `just dev-web` to justfile.",
+    "id": "NAV-001",
+    "phase": "NAV: Budget-to-Transactions Navigation",
+    "title": "Add URL search params support to Transactions page",
     "status": "done",
-    "dependencies": ["P2-001"]
+    "plan": "claude_plans/budget-to-transactions-nav.md",
+    "description": "Extract getDateRangeFromMonth() to shared web/src/lib/url-utils.ts with buildTransactionsUrl() helper. Update TransactionsTable to accept optional initialFilters prop. Update transactions page.tsx to read URL search params (budgetId, dateFrom, dateTo, etc.) via useSearchParams() and pass as initialFilters. Update unbudgeted-transactions-warning.tsx to import from shared utility.",
+    "dependencies": []
   },
   {
-    "id": "P3-002",
-    "phase": "P3: Next.js Frontend Setup",
-    "title": "Set up GraphQL code generation for frontend",
-    "description": "Install @graphql-codegen/cli, @graphql-codegen/client-preset, @graphql-codegen/typescript-operations. Configure codegen.ts to read .graphql files from web/src/graphql/ and generate typed hooks/documents. Add `just codegen` command. Create initial .graphql operation files for accounts query.",
+    "id": "NAV-002",
+    "phase": "NAV: Budget-to-Transactions Navigation",
+    "title": "Add clickable navigation from budget rows to filtered transactions",
     "status": "done",
-    "dependencies": ["P3-001", "P2-002"]
+    "plan": "claude_plans/budget-to-transactions-nav.md",
+    "description": "In budget-table.tsx, make budget name a next/link pointing to /transactions?budgetId=<id>&dateFrom=<first>&dateTo=<last> using the month from useMonth() and buildTransactionsUrl() helper. Also add 'View Transactions' item to the budget row dropdown menu (three dots). Ensure link does not interfere with drag-and-drop (drag handle is separate).",
+    "dependencies": ["NAV-001"]
   },
   {
-    "id": "P3-003",
-    "phase": "P3: Next.js Frontend Setup",
-    "title": "Create app layout with navigation sidebar",
-    "description": "Build main layout with sidebar navigation (like YNAB): Budget overview (main page), Accounts list, Transactions list, Settings. Use ShadCN sidebar component. Include month selector in header. Dark theme support. Responsive design.",
+    "id": "NAV-003",
+    "phase": "NAV: Budget-to-Transactions Navigation",
+    "title": "Sync transaction filters to URL search params (optional enhancement)",
     "status": "done",
-    "dependencies": ["P3-001"]
-  },
-  {
-    "id": "P3-004",
-    "phase": "P3: Next.js Frontend Setup",
-    "title": "Create basic auth gate (single user, email-only)",
-    "description": "Implement a simple auth gate: on first load, check localStorage for authenticated email. If not present, show login form that accepts only the owner's email (configured via env var ALLOWED_EMAIL). No password - just email verification for now. Store in localStorage. Protect all routes.",
-    "status": "done",
-    "dependencies": ["P3-003"]
-  },
-  {
-    "id": "P3-005",
-    "phase": "P3: Next.js Frontend Setup",
-    "title": "Update Next.js to v16",
-    "description": "Upgraded Next.js from 15.3.0 to 16.1.6. Updated eslint-config-next to 16.1.6. Migrated from `next lint` (removed in v16) to `eslint .` directly. Fixed React Compiler ESLint errors by refactoring to use useSyncExternalStore for theme/auth, key prop pattern for dialog resets, extracted variables for useMemo dependencies, and useId for deterministic random values.",
-    "status": "done",
-    "dependencies": ["TX-007"]
-  },
-  {
-    "id": "P3-006",
-    "phase": "P3: Next.js Frontend Setup",
-    "title": "Remove GraphQL proxy and use direct API",
-    "description": "WONTFIX: Keeping the Next.js proxy is simpler and works well. The proxy avoids CORS complexity, works the same in dev and prod (single domain), and has minimal overhead. Direct API would require adding CORS middleware to HttpServer with origin validation - added complexity for no real benefit in a single-user app.",
-    "status": "done",
-    "dependencies": ["TX-007"]
-  },
-  {
-    "id": "P3-007",
-    "phase": "P3: Next.js Frontend Setup",
-    "title": "Add frontend to just check command",
-    "description": "Update justfile `check` command to include frontend type checking and linting: run `cd web && bun run lint && tsc --noEmit`. Ensure both backend and frontend quality checks run together. Consider adding parallel execution for speed.",
-    "status": "done",
-    "dependencies": ["TX-007"]
-  },
-  {
-    "id": "P3-008",
-    "phase": "P3: Next.js Frontend Setup",
-    "title": "Document frontend environment configuration",
-    "description": "Create web/.env.example with all required environment variables (API URL, etc.). Document frontend configuration in README or CLAUDE.md. Update local setup instructions to include frontend env setup.",
-    "status": "done",
-    "dependencies": ["TX-007"]
-  },
-  {
-    "id": "P3-009",
-    "phase": "P3: Next.js Frontend Setup",
-    "title": "Add codegen to onboarding workflow",
-    "description": "Update CLAUDE.md and any setup documentation to mention `just codegen` as part of the initial setup process. Add to REVIEW-SUMMARY.md 'How to Run Locally' section. Consider running codegen automatically as part of `just dev-web`.",
-    "status": "done",
-    "dependencies": ["TX-007"]
-  },
-  {
-    "id": "P3-010",
-    "phase": "P3: Next.js Frontend Setup",
-    "title": "Research Biome for frontend",
-    "description": "Research migrating frontend from ESLint to Biome for consistency with backend. Key requirements: cyclomatic complexity rule (noExcessiveCognitiveComplexity), JSX support with sensible defaults. Evaluate trade-offs. If viable, create follow-up task to migrate. Document decision.",
-    "status": "done",
-    "dependencies": ["TX-007"]
+    "plan": "claude_plans/budget-to-transactions-nav.md",
+    "description": "When user changes filters on the transactions page, update URL search params using router.replace() so filtered views are shareable and bookmarkable. Ensures URL stays in sync with filter state after initial load from search params.",
+    "dependencies": ["NAV-001"]
   },
 
   {
-    "id": "P4-001",
-    "phase": "P4: Budget Overview Page (Main Feature)",
-    "title": "Build Monthly Overview header with key metrics",
-    "description": "Create the Budget page (main page) header section showing: month selector (prev/next arrows + month name), Ready to Assign (with color coding: green=0, yellow>0, red<0), Capital (savings), Available Funds, Total Allocated, Total Spent, Savings Rate. Use monthlyOverview GraphQL query. YNAB-style design.",
+    "id": "FILT-001",
+    "phase": "FILT: Transaction Sidebar Filters",
+    "title": "Extract TransactionFiltersSidebar component",
     "status": "done",
-    "dependencies": ["P3-003", "P2-007"]
+    "plan": "claude_plans/transaction-sidebar-filters.md",
+    "description": "Extract filter controls from TransactionFiltersBar (inside transactions-table.tsx) into a new TransactionFiltersSidebar component in web/src/components/transactions/transaction-filters-sidebar.tsx. Renders all filters vertically (search, account, category, budget, type, status, date range) with a header showing active count and clear-all button. Same props interface as current TransactionFiltersBar.",
+    "dependencies": []
   },
   {
-    "id": "P4-002",
-    "phase": "P4: Budget Overview Page (Main Feature)",
-    "title": "Build Budget table with inline allocation editing",
-    "description": "Create the budget table showing all active budgets for selected month: Budget name, Target/Limit, Allocated (editable inline), Spent, Available (with color), Progress bar. Support inline editing of allocated amount (click to edit, creates allocation). Group budgets by type (Spending, Savings, Goals). YNAB-style UX.",
+    "id": "FILT-002",
+    "phase": "FILT: Transaction Sidebar Filters",
+    "title": "Restructure TransactionsTable to two-column layout with sidebar",
     "status": "done",
-    "dependencies": ["P4-001", "P2-003", "P2-005"]
+    "plan": "claude_plans/transaction-sidebar-filters.md",
+    "description": "Modify TransactionsTable to render a two-column flex layout on lg+ screens: left column contains the table and pagination, right column (280px, sticky) contains the TransactionFiltersSidebar. Remove the old TransactionFiltersBar and Popover-based filter UI. On mobile (below lg), show a filter button that opens filters in a Sheet overlay.",
+    "dependencies": ["FILT-001"]
   },
   {
-    "id": "P4-003",
-    "phase": "P4: Budget Overview Page (Main Feature)",
-    "title": "Implement Move Funds dialog",
-    "description": "Create a dialog/modal for moving funds between budgets: select source budget, destination budget, amount. Uses moveFunds mutation. Shows current available balance for source. Updates table immediately via Apollo cache.",
+    "id": "FILT-003",
+    "phase": "FILT: Transaction Sidebar Filters",
+    "title": "Update E2E page object and tests for sidebar filters",
     "status": "done",
-    "dependencies": ["P4-002"]
+    "plan": "claude_plans/transaction-sidebar-filters.md",
+    "description": "Update TransactionsPage.ts page object: remove openFilters() popover step from filter methods since filters are always visible on desktop. Update filterByAccount/Category/Budget/Type/Status to directly interact with select elements. Update verify-transaction.spec.ts and any other E2E tests that use the filter methods. Add data-qa attributes to the new sidebar container.",
+    "dependencies": ["FILT-002"]
   },
   {
-    "id": "P4-004",
-    "phase": "P4: Budget Overview Page (Main Feature)",
-    "title": "Build Budget CRUD dialogs (create, edit, archive)",
-    "description": "Create dialogs for: New Budget (name, type, target amount, cadence, dates), Edit Budget, Archive Budget (with confirmation). Use ShadCN Dialog, Form, Select components. Validate inputs with Zod on client side.",
+    "id": "FILT-004",
+    "phase": "FILT: Transaction Sidebar Filters",
+    "title": "Update frontend architecture documentation",
     "status": "done",
-    "dependencies": ["P4-002", "TX-006"]
-  },
-  {
-    "id": "P4-005",
-    "phase": "P4: Budget Overview Page (Main Feature)",
-    "title": "Build Unbudgeted Transactions warning section",
-    "description": "Below the budget table, show a warning section listing expense transactions from operational accounts that have no budget assigned for the selected month. Show date, amount, description, account. Allow quick budget assignment from this list.",
-    "status": "done",
-    "dependencies": ["P4-002", "P2-006", "TX-006"]
-  },
-  {
-    "id": "P4-006",
-    "phase": "P4: Budget Overview Page (Main Feature)",
-    "title": "Add optimistic responses to mutations",
-    "description": "Implement optimistic responses for all frontend mutations: createAllocation, updateAllocation, moveFunds, createBudget, updateBudget. Use Apollo Client optimisticResponse option. Ensure immediate UI feedback before server confirmation. Handle rollback on errors gracefully.",
-    "status": "done",
-    "dependencies": ["P4-003", "TX-006"]
+    "plan": "claude_plans/transaction-sidebar-filters.md",
+    "description": "Update docs/frontend-architecture.md to document the new sidebar filter pattern on the transactions page. Add the TransactionFiltersSidebar to the component organization section. Note the responsive behavior (always-visible sidebar on desktop, Sheet on mobile).",
+    "dependencies": ["FILT-002"]
   },
 
   {
-    "id": "P5-001",
-    "phase": "P5: Accounts & Transactions Pages",
-    "title": "Build Accounts page with CRUD for manual accounts",
-    "description": "Create Accounts page showing all accounts grouped by role (Operational, Savings). For each account: name, type badge, currency, balance, IBAN (truncated), last sync time, synced indicator. Show total balance per group. Add 'Add Account' button for creating manual accounts. Synced accounts show read-only details. Manual accounts can be edited/archived.",
-    "status": "done",
-    "dependencies": ["P3-003", "P2-008", "TX-006"]
+    "id": "APPLY-001",
+    "phase": "APPLY: Sidebar Filter Apply Button",
+    "title": "Add debounced search input for transaction sidebar filters",
+    "status": "pending",
+    "plan": "claude_plans/transaction-filter-apply-button.md",
+    "description": "Implement a useDebouncedValue hook in web/src/hooks/use-debounced-value.ts and apply a 300ms debounce to the search input in TransactionFiltersSidebar. This prevents a GraphQL refetch on every keystroke. The search input continues to update the local input value immediately for responsive UX, but the debounced value drives the actual filter state.",
+    "dependencies": []
   },
   {
-    "id": "P5-002",
-    "phase": "P5: Accounts & Transactions Pages",
-    "title": "Build Transactions page with filtering and pagination",
-    "description": "Create Transactions page with: filterable table (date range, account, category, budget, search text, status), pagination, sortable columns. Show: date, description, amount (color by type), category, budget, status badge. Click row to expand details.",
-    "status": "done",
-    "dependencies": ["P3-003", "P2-006", "TX-006"]
+    "id": "APPLY-002",
+    "phase": "APPLY: Sidebar Filter Apply Button",
+    "title": "Split sidebar filter state into draft and applied",
+    "status": "pending",
+    "plan": "claude_plans/transaction-filter-apply-button.md",
+    "description": "In TransactionsTable, replace the single `filters` state with `draftFilters` and `appliedFilters`. Wire useQuery to appliedFilters only (so draft changes in the sidebar do not trigger refetch). Wire TransactionFiltersSidebar to read/write draftFilters. Update the Clear button to reset both states. URL sync should use appliedFilters.",
+    "dependencies": []
   },
   {
-    "id": "P5-003",
-    "phase": "P5: Accounts & Transactions Pages",
-    "title": "Build Transaction detail/edit panel",
-    "description": "When a transaction is clicked, show a side panel or expanded row with full details. Allow editing: category (dropdown with search), budget (dropdown with search), notes. Show AI reasoning if available. Add Verify button to confirm categorization. For manual account transactions, allow full editing including amount and date.",
-    "status": "done",
-    "dependencies": ["P5-002", "P2-004", "P2-009"]
+    "id": "APPLY-003",
+    "phase": "APPLY: Sidebar Filter Apply Button",
+    "title": "Add Apply and Reset buttons to filter sidebar",
+    "status": "pending",
+    "plan": "claude_plans/transaction-filter-apply-button.md",
+    "description": "Add Apply and Reset buttons at the bottom of TransactionFiltersSidebar. Apply copies draftFilters to appliedFilters, resets page to 0. Reset clears draftFilters to emptyFilters. Apply button is primary when there are unapplied changes, disabled/secondary otherwise. For mobile Sheet, add same buttons. Add data-qa attributes: btn-apply-filters, btn-reset-filters.",
+    "dependencies": ["APPLY-002"]
+  },
+  {
+    "id": "APPLY-004",
+    "phase": "APPLY: Sidebar Filter Apply Button",
+    "title": "Update E2E page object and tests for sidebar Apply button",
+    "status": "pending",
+    "plan": "claude_plans/transaction-filter-apply-button.md",
+    "description": "Update TransactionsPage.ts page object: add applyFilters() method that clicks the Apply button in the sidebar. Update filterByAccount(), filterByCategory(), filterByBudget(), filterByType(), filterByStatus() to set the filter value and then call applyFilters(). Update verify-transaction.spec.ts and other E2E tests to work with the new flow. Add data-qa selectors for new buttons.",
+    "dependencies": ["APPLY-003"]
   },
 
   {
-    "id": "P6-001",
-    "phase": "P6: Categories Management",
-    "title": "Build Categories management page",
-    "description": "Create Categories page showing hierarchical category tree. Support: create category (with optional parent), rename, archive. Show transaction count per category. Tree view with expand/collapse. ShadCN Tree or custom accordion component.",
+    "id": "PAG-001",
+    "phase": "PAG: Transaction Pagination Improvements",
+    "title": "Increase transaction page size from 25 to 50",
     "status": "done",
-    "dependencies": ["P3-003", "P2-004", "TX-006"]
+    "plan": "claude_plans/transaction-pagination-url.md",
+    "description": "Change PAGE_SIZE constant from 25 to 50 in web/src/components/transactions/transactions-table.tsx to show more transactions per page. The backend already defaults to 50 and supports up to 200, so no server changes needed.",
+    "dependencies": []
+  },
+  {
+    "id": "PAG-002",
+    "phase": "PAG: Transaction Pagination Improvements",
+    "title": "Add page number to URL search params for pagination state preservation",
+    "status": "done",
+    "plan": "claude_plans/transaction-pagination-url.md",
+    "description": "In TransactionsTable, use useSearchParams/useRouter/usePathname from next/navigation to read initial page from ?page= URL param and sync page changes back to URL via router.replace(). Page 1 omits the param for clean URLs. Wrap TransactionsTable in Suspense in page.tsx. Update handleFilterChange and handleClearFilters to also clear the URL param when resetting to page 0.",
+    "dependencies": ["PAG-001"]
+  },
+  {
+    "id": "PAG-003",
+    "phase": "PAG: Transaction Pagination Improvements",
+    "title": "Update E2E page object and tests for pagination URL changes",
+    "status": "pending",
+    "plan": "claude_plans/transaction-pagination-url.md",
+    "description": "Add gotoPage(n) helper to TransactionsPage E2E page object that navigates to /transactions?page=N. Update verify-transaction.spec.ts if page size change affects test behavior. Consider adding an E2E test that verifies pagination state is preserved on page refresh.",
+    "dependencies": ["PAG-002"]
   },
 
   {
-    "id": "P7-001",
-    "phase": "P7: API Integration Tests",
-    "title": "Set up API integration test infrastructure",
-    "description": "Create tests/integration/api/ directory. Set up test harness that: starts local Postgres (from docker-compose), runs migrations, creates Apollo Server instance with test container (mocked spreadsheet/bank), provides helpers to seed data and make GraphQL queries. Use Bun test runner. Add factory functions for creating test entities.",
-    "status": "done",
-    "dependencies": ["P2-001", "P1-004"]
+    "id": "CATQ-001",
+    "phase": "CATQ: Categorization Queue",
+    "title": "Add Terraform resources for categorization Pub/Sub queue",
+    "status": "pending",
+    "plan": "claude_plans/categorization-queue.md",
+    "description": "Create Terraform resources: topic (categorization-queue), push subscription (categorization-queue-sub → /webhook/categorize), DLQ topic/sub, IAM bindings. Retry: 10s-600s exponential backoff, 5 max attempts, 120s ack deadline.",
+    "dependencies": []
   },
   {
-    "id": "P7-002",
-    "phase": "P7: API Integration Tests",
-    "title": "Write API integration tests for core queries and mutations",
-    "description": "Write integration tests for: accounts query, budgets CRUD, categories CRUD, allocations CRUD, moveFunds mutation, transactions query with filters, monthlyOverview computation. Each test seeds data, executes query/mutation, asserts response.",
-    "status": "done",
-    "dependencies": ["P7-001", "P2-007"]
+    "id": "CATQ-002",
+    "phase": "CATQ: Categorization Queue",
+    "title": "Create CategorizationQueueGateway domain and infrastructure",
+    "status": "pending",
+    "plan": "claude_plans/categorization-queue.md",
+    "description": "Add abstract CategorizationQueueGateway in domain/gateways (publish method only). Implement PubSubCategorizationQueueGateway reusing PubSubClient. Register in container.ts with CATEGORIZATION_TOPIC/SUBSCRIPTION env vars.",
+    "dependencies": []
+  },
+  {
+    "id": "CATQ-003",
+    "phase": "CATQ: Categorization Queue",
+    "title": "Create EnqueueCategorizationUseCase",
+    "status": "pending",
+    "plan": "claude_plans/categorization-queue.md",
+    "description": "New use case accepting transactionExternalId, publishes to categorization queue. Minimal DTO: { transactionExternalId: string }. Returns { messageId: string }.",
+    "dependencies": ["CATQ-002"]
+  },
+  {
+    "id": "CATQ-004",
+    "phase": "CATQ: Categorization Queue",
+    "title": "Add POST /webhook/categorize endpoint",
+    "status": "pending",
+    "plan": "claude_plans/categorization-queue.md",
+    "description": "New route in WebhookController. Parses Pub/Sub push envelope via PubSubPushParser. Calls CategorizeTransactionUseCase. Returns 200 on success/already-categorized, 400 on bad data, 500 on rate limit or transient errors to trigger Pub/Sub retry.",
+    "dependencies": ["CATQ-002"]
+  },
+  {
+    "id": "CATQ-005",
+    "phase": "CATQ: Categorization Queue",
+    "title": "Update ProcessIncomingTransaction to enqueue categorization",
+    "status": "pending",
+    "plan": "claude_plans/categorization-queue.md",
+    "description": "Replace inline categorizeTransactionSafely() with enqueue to categorization queue via EnqueueCategorizationUseCase. Remove rate limit retry logic and sleep method. Keep markCategorizationFailed for enqueue failures only.",
+    "dependencies": ["CATQ-003"]
+  },
+  {
+    "id": "CATQ-006",
+    "phase": "CATQ: Categorization Queue",
+    "title": "Update CategorizeCommand for queue-based retry",
+    "status": "pending",
+    "plan": "claude_plans/categorization-queue.md",
+    "description": "Add --via-queue flag to CategorizeCommand that enqueues pending/failed transactions instead of direct LLM calls. Keep direct mode as default for local dev without Pub/Sub.",
+    "dependencies": ["CATQ-003"]
+  },
+  {
+    "id": "CATQ-007",
+    "phase": "CATQ: Categorization Queue",
+    "title": "Add CATEGORIZATION_TOPIC env var to webhook service Terraform",
+    "status": "pending",
+    "plan": "claude_plans/categorization-queue.md",
+    "description": "Add CATEGORIZATION_TOPIC environment variable to webhook Cloud Run service in Terraform, pointing to the categorization-queue topic.",
+    "dependencies": ["CATQ-001"]
+  },
+  {
+    "id": "CATQ-008",
+    "phase": "CATQ: Categorization Queue",
+    "title": "Write tests for categorization queue",
+    "status": "pending",
+    "plan": "claude_plans/categorization-queue.md",
+    "description": "Unit tests for EnqueueCategorizationUseCase, updated ProcessIncomingTransaction (enqueue instead of inline), and /webhook/categorize endpoint handler. Update existing tests that mock categorization.",
+    "dependencies": ["CATQ-004", "CATQ-005"]
+  },
+  {
+    "id": "CATQ-009",
+    "phase": "CATQ: Categorization Queue",
+    "title": "Update infrastructure documentation",
+    "status": "pending",
+    "plan": "claude_plans/categorization-queue.md",
+    "description": "Update docs/infrastructure.md with new Pub/Sub resources (categorization-queue topic, subscription, DLQ). Document the push-based categorization flow and retry behavior.",
+    "dependencies": ["CATQ-001"]
   },
 
   {
-    "id": "P8-001",
-    "phase": "P8: E2E Tests (Playwright)",
-    "title": "Set up Playwright E2E test infrastructure with structured fixtures",
-    "description": "Install Playwright and configure e2e/ directory. Create docker-compose.e2e.yml that spins up fresh PostgreSQL, runs migrations, seeds test data, starts API server (with mocked Monobank/spreadsheet), and starts Next.js. Configure playwright.config.ts with baseURL, timeout, retries. Create base test fixtures using Playwright's test.extend() for: fresh database state per test file, API client for direct DB manipulation, authenticated page context. Add `just test-e2e` command that orchestrates the full stack. Create e2e/fixtures/ for test data factories and e2e/utils/ for helpers.",
-    "status": "done",
-    "dependencies": ["P4-002", "P5-002"]
+    "id": "SRCH-001",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Install cmdk and add ShadCN Command UI component",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "Install cmdk ^1.0.0 in web/. Create web/src/components/ui/command.tsx with the standard ShadCN Command component wrapper (Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem, CommandSeparator).",
+    "dependencies": []
   },
   {
-    "id": "P8-002",
-    "phase": "P8: E2E Tests (Playwright)",
-    "title": "Create Page Objects and reusable component classes",
-    "description": "Create Page Object Model (POM) pattern in e2e/pages/: BasePage (common selectors, wait utilities), BudgetPage (budget table, metrics, move funds dialog), TransactionsPage (filters, table, pagination), AccountsPage (account groups, CRUD dialogs), CategoriesPage (tree view, CRUD). Create reusable component classes in e2e/components/: Table (row selection, sorting), Dialog (open/close, form submit), MonthSelector (navigate months), InlineEditor (edit/save/cancel). All selectors use data-qa attributes (e.g., [data-qa='budget-table'], [data-qa='move-funds-btn']). Add data-qa attributes to frontend components as needed.",
-    "status": "done",
-    "dependencies": ["P8-001"]
+    "id": "SRCH-002",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Create generic SearchableSelect wrapper component",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "Create web/src/components/ui/searchable-select.tsx that combines Popover + Command into a reusable searchable select. Supports grouped options, optional clear/none option, custom item rendering, search filtering, keyboard navigation, and data-qa attributes. Trigger visually matches the existing SelectTrigger style.",
+    "dependencies": ["SRCH-001"]
   },
   {
-    "id": "P8-003",
-    "phase": "P8: E2E Tests (Playwright)",
-    "title": "Write E2E tests for Budget Overview page",
-    "description": "Clean, high-level tests using Page Objects. Tests: verify metrics display correct values (Ready to Assign, Capital, etc.), navigate months and verify data changes, edit allocation inline and verify totals update, move funds between budgets via dialog, create new budget via dialog, archive budget and verify removal from list. Each test uses fixture data and calls high-level methods like budgetPage.editAllocation('Groceries', 500), budgetPage.moveFunds('Groceries', 'Savings', 100). Assert via page object getters like budgetPage.readyToAssign.",
-    "status": "done",
-    "dependencies": ["P8-002"]
+    "id": "SRCH-003",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Create CategoryCombobox component",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "Create web/src/components/categories/category-combobox.tsx. Wraps SearchableSelect with category-specific logic: groups child categories under parent headers using CommandGroup, searches against both name and fullPath, supports rootOnly mode (for parent selection), excludeIds (for edit forms), allowNone and allowAll modes.",
+    "dependencies": ["SRCH-002"]
   },
   {
-    "id": "P8-004",
-    "phase": "P8: E2E Tests (Playwright)",
-    "title": "Write E2E tests for Transactions and Accounts pages",
-    "description": "Clean, high-level tests using Page Objects. Transactions tests: load page with default filters, filter by date range, filter by category/budget, search by description, paginate through results, edit transaction category via dropdown, edit transaction budget, verify transaction. Accounts tests: verify accounts grouped by role, create manual account via dialog, edit manual account name, archive manual account, verify synced accounts show read-only badge, verify archived accounts hidden by default.",
-    "status": "done",
-    "dependencies": ["P8-002"]
+    "id": "SRCH-004",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Create BudgetCombobox component",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "Create web/src/components/budget/budget-combobox.tsx. Wraps SearchableSelect with budget-specific logic: flat list of budgets, supports allowNone and allowAll modes, optional showBalance variant that displays available balance next to each budget name (for move funds), disabledIds to prevent selecting specific budgets.",
+    "dependencies": ["SRCH-002"]
   },
   {
-    "id": "P8-005",
-    "phase": "P8: E2E Tests (Playwright)",
-    "title": "Refactor E2E tests to one scenario per file",
-    "description": "Refactor existing smoke.spec.ts to follow one-scenario-per-file pattern. Split into separate files: e2e/tests/smoke/authentication.spec.ts, e2e/tests/smoke/navigation.spec.ts, e2e/tests/smoke/graphql-api.spec.ts. Each file should have a single test scenario for easier debugging, better parallelization, and clearer test reports. Update any future test files to follow this pattern.",
-    "status": "done",
-    "dependencies": ["P8-002"]
+    "id": "SRCH-005",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Replace selects in transaction detail panel",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "In web/src/components/transactions/transaction-detail-panel.tsx, replace the category Select with CategoryCombobox (allowNone mode) and the budget Select with BudgetCombobox (allowNone mode). Remove Select import if no longer needed. Preserve data-qa attributes and existing mutation handlers.",
+    "dependencies": ["SRCH-003", "SRCH-004"]
+  },
+  {
+    "id": "SRCH-006",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Replace selects in transactions table (filters and inline edits)",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "In web/src/components/transactions/transactions-table.tsx, replace: category filter Select with CategoryCombobox (allowAll), budget filter Select with BudgetCombobox (allowAll), inline category edit Select with CategoryCombobox (allowNone, compact h-8), inline budget edit Select with BudgetCombobox (allowNone, compact h-8). Keep account/type/status selects as plain Select.",
+    "dependencies": ["SRCH-003", "SRCH-004"]
+  },
+  {
+    "id": "SRCH-007",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Replace selects in unbudgeted transactions warning",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "In web/src/components/budget/unbudgeted-transactions-warning.tsx, replace the budget assignment Select with BudgetCombobox. Each transaction row gets a searchable budget picker instead of a plain dropdown.",
+    "dependencies": ["SRCH-004"]
+  },
+  {
+    "id": "SRCH-008",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Replace selects in move funds dialog and sheet",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "In web/src/components/budget/move-funds-dialog.tsx and move-funds-sheet.tsx, replace source and destination budget Select with BudgetCombobox (showBalance mode). Pass balanceMap from budgetSummaries to display available balance next to each option. Use disabledIds to prevent selecting the same budget as source and destination.",
+    "dependencies": ["SRCH-004"]
+  },
+  {
+    "id": "SRCH-009",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Replace selects in category create/edit dialogs and sheets",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "In create-category-dialog.tsx, create-category-sheet.tsx, edit-category-dialog.tsx, and edit-category-sheet.tsx, replace parent category Select with CategoryCombobox (rootOnly mode). For edit variants, use excludeIds to prevent selecting the category being edited as its own parent. Keep status Select as plain Select (only 2-3 options).",
+    "dependencies": ["SRCH-003"]
+  },
+  {
+    "id": "SRCH-010",
+    "phase": "SRCH: Searchable Dropdowns",
+    "title": "Update E2E test helpers and page objects for combobox interactions",
+    "status": "pending",
+    "plan": "claude_plans/searchable-dropdowns.md",
+    "description": "Add searchAndSelectOption(qaAttribute, searchText, optionText) method to e2e/components/Dialog.ts for combobox interactions (click trigger, type search text, select matching option). Update TransactionsPage.ts (filterByCategory, filterByBudget), CategoriesPage.ts (selectParent), BudgetPage.ts (selectSourceBudget, selectDestinationBudget), and move-funds.spec.ts to use the new combobox interaction pattern.",
+    "dependencies": ["SRCH-005", "SRCH-006", "SRCH-007", "SRCH-008", "SRCH-009"]
   },
 
   {
-    "id": "P9-001",
-    "phase": "P9: GCP Deployment",
-    "title": "Configure Cloud Run Service for web app (Meta-task)",
-    "description": "Meta-task for GCP deployment. Completed when all P9-0XX subtasks are done.",
+    "id": "UI-005",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Add padding to transaction detail sidebar content",
     "status": "done",
-    "dependencies": ["P4-005", "P5-003"]
-  },
-  {
-    "id": "P9-002",
-    "phase": "P9: GCP Deployment",
-    "title": "Create multi-stage Dockerfile for Next.js frontend",
-    "description": "Created Dockerfile.web that builds Next.js frontend in standalone mode. Multi-stage build: 1) Install deps, 2) Run codegen and build Next.js, 3) Production runtime with Node.js. Frontend proxies GraphQL requests to existing webhook service via Next.js rewrites. Auth credentials baked in at build time via NEXT_PUBLIC_ env vars.",
-    "status": "done",
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "The transaction detail panel (SheetContent in transaction-detail-panel.tsx) has no horizontal padding on its body content, so text and controls touch the edges of the sidebar. The SheetHeader already has p-4 from the Sheet UI component, but the body div (line 292: <div className=\"mt-6 space-y-6\">) has no px-* or pb-* classes. Fix by adding px-4 pb-6 (or px-6 pb-6 to match a wider feel) to the body content div. Also consider adding px-4 to SheetContent itself for consistency, but note this would double-pad the SheetHeader which already has p-4. The cleanest fix is to add px-4 pb-6 to the body div at line 292.",
     "dependencies": []
   },
   {
-    "id": "P9-003",
-    "phase": "P9: GCP Deployment",
-    "title": "Enable Next.js standalone output",
-    "description": "Updated next.config.ts to enable standalone output mode for Docker deployment. This creates a minimal Node.js server that can run without the full node_modules.",
+    "id": "UI-006",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Add prominent verify button for AI-categorized transactions",
     "status": "done",
-    "dependencies": ["P9-002"]
-  },
-  {
-    "id": "P9-004",
-    "phase": "P9: GCP Deployment",
-    "title": "Add auth secrets to Secret Manager (Terraform)",
-    "description": "Added google_secret_manager_secret resources for allowed-email and allowed-password in main.tf. These are passed as build args during CI/CD (baked into Next.js build).",
-    "status": "done",
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "When a transaction has categorizationStatus='categorized' (AI-assigned), there should be a quick, prominent way to approve the categorization without changing category or budget. Currently, the detail panel has a full-width 'Verify Categorization' outline button (lines 357-371) and the table has a small ghost checkmark icon in the last column (lines 790-803). The table's inline verify button is too subtle for categorized transactions -- it's the same small ghost icon for both 'pending' and 'categorized' statuses. Improvements: (1) In the transactions table, make the verify button more prominent specifically for 'categorized' status -- use a colored variant (e.g., blue outline or a filled icon matching the blue 'Categorized' badge color) to draw attention. Consider adding a tooltip 'Approve AI categorization'. (2) In the detail panel, make the verify button more prominent when status is 'categorized' -- change from outline to default/primary variant with a label like 'Approve AI Categorization' and use the blue/green color scheme. For 'pending' status, keep the current subtle outline style. The VerifyTransaction GraphQL mutation already exists (mutations/transactions.graphql) and is already wired up in both components.",
     "dependencies": []
-  },
-  {
-    "id": "P9-005",
-    "phase": "P9: GCP Deployment",
-    "title": "Add Cloud Run Service for web app in Terraform",
-    "description": "Added google_cloud_run_v2_service 'web' resource to main.tf. Configured: Dockerfile.web image, port 3000, health check at /, scaling (0-2 instances), 512Mi memory. Made publicly accessible (allUsers invoker role). Separate from webhook service - frontend proxies to webhook for GraphQL.",
-    "status": "done",
-    "dependencies": ["P9-002", "P9-004"]
-  },
-  {
-    "id": "P9-006",
-    "phase": "P9: GCP Deployment",
-    "title": "Update CI/CD pipeline for web service",
-    "description": "Updated .github/workflows/deploy.yml to: 1) Separate change detection for backend vs web, 2) Build Dockerfile.web with auth build args and webhook URL, 3) Deploy web service, 4) Parallel builds for backend and web, 5) Cleanup old images for both.",
-    "status": "done",
-    "dependencies": ["P9-005"]
-  },
-  {
-    "id": "P9-007",
-    "phase": "P9: GCP Deployment",
-    "title": "Test deployment on GCP (user verification)",
-    "description": "Verified deployment on GCP: 1) Terraform applied and created web service, 2) CI/CD builds and deploys web image with auth secrets, 3) Frontend loads at https://web-h24ebeyteq-lm.a.run.app and login works, 4) GraphQL API works via proxy to webhook service. Fixed: Added GraphQL endpoint to production webhook-server.ts (was missing).",
-    "status": "done",
-    "dependencies": ["P9-006"]
   },
 
   {
-    "id": "TX-001",
-    "phase": "TX: Technical Debt",
-    "title": "Fix architecture dependency rule violations",
-    "description": "Fix presentation layer importing from infrastructure. In transactionsResolver.ts and monthlyOverviewResolver.ts: create domain-level TransactionRepository methods (e.g., findTransactionSummaries, findByFilters) instead of importing DatabaseTransactionRepository directly. Move TransactionFilterParams to domain layer. Resolvers should only import from domain/application layers.",
-    "status": "done",
+    "id": "RULES-001",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Create Rule domain entity and expand repository interfaces",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create src/domain/entities/Rule.ts with id, rule (text), priority, createdAt, updatedAt following the project entity pattern (private constructor, static create(), extends Entity<TId>). Expand CategorizationRuleRepository and BudgetizationRuleRepository abstract classes with findAllRules(): Promise<Rule[]>, findById(id: number): Promise<Rule | null>, save(rule: Rule): Promise<Rule>, update(rule: Rule): Promise<Rule>, delete(id: number): Promise<void>. Keep existing findAll(): Promise<string[]> for backward compatibility with CategorizeTransactionUseCase.",
     "dependencies": []
   },
   {
-    "id": "TX-002",
-    "phase": "TX: Technical Debt",
-    "title": "Fix typecasting violations in mappers",
-    "description": "Replace `as SomeType` assertions with proper type guards or Zod validation in: DatabaseBudgetMapper.ts (BudgetType, TargetCadence casts), DatabaseAccountMapper.ts (AccountRole cast), GraphQLServer.ts (double cast through unknown). Use Zod schemas or type guard functions for safe runtime type narrowing.",
+    "id": "RULES-002",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Implement CRUD in database repository classes",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Implement the new repository methods in DatabaseCategorizationRuleRepository and DatabaseBudgetizationRuleRepository: findAllRules() returns Rule entities ordered by priority DESC, findById() queries by primary key, save() inserts and returns the created Rule, update() updates rule text and/or priority with updated_at timestamp, delete() removes by id. Also update DualWriteCategorizationRuleRepository and DualWriteBudgetizationRuleRepository to delegate new methods to the DB repo (no spreadsheet dual-write needed for rule writes).",
+    "dependencies": ["RULES-001"]
+  },
+  {
+    "id": "RULES-003",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Create rule CRUD use cases",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create three use cases: CreateRuleUseCase (input: { rule: string, priority?: number }, output: Rule), UpdateRuleUseCase (input: { id: number, rule?: string, priority?: number }, output: Rule), DeleteRuleUseCase (input: { id: number }, output: void). Use cases accept the repository as a constructor-injected dependency. Since both rule types share identical logic, use a single set of use cases that work with the abstract repository interface. The resolver layer will inject the correct repository.",
+    "dependencies": ["RULES-001"]
+  },
+  {
+    "id": "RULES-004",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Add GraphQL schema, resolver, and mapper for rules",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create src/presentation/graphql/schema/rules.graphql with Rule type (id, rule, priority, createdAt, updatedAt), queries (categorizationRules, budgetizationRules), mutations (createCategorizationRule, updateCategorizationRule, deleteCategorizationRule, createBudgetizationRule, updateBudgetizationRule, deleteBudgetizationRule), and CreateRuleInput/UpdateRuleInput input types. Create src/presentation/graphql/mappers/rule.ts with mapRuleToGql. Create src/presentation/graphql/resolvers/rulesResolver.ts that injects both repository tokens and wires queries/mutations. Register in schema/index.ts and resolvers/index.ts.",
+    "dependencies": ["RULES-002", "RULES-003"]
+  },
+  {
+    "id": "RULES-005",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Write unit tests for Rule entity and use cases",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create tests/unit/domain/entities/Rule.test.ts testing entity creation, validation, and edge cases. Create tests/unit/application/use-cases/CreateRule.test.ts, UpdateRule.test.ts, DeleteRule.test.ts with mocked repositories testing happy paths, validation errors, and not-found cases.",
+    "dependencies": ["RULES-003"]
+  },
+  {
+    "id": "RULES-006",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Write API integration tests for rules GraphQL endpoints",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create API integration tests against Docker DB: categorization-rules-query.test.ts, create-categorization-rule.test.ts, update-categorization-rule.test.ts, delete-categorization-rule.test.ts, and equivalent tests for budgetization rules. Cover happy paths, input validation (empty rule text), not-found on update/delete, and priority ordering.",
+    "dependencies": ["RULES-004"]
+  },
+  {
+    "id": "RULES-007",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Add frontend GraphQL operations and run codegen",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create web/src/graphql/queries/rules.graphql with GetCategorizationRules and GetBudgetizationRules queries. Create web/src/graphql/mutations/rules.graphql with CreateCategorizationRule, UpdateCategorizationRule, DeleteCategorizationRule, CreateBudgetizationRule, UpdateBudgetizationRule, DeleteBudgetizationRule mutations. Run 'just codegen' to generate TypeScript types.",
+    "dependencies": ["RULES-004"]
+  },
+  {
+    "id": "RULES-008",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Build rules management UI on Settings page",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Rewrite web/src/app/settings/page.tsx from placeholder to show two rule sections (categorization rules, budgetization rules). Create reusable components: web/src/components/rules/rules-section.tsx (section with title, description, 'Add Rule' button, table), web/src/components/rules/rules-table.tsx (table with Priority, Rule text, Actions columns sorted by priority DESC), web/src/components/rules/create-rule-sheet.tsx (Sheet with textarea for rule text + number input for priority), web/src/components/rules/edit-rule-sheet.tsx (pre-filled edit sheet), web/src/components/rules/delete-rule-dialog.tsx (AlertDialog confirmation). Add data-qa attributes to all interactive elements.",
+    "dependencies": ["RULES-007"]
+  },
+  {
+    "id": "RULES-009",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Add rule seed data for local development",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Update scripts/seed-local-db.ts to insert sample categorization rules (e.g., 'Assign Bolt transactions to Transport > Taxi', 'MCC 5411 transactions are Food > Supermarket') and budgetization rules (e.g., 'Assign Transport category transactions to Transport budget') into the database. Provides demo data for 'just dev'.",
+    "dependencies": ["RULES-002"]
+  },
+  {
+    "id": "RULES-010",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Add E2E tests for rules management",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Create e2e/pages/SettingsPage.ts page object with methods for interacting with rule sections (navigateToSettings, addRule, editRule, deleteRule, getRuleCount, getRuleText). Create e2e/tests/settings/manage-rules.spec.ts covering: create a categorization rule, verify it appears in the table, edit its text, delete it, verify empty state. Add data-qa selectors used by the page object.",
+    "dependencies": ["RULES-008"]
+  },
+  {
+    "id": "RULES-011",
+    "phase": "RULES: Categorization Rules Management",
+    "title": "Update frontend architecture documentation",
+    "status": "pending",
+    "plan": "claude_plans/categorization-rules-management.md",
+    "description": "Update docs/frontend-architecture.md to document the Settings page structure with rules management sections. Add the new route (/settings) to the App Router Structure section. Document the rules components (rules-section, rules-table, create/edit sheets, delete dialog) in the component organization section.",
+    "dependencies": ["RULES-008"]
+  },
+
+  {
+    "id": "UI-007",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Fix wide tables causing entire page to scroll horizontally",
     "status": "done",
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "When any table (budgets, transactions) is wider than the viewport, the entire main content area scrolls horizontally, pushing the app header above the left sidebar. Instead, tables should have their own horizontal scroll container (overflow-x-auto on the table wrapper) while the page layout remains fixed. Check app-shell.tsx main element and table wrappers in budget-table.tsx and transactions-table.tsx. The fix is to constrain the main content area width and add overflow-x-auto to individual table containers.",
+    "dependencies": []
+  },
+
+  {
+    "id": "UI-008",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Make pagination bar sticky at bottom of transactions view",
+    "status": "done",
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "The pagination controls (Previous/Next buttons + page indicator) at the bottom of the transactions table should be sticky so they're always visible without scrolling to the bottom. Add sticky bottom-0 z-10 bg-background with a top border to the pagination wrapper div in transactions-table.tsx.",
     "dependencies": []
   },
   {
-    "id": "TX-003",
-    "phase": "TX: Technical Debt",
-    "title": "Add tests for DatabaseAllocationMapper",
-    "description": "Create tests/unit/infrastructure/mappers/DatabaseAllocationMapper.test.ts. Test toDomain() mapping from DB row to Allocation entity. Test toRow() mapping from entity to DB row. Test edge cases: null values, boundary dates, various amount values.",
+    "id": "UI-009",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Add page number selector to transaction pagination",
     "status": "done",
-    "dependencies": []
-  },
-  {
-    "id": "TX-004",
-    "phase": "TX: Technical Debt",
-    "title": "Add tests for DualWrite repositories",
-    "description": "Create tests for DualWriteBudgetRepository and DualWriteCategoryRepository (following pattern from existing DualWriteTransactionRepository.test.ts and DualWriteAccountRepository.test.ts). Test that both database and spreadsheet repositories are called. Test error handling when one write fails.",
-    "status": "done",
-    "dependencies": []
-  },
-  {
-    "id": "TX-005",
-    "phase": "TX: Technical Debt",
-    "title": "Extract shared GraphQL mapping utilities",
-    "description": "Consolidate duplicate budget/allocation mapping code across resolvers. Create src/presentation/graphql/mappers/ directory with: BudgetGqlMapper, AllocationGqlMapper, TransactionGqlMapper. Move mapBudgetToGql, toMinorUnits, BUDGET_TYPE_TO_GQL constants to shared location. Update all resolvers to use shared mappers.",
-    "status": "done",
-    "dependencies": []
-  },
-  {
-    "id": "TX-006",
-    "phase": "TX: Technical Debt",
-    "title": "Refactor resolvers to be injectable classes",
-    "description": "Refactor GraphQL resolvers from plain objects to injectable classes. Create base Resolver class (similar to Controller pattern). Resolvers should: be decorated with @injectable(), receive dependencies via constructor, map inputs and invoke use cases (no business logic). Create separate Query/Mutation resolver classes if needed for organization.",
-    "status": "done",
-    "dependencies": ["TX-001", "TX-005"]
-  },
-  {
-    "id": "TX-007",
-    "phase": "TX: Technical Debt",
-    "title": "Frontend infrastructure improvements",
-    "description": "Meta-task for frontend infrastructure. Completed when P3-005 through P3-010 are done. This ensures frontend tooling is solid before building more UI features.",
-    "status": "done",
-    "dependencies": []
-  },
-  {
-    "id": "TX-008",
-    "phase": "TX: Technical Debt",
-    "title": "Auto-verify transaction when user edits category or budget",
-    "description": "When user manually updates a transaction's category or budget via updateTransactionCategory or updateTransactionBudget mutations, automatically set categorizationStatus to VERIFIED. This confirms that the user has reviewed and accepted the categorization (even if they changed it). Currently these mutations don't update the status. Filter by 'categorized' status to see LLM-categorized transactions that need review.",
-    "status": "done",
+    "plan": "claude_plans/small-ui-fixes.md",
+    "description": "Currently pagination only has Previous/Next buttons and a 'Page X of Y' label. Add clickable page numbers so users can jump to any page directly. Use a compact pagination pattern: show first page, last page, current page with neighbors, and ellipsis for gaps (e.g., 1 ... 4 5 [6] 7 8 ... 12). Each page number is a clickable button. Consider using ShadCN Pagination component if available, or build a simple one.",
     "dependencies": []
   }
 ]

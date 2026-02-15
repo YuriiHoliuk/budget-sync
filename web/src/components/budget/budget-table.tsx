@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useMemo, useRef, useState, type CSSProperties } from "react";
+import { forwardRef, useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useMutation, useQuery } from "@apollo/client/react";
 import {
   DndContext,
@@ -19,10 +19,12 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import Link from "next/link";
 import {
   ArrowLeftRight,
   ChevronDown,
   ChevronRight,
+  Eye,
   FolderPlus,
   GripVertical,
   MoreHorizontal,
@@ -72,6 +74,7 @@ import {
   type CadenceUnit,
 } from "@/graphql/generated/graphql";
 import { useMonth } from "@/hooks/use-month";
+import { getDateRangeFromMonth, buildTransactionsUrl } from "@/lib/url-utils";
 import {
   updateMonthlyOverviewCache,
   reorderBudgetInCache,
@@ -388,6 +391,18 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
     setDeleteGroupId(null);
   };
 
+  const dateRange = useMemo(() => getDateRangeFromMonth(month), [month]);
+
+  const getTransactionsUrl = useCallback(
+    (budgetId: number) =>
+      buildTransactionsUrl({
+        budgetId,
+        dateFrom: dateRange.dateFrom,
+        dateTo: dateRange.dateTo,
+      }),
+    [dateRange],
+  );
+
   const selectedBudget = budgetSummaries.find(
     (budget) => budget.budgetId === selectedBudgetId,
   );
@@ -464,9 +479,9 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
           New Budget
         </Button>
       </div>
-      <div className="rounded-xl border">
+      <div className="overflow-x-auto rounded-xl border">
         <Table data-qa="budget-table">
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[32px]" />
               <TableHead className="w-[200px]">Budget</TableHead>
@@ -501,6 +516,7 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
                       key={groupData.group?.id ?? "ungrouped"}
                       groupData={groupData}
                       isCollapsed={isCollapsed}
+                      getTransactionsUrl={getTransactionsUrl}
                       onToggle={
                         groupData.group
                           ? () => handleToggleGroup(groupData.group!.id)
@@ -604,6 +620,7 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
 interface GroupSectionProps {
   groupData: GroupedBudgets;
   isCollapsed: boolean;
+  getTransactionsUrl: (budgetId: number) => string;
   onToggle?: () => void;
   onRename?: (newName: string) => void;
   onDelete?: () => void;
@@ -619,6 +636,7 @@ interface GroupSectionProps {
 function GroupSection({
   groupData,
   isCollapsed,
+  getTransactionsUrl,
   onToggle,
   onRename,
   onDelete,
@@ -660,6 +678,7 @@ function GroupSection({
             key={summary.budgetId}
             summary={summary}
             isEditing={editingBudgetId === summary.budgetId}
+            transactionsUrl={getTransactionsUrl(summary.budgetId)}
             onStartEdit={() => onStartEdit(summary.budgetId)}
             onSave={(amount) =>
               onSaveAllocation(summary.budgetId, amount)
@@ -913,6 +932,7 @@ interface BudgetRowProps {
   summary: BudgetSummary;
   isEditing: boolean;
   isDragOverlay?: boolean;
+  transactionsUrl?: string;
   onStartEdit: () => void;
   onSave: (amount: number) => Promise<void>;
   onCancel: () => void;
@@ -965,6 +985,7 @@ const BudgetRow = forwardRef<
     summary,
     isEditing,
     isDragOverlay,
+    transactionsUrl,
     onStartEdit,
     onSave,
     onCancel,
@@ -1011,7 +1032,17 @@ const BudgetRow = forwardRef<
       </TableCell>
       <TableCell className="font-medium">
         <span className="flex items-center gap-2">
-          {summary.name}
+          {transactionsUrl ? (
+            <Link
+              href={transactionsUrl}
+              className="hover:underline"
+              data-qa={`budget-name-link-${budgetId}`}
+            >
+              {summary.name}
+            </Link>
+          ) : (
+            summary.name
+          )}
           {summary.isExpired && (
             <Badge variant="outline" className="text-xs text-amber-600 border-amber-600/30 dark:text-amber-400 dark:border-amber-400/30">
               Expired
@@ -1085,7 +1116,7 @@ const BudgetRow = forwardRef<
       </TableCell>
       <TableCell>
         {summary.targetAmount > 0 ? (
-          <BudgetProgressBar percentage={progressPercentage} />
+          <BudgetProgressBar percentage={progressPercentage} available={summary.available} />
         ) : null}
       </TableCell>
       <TableCell>
@@ -1097,6 +1128,14 @@ const BudgetRow = forwardRef<
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            {transactionsUrl && (
+              <DropdownMenuItem asChild data-qa={`budget-view-transactions-${budgetId}`}>
+                <Link href={transactionsUrl}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Transactions
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={onEditBudget} data-qa={`budget-edit-${budgetId}`}>
               <Pencil className="mr-2 h-4 w-4" />
               Edit
@@ -1117,20 +1156,20 @@ const BudgetRow = forwardRef<
   );
 });
 
-function getProgressBarColor(percentage: number): string {
-  if (percentage >= 100) return "bg-red-500";
+function getProgressBarColor(percentage: number, available: number): string {
+  if (available < 0) return "bg-red-500";
   if (percentage >= 80) return "bg-yellow-500";
   return "bg-green-500";
 }
 
-function BudgetProgressBar({ percentage }: { percentage: number }) {
+function BudgetProgressBar({ percentage, available }: { percentage: number; available: number }) {
   return (
     <div className="flex items-center gap-2">
       <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
         <div
           className={cn(
             "absolute inset-y-0 left-0 rounded-full transition-all",
-            getProgressBarColor(percentage),
+            getProgressBarColor(percentage, available),
           )}
           style={{ width: `${percentage}%` }}
         />
