@@ -479,9 +479,9 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
           New Budget
         </Button>
       </div>
-      <div className="overflow-x-auto rounded-xl border">
+      <div className="overflow-clip rounded-xl border">
         <Table data-qa="budget-table">
-          <TableHeader className="sticky top-0 z-10 bg-background">
+          <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[32px]" />
               <TableHead className="w-[200px]">Budget</TableHead>
