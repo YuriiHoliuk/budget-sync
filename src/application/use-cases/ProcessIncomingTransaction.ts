@@ -11,10 +11,12 @@ import {
   type TransactionRepository,
 } from '@domain/repositories/TransactionRepository.ts';
 import {
+  CategorizationStatus,
   Currency,
   Money,
   TransactionType,
 } from '@domain/value-objects/index.ts';
+import { LLMRateLimitError } from '@modules/llm/index.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging/index.ts';
 import { inject, injectable } from 'tsyringe';
 import { UseCase } from './UseCase.ts';
@@ -186,17 +188,61 @@ export class ProcessIncomingTransactionUseCase extends UseCase<
 
   private async categorizeTransactionSafely(externalId: string): Promise<void> {
     try {
-      await this.categorizeTransaction.execute({
-        transactionExternalId: externalId,
-      });
+      await this.categorizeWithRetry(externalId);
       this.logger.info('Transaction categorized', { externalId });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.warn('Failed to categorize transaction', {
+      this.logger.error('Failed to categorize transaction', {
         externalId,
         error: errorMessage,
       });
+
+      await this.markCategorizationFailed(externalId);
     }
+  }
+
+  private async categorizeWithRetry(externalId: string): Promise<void> {
+    try {
+      await this.categorizeTransaction.execute({
+        transactionExternalId: externalId,
+      });
+    } catch (error) {
+      if (error instanceof LLMRateLimitError) {
+        this.logger.warn('Rate limited, retrying categorization in 60s', {
+          externalId,
+        });
+        await this.sleep(60_000);
+        await this.categorizeTransaction.execute({
+          transactionExternalId: externalId,
+        });
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private async markCategorizationFailed(externalId: string): Promise<void> {
+    try {
+      await this.transactionRepository.updateCategorization(externalId, {
+        category: null,
+        budget: null,
+        categoryReason: null,
+        budgetReason: null,
+        status: CategorizationStatus.FAILED,
+      });
+    } catch (updateError) {
+      this.logger.error('Failed to update categorization status to failed', {
+        externalId,
+        error:
+          updateError instanceof Error
+            ? updateError.message
+            : String(updateError),
+      });
+    }
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
