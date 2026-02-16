@@ -5,12 +5,14 @@ import type { CategorizeTransactionUseCase } from '@application/use-cases/Catego
 import { ProcessIncomingTransactionUseCase } from '@application/use-cases/ProcessIncomingTransaction.ts';
 import { AccountNotFoundError } from '@domain/errors/DomainErrors.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
+import type { BankTransactionRepository } from '@domain/repositories/BankTransactionRepository.ts';
 import type { TransactionRepository } from '@domain/repositories/TransactionRepository.ts';
 import { CategorizationStatus } from '@domain/value-objects/index.ts';
 import { LLMRateLimitError } from '@modules/llm/index.ts';
 import type { Logger } from '@modules/logging';
 import {
   createMockAccountRepository,
+  createMockBankTransactionRepository,
   createMockCategorizeTransactionUseCase,
   createMockLogger,
   createMockTransactionRepository,
@@ -22,6 +24,7 @@ import {
 describe('ProcessIncomingTransactionUseCase', () => {
   let accountRepository: AccountRepository;
   let transactionRepository: TransactionRepository;
+  let bankTransactionRepository: BankTransactionRepository;
   let categorizeTransaction: CategorizeTransactionUseCase;
   let logger: Logger;
   let useCase: ProcessIncomingTransactionUseCase;
@@ -29,11 +32,13 @@ describe('ProcessIncomingTransactionUseCase', () => {
   beforeEach(() => {
     accountRepository = createMockAccountRepository();
     transactionRepository = createMockTransactionRepository();
+    bankTransactionRepository = createMockBankTransactionRepository();
     categorizeTransaction = createMockCategorizeTransactionUseCase();
     logger = createMockLogger();
     useCase = new ProcessIncomingTransactionUseCase(
       accountRepository,
       transactionRepository,
+      bankTransactionRepository,
       categorizeTransaction,
       logger,
     );

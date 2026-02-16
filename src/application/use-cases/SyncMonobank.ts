@@ -1,3 +1,4 @@
+import { transactionToBankTransaction } from '@application/services/BankTransactionMapper.ts';
 import type { Account } from '@domain/entities/Account.ts';
 import {
   Transaction,
@@ -11,6 +12,10 @@ import {
   ACCOUNT_REPOSITORY_TOKEN,
   type AccountRepository,
 } from '@domain/repositories/AccountRepository.ts';
+import {
+  BANK_TRANSACTION_REPOSITORY_TOKEN,
+  type BankTransactionRepository,
+} from '@domain/repositories/BankTransactionRepository.ts';
 import {
   TRANSACTION_REPOSITORY_TOKEN,
   type TransactionRepository,
@@ -64,6 +69,8 @@ export class SyncMonobankUseCase extends UseCase<
     private accountRepository: AccountRepository,
     @inject(TRANSACTION_REPOSITORY_TOKEN)
     private transactionRepository: TransactionRepository,
+    @inject(BANK_TRANSACTION_REPOSITORY_TOKEN)
+    private bankTransactionRepository: BankTransactionRepository,
     @inject(LOGGER_TOKEN) private logger: Logger,
   ) {
     super();
@@ -342,6 +349,8 @@ export class SyncMonobankUseCase extends UseCase<
         syncTo: now.toISOString(),
       });
 
+      const accountDbId = account.dbId;
+
       const { newCount, updatedCount, skippedCount } =
         await this.syncAccountChunks(
           account.externalId,
@@ -349,6 +358,7 @@ export class SyncMonobankUseCase extends UseCase<
           now,
           config,
           isFirstRequest,
+          accountDbId,
         );
 
       await this.accountRepository.updateLastSyncTime(
@@ -395,6 +405,7 @@ export class SyncMonobankUseCase extends UseCase<
     syncTo: Date,
     config: ReturnType<typeof this.buildConfig>,
     isFirstRequest: boolean,
+    accountDbId: number | null,
   ): Promise<{ newCount: number; updatedCount: number; skippedCount: number }> {
     const chunks = chunkDateRange(syncFrom, syncTo, 31);
     let totalNewCount = 0;
@@ -435,7 +446,7 @@ export class SyncMonobankUseCase extends UseCase<
       );
 
       const { newCount, updatedCount, skippedCount } =
-        await this.processTransactions(transactions);
+        await this.processTransactions(transactions, accountDbId);
 
       this.logger.debug('monobank', 'Chunk processed', {
         accountExternalId,
@@ -529,9 +540,11 @@ export class SyncMonobankUseCase extends UseCase<
 
   /**
    * Process incoming transactions: save new ones, update existing ones with missing fields.
+   * Also saves bank transaction records for auditing.
    */
   private async processTransactions(
     transactions: Transaction[],
+    accountDbId: number | null,
   ): Promise<{ newCount: number; updatedCount: number; skippedCount: number }> {
     if (transactions.length === 0) {
       return { newCount: 0, updatedCount: 0, skippedCount: 0 };
@@ -548,6 +561,8 @@ export class SyncMonobankUseCase extends UseCase<
 
     await this.saveNewTransactions(newTransactions);
     await this.updateExistingTransactions(transactionsToUpdate);
+
+    await this.saveBankTransactions(transactions, accountDbId);
 
     return {
       newCount: newTransactions.length,
@@ -619,6 +634,46 @@ export class SyncMonobankUseCase extends UseCase<
     }
 
     await this.transactionRepository.updateMany(transactions);
+  }
+
+  /**
+   * Save bank transaction records for all incoming transactions (best-effort).
+   * Deduplicates by externalId to avoid saving duplicates.
+   */
+  private async saveBankTransactions(
+    transactions: Transaction[],
+    accountDbId: number | null,
+  ): Promise<void> {
+    if (accountDbId === null || transactions.length === 0) {
+      return;
+    }
+
+    try {
+      const externalIds = transactions.map(
+        (transaction) => transaction.externalId,
+      );
+      const existingBankTransactions =
+        await this.bankTransactionRepository.findByExternalIds(externalIds);
+
+      const newBankTransactions = transactions
+        .filter(
+          (transaction) =>
+            !existingBankTransactions.has(transaction.externalId),
+        )
+        .map((transaction) =>
+          transactionToBankTransaction(transaction, accountDbId),
+        );
+
+      if (newBankTransactions.length > 0) {
+        await this.bankTransactionRepository.saveMany(newBankTransactions);
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to save bank transactions: ${errorMessage}`, {
+        error: errorMessage,
+      });
+    }
   }
 
   /**

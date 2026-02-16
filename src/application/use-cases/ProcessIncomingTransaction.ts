@@ -1,4 +1,5 @@
 import type { QueuedWebhookTransactionDTO } from '@application/dtos/QueuedWebhookTransactionDTO.ts';
+import { transactionToBankTransaction } from '@application/services/BankTransactionMapper.ts';
 import { CategorizeTransactionUseCase } from '@application/use-cases/CategorizeTransaction.ts';
 import { Transaction } from '@domain/entities/Transaction.ts';
 import { AccountNotFoundError } from '@domain/errors/DomainErrors.ts';
@@ -6,6 +7,10 @@ import {
   ACCOUNT_REPOSITORY_TOKEN,
   type AccountRepository,
 } from '@domain/repositories/AccountRepository.ts';
+import {
+  BANK_TRANSACTION_REPOSITORY_TOKEN,
+  type BankTransactionRepository,
+} from '@domain/repositories/BankTransactionRepository.ts';
 import {
   TRANSACTION_REPOSITORY_TOKEN,
   type TransactionRepository,
@@ -53,6 +58,8 @@ export class ProcessIncomingTransactionUseCase extends UseCase<
     private accountRepository: AccountRepository,
     @inject(TRANSACTION_REPOSITORY_TOKEN)
     private transactionRepository: TransactionRepository,
+    @inject(BANK_TRANSACTION_REPOSITORY_TOKEN)
+    private bankTransactionRepository: BankTransactionRepository,
     private categorizeTransaction: CategorizeTransactionUseCase,
     @inject(LOGGER_TOKEN)
     private logger: Logger,
@@ -75,6 +82,8 @@ export class ProcessIncomingTransactionUseCase extends UseCase<
 
     const transaction = this.reconstructTransaction(input);
     await this.transactionRepository.save(transaction);
+
+    await this.saveBankTransaction(transaction, account.dbId);
 
     await this.categorizeTransactionSafely(transactionExternalId);
 
@@ -184,6 +193,41 @@ export class ProcessIncomingTransactionUseCase extends UseCase<
       saved: true,
       transactionExternalId,
     };
+  }
+
+  /**
+   * Save a bank transaction record (best-effort).
+   * Logs and swallows errors to not block the main flow.
+   */
+  private async saveBankTransaction(
+    transaction: Transaction,
+    accountDbId: number | null,
+  ): Promise<void> {
+    if (accountDbId === null) {
+      return;
+    }
+
+    try {
+      const existing = await this.bankTransactionRepository.findByExternalId(
+        transaction.externalId,
+      );
+      if (existing) {
+        return;
+      }
+
+      const bankTransaction = transactionToBankTransaction(
+        transaction,
+        accountDbId,
+      );
+      await this.bankTransactionRepository.save(bankTransaction);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to save bank transaction: ${errorMessage}`, {
+        externalId: transaction.externalId,
+        error: errorMessage,
+      });
+    }
   }
 
   private async categorizeTransactionSafely(externalId: string): Promise<void> {
