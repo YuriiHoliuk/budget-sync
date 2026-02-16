@@ -36,6 +36,7 @@ describe('CreateTransactionUseCase', () => {
 
     mockTransactionRepository = {
       findById: mock(() => Promise.resolve(null)),
+      findByDbId: mock(() => Promise.resolve(null)),
       findByExternalId: mock(() => Promise.resolve(null)),
       findByExternalIds: mock(() => Promise.resolve(new Map())),
       findByAccountId: mock(() => Promise.resolve([])),

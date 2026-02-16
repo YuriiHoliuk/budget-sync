@@ -45,11 +45,3 @@ export {
   TRANSACTION_TYPE_TO_GQL,
   type TransactionGql,
 } from './transaction.ts';
-
-export {
-  LINK_TYPE_TO_GQL,
-  MEMBER_ROLE_TO_GQL,
-  mapTransactionLinkToGql,
-  type TransactionLinkGql,
-  type TransactionLinkMemberGql,
-} from './transactionLink.ts';

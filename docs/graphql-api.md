@@ -21,7 +21,6 @@ Schema is defined in SDL files under `src/presentation/graphql/schema/`. The roo
 | `categories.graphql` | Hierarchical transaction categories |
 | `allocations.graphql` | Budget allocations, fund moves |
 | `monthlyOverview.graphql` | Computed monthly financial overview |
-| `transactionLinks.graphql` | Transfer/split/refund links between transactions |
 | `subscriptions.graphql` | Real-time update events |
 
 New `.graphql` files must be registered in `src/presentation/graphql/schema/index.ts`.
@@ -44,8 +43,6 @@ New `.graphql` files must be registered in `src/presentation/graphql/schema/inde
 | `allocations(budgetId, period)` | List allocations with optional filters |
 | `allocation(id)` | Single allocation by DB ID |
 | `monthlyOverview(month)` | Computed overview for a YYYY-MM month (readyToAssign, totals, per-budget summaries) |
-| `transactionLink(id)` | Single transaction link |
-| `transactionLinkByTransaction(transactionId)` | Link containing a specific transaction |
 
 ### Mutations
 
@@ -68,8 +65,6 @@ New `.graphql` files must be registered in `src/presentation/graphql/schema/inde
 | `updateAllocation(input)` | Update allocation |
 | `deleteAllocation(id)` | Remove allocation |
 | `moveFunds(input)` | Atomically move funds between two budgets |
-| `createTransferLink(outgoing, incoming, notes)` | Link two transactions as a transfer |
-| `deleteTransactionLink(id)` | Remove a transaction link |
 
 ### Subscriptions
 

@@ -1,0 +1,448 @@
+import 'reflect-metadata';
+import { beforeEach, describe, expect, type mock, test } from 'bun:test';
+import { TransactionSyncService } from '@application/services/TransactionSyncService.ts';
+import type { Transaction } from '@domain/entities/Transaction.ts';
+import type { BankTransactionRepository } from '@domain/repositories/BankTransactionRepository.ts';
+import type { TransactionRepository } from '@domain/repositories/TransactionRepository.ts';
+import { TransactionProcessingService } from '@domain/services/TransactionProcessingService.ts';
+import { Currency } from '@domain/value-objects/Currency.ts';
+import { Money } from '@domain/value-objects/Money.ts';
+import { TransactionType } from '@domain/value-objects/TransactionType.ts';
+import type { Logger } from '@modules/logging';
+import {
+  createMockBankTransactionRepository,
+  createMockLogger,
+  createMockTransactionRepository,
+  createTestTransaction,
+} from '../../helpers';
+
+describe('TransactionSyncService', () => {
+  let transactionRepository: TransactionRepository;
+  let bankTransactionRepository: BankTransactionRepository;
+  let transactionProcessingService: TransactionProcessingService;
+  let logger: Logger;
+  let service: TransactionSyncService;
+
+  beforeEach(() => {
+    transactionRepository = createMockTransactionRepository();
+    bankTransactionRepository = createMockBankTransactionRepository();
+    transactionProcessingService = new TransactionProcessingService();
+    logger = createMockLogger();
+    service = new TransactionSyncService(
+      transactionRepository,
+      bankTransactionRepository,
+      transactionProcessingService,
+      logger,
+    );
+  });
+
+  describe('processBatch()', () => {
+    test('should return zeros for empty transaction list', async () => {
+      const result = await service.processBatch([], null);
+
+      expect(result).toEqual({ newCount: 0, updatedCount: 0, skippedCount: 0 });
+      expect(transactionRepository.findByExternalIds).not.toHaveBeenCalled();
+    });
+
+    test('should save new transactions', async () => {
+      const newTx = createTestTransaction({ externalId: 'new-tx-1' });
+
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map());
+
+      const result = await service.processBatch([newTx], null);
+
+      expect(result.newCount).toBe(1);
+      expect(result.skippedCount).toBe(0);
+      expect(transactionRepository.saveMany).toHaveBeenCalledTimes(1);
+    });
+
+    test('should skip existing transactions with no new fields', async () => {
+      const existingTx = createTestTransaction({
+        externalId: 'existing-tx',
+        balance: Money.create(100000, Currency.UAH),
+        mcc: 5411,
+      });
+      const incomingTx = createTestTransaction({
+        externalId: 'existing-tx',
+        balance: Money.create(100000, Currency.UAH),
+        mcc: 5411,
+      });
+
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map([['existing-tx', existingTx]]));
+
+      const result = await service.processBatch([incomingTx], null);
+
+      expect(result.newCount).toBe(0);
+      expect(result.skippedCount).toBe(1);
+      expect(transactionRepository.saveMany).not.toHaveBeenCalled();
+    });
+
+    test('should update existing transactions with missing bank fields', async () => {
+      const existingTx = createTestTransaction({ externalId: 'tx-1' });
+      const incomingTx = createTestTransaction({
+        externalId: 'tx-1',
+        balance: Money.create(100000, Currency.UAH),
+      });
+
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map([['tx-1', existingTx]]));
+
+      const result = await service.processBatch([incomingTx], null);
+
+      expect(result.updatedCount).toBe(1);
+      expect(result.skippedCount).toBe(0);
+      expect(transactionRepository.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    test('should handle mix of new, updated, and skipped transactions', async () => {
+      const newTx = createTestTransaction({ externalId: 'new-tx' });
+      const existingToUpdate = createTestTransaction({
+        externalId: 'update-tx',
+      });
+      const incomingToUpdate = createTestTransaction({
+        externalId: 'update-tx',
+        balance: Money.create(50000, Currency.UAH),
+      });
+      const existingComplete = createTestTransaction({
+        externalId: 'complete-tx',
+        balance: Money.create(100000, Currency.UAH),
+        mcc: 5411,
+      });
+      const incomingComplete = createTestTransaction({
+        externalId: 'complete-tx',
+        balance: Money.create(100000, Currency.UAH),
+        mcc: 5411,
+      });
+
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(
+        new Map([
+          ['update-tx', existingToUpdate],
+          ['complete-tx', existingComplete],
+        ]),
+      );
+
+      const result = await service.processBatch(
+        [newTx, incomingToUpdate, incomingComplete],
+        null,
+      );
+
+      expect(result.newCount).toBe(1);
+      expect(result.updatedCount).toBe(1);
+      expect(result.skippedCount).toBe(1);
+    });
+
+    test('should sort new transactions by date ascending', async () => {
+      const olderTx = createTestTransaction({
+        externalId: 'old-tx',
+        date: new Date('2026-01-01T10:00:00.000Z'),
+      });
+      const newerTx = createTestTransaction({
+        externalId: 'new-tx',
+        date: new Date('2026-01-03T10:00:00.000Z'),
+      });
+      const middleTx = createTestTransaction({
+        externalId: 'mid-tx',
+        date: new Date('2026-01-02T10:00:00.000Z'),
+      });
+
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map());
+
+      await service.processBatch([newerTx, olderTx, middleTx], null);
+
+      const savedTransactions = (
+        transactionRepository.saveMany as ReturnType<typeof mock>
+      ).mock.calls[0]?.[0] as Transaction[];
+      expect(savedTransactions[0]?.externalId).toBe('old-tx');
+      expect(savedTransactions[1]?.externalId).toBe('mid-tx');
+      expect(savedTransactions[2]?.externalId).toBe('new-tx');
+    });
+
+    test('should save bank transactions when accountDbId is provided', async () => {
+      const newTx = createTestTransaction({ externalId: 'tx-1' });
+
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map());
+
+      await service.processBatch([newTx], 42);
+
+      expect(bankTransactionRepository.findByExternalIds).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(bankTransactionRepository.saveMany).toHaveBeenCalledTimes(1);
+    });
+
+    test('should not save bank transactions when accountDbId is null', async () => {
+      const newTx = createTestTransaction({ externalId: 'tx-1' });
+
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map());
+
+      await service.processBatch([newTx], null);
+
+      expect(
+        bankTransactionRepository.findByExternalIds,
+      ).not.toHaveBeenCalled();
+    });
+
+    test('should deduplicate bank transactions', async () => {
+      const newTx = createTestTransaction({ externalId: 'tx-1' });
+
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map());
+      (
+        bankTransactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map([['tx-1', {} as never]]));
+
+      await service.processBatch([newTx], 42);
+
+      expect(bankTransactionRepository.saveMany).not.toHaveBeenCalled();
+    });
+
+    test('should log error but not throw when bank transaction save fails', async () => {
+      const newTx = createTestTransaction({ externalId: 'tx-1' });
+
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map());
+      (
+        bankTransactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockRejectedValue(new Error('Bank save failed'));
+
+      const result = await service.processBatch([newTx], 42);
+
+      expect(result.newCount).toBe(1);
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to save bank transactions'),
+        expect.any(Object),
+      );
+    });
+
+    test('should preserve existing comment when merging', async () => {
+      const existingTx = createTestTransaction({
+        externalId: 'tx-1',
+        comment: 'User note',
+      });
+      const incomingTx = createTestTransaction({
+        externalId: 'tx-1',
+        balance: Money.create(100000, Currency.UAH),
+        comment: 'Bank comment',
+      });
+
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map([['tx-1', existingTx]]));
+
+      await service.processBatch([incomingTx], null);
+
+      const updatedTransactions = (
+        transactionRepository.updateMany as ReturnType<typeof mock>
+      ).mock.calls[0]?.[0] as Transaction[];
+      expect(updatedTransactions[0]?.comment).toBe('User note');
+    });
+  });
+
+  describe('processSingle()', () => {
+    test('should return saved transaction when not a duplicate', async () => {
+      const transaction = createTestTransaction({ externalId: 'tx-new' });
+
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(null);
+      (
+        transactionRepository.saveAndReturn as ReturnType<typeof mock>
+      ).mockImplementation((txn: Transaction) =>
+        Promise.resolve(txn.withDbId(99)),
+      );
+
+      const result = await service.processSingle(transaction, null);
+
+      expect(result).not.toBeNull();
+      expect(result?.externalId).toBe('tx-new');
+      expect(result?.dbId).toBe(99);
+      expect(transactionRepository.saveAndReturn).toHaveBeenCalledTimes(1);
+    });
+
+    test('should return null for duplicate transaction', async () => {
+      const transaction = createTestTransaction({ externalId: 'tx-existing' });
+      const existingTransaction = createTestTransaction({
+        externalId: 'tx-existing',
+      });
+
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(existingTransaction);
+
+      const result = await service.processSingle(transaction, null);
+
+      expect(result).toBeNull();
+      expect(transactionRepository.saveAndReturn).not.toHaveBeenCalled();
+    });
+
+    test('should save bank transaction when accountDbId is provided', async () => {
+      const transaction = createTestTransaction({ externalId: 'tx-new' });
+
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(null);
+      (
+        transactionRepository.saveAndReturn as ReturnType<typeof mock>
+      ).mockImplementation((txn: Transaction) =>
+        Promise.resolve(txn.withDbId(99)),
+      );
+      (
+        bankTransactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(null);
+
+      await service.processSingle(transaction, 42);
+
+      expect(bankTransactionRepository.save).toHaveBeenCalledTimes(1);
+    });
+
+    test('should not save bank transaction when accountDbId is null', async () => {
+      const transaction = createTestTransaction({ externalId: 'tx-new' });
+
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(null);
+      (
+        transactionRepository.saveAndReturn as ReturnType<typeof mock>
+      ).mockImplementation((txn: Transaction) =>
+        Promise.resolve(txn.withDbId(99)),
+      );
+
+      await service.processSingle(transaction, null);
+
+      expect(bankTransactionRepository.save).not.toHaveBeenCalled();
+    });
+
+    test('should log error when bank transaction save fails', async () => {
+      const transaction = createTestTransaction({ externalId: 'tx-new' });
+
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(null);
+      (
+        transactionRepository.saveAndReturn as ReturnType<typeof mock>
+      ).mockImplementation((txn: Transaction) =>
+        Promise.resolve(txn.withDbId(99)),
+      );
+      (
+        bankTransactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(null);
+      (
+        bankTransactionRepository.save as ReturnType<typeof mock>
+      ).mockRejectedValue(new Error('Bank save failed'));
+
+      const result = await service.processSingle(transaction, 42);
+
+      // Should still return the saved transaction
+      expect(result).not.toBeNull();
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to save bank transaction'),
+        expect.any(Object),
+      );
+    });
+  });
+
+  describe('classifyTransaction()', () => {
+    test('should detect normal transaction', () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-normal',
+        description: 'Grocery purchase',
+        amount: Money.create(-5000, Currency.UAH),
+        type: TransactionType.DEBIT,
+      });
+
+      const context = {
+        ownAccountIbans: new Map<string, number>(),
+        accountId: 1,
+      };
+
+      const result = service.classifyTransaction(transaction, context);
+
+      expect(result.isReturning).toBe(false);
+      expect(result.isTransfer).toBe(false);
+      expect(result.hasFee).toBe(false);
+      expect(result.transaction).not.toBeNull();
+    });
+
+    test('should detect cancellation/returning', () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-cancel',
+        description:
+          '\u0421\u043a\u0430\u0441\u0443\u0432\u0430\u043d\u043d\u044f. Grocery purchase',
+        amount: Money.create(5000, Currency.UAH),
+        type: TransactionType.CREDIT,
+      });
+
+      const context = {
+        ownAccountIbans: new Map<string, number>(),
+        accountId: 1,
+      };
+
+      const result = service.classifyTransaction(transaction, context);
+
+      expect(result.isReturning).toBe(true);
+      expect(result.isTransfer).toBe(false);
+    });
+
+    test('should detect transfer between own accounts', () => {
+      const counterpartyIban = 'UA111111111111111111111111111';
+      const transaction = createTestTransaction({
+        externalId: 'tx-transfer',
+        description: 'Transfer',
+        counterpartyIban,
+        amount: Money.create(-10000, Currency.UAH),
+        type: TransactionType.DEBIT,
+      });
+
+      const ownAccountIbans = new Map<string, number>();
+      ownAccountIbans.set(counterpartyIban, 2);
+
+      const context = {
+        ownAccountIbans,
+        accountId: 1,
+      };
+
+      const result = service.classifyTransaction(transaction, context);
+
+      expect(result.isTransfer).toBe(true);
+      expect(result.isReturning).toBe(false);
+    });
+  });
+
+  describe('isDuplicate()', () => {
+    test('should return true when transaction exists', async () => {
+      const existingTx = createTestTransaction({ externalId: 'tx-exists' });
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(existingTx);
+
+      const result = await service.isDuplicate('tx-exists');
+
+      expect(result).toBe(true);
+    });
+
+    test('should return false when transaction does not exist', async () => {
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(null);
+
+      const result = await service.isDuplicate('tx-new');
+
+      expect(result).toBe(false);
+    });
+  });
+});

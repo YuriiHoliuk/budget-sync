@@ -112,6 +112,7 @@ export function createMockAccountRepository(
 function getDefaultTransactionRepositoryMocks() {
   return {
     findById: mock(() => Promise.resolve(null)),
+    findByDbId: mock(() => Promise.resolve(null)),
     findByExternalId: mock(() => Promise.resolve(null)),
     findByExternalIds: mock(() =>
       Promise.resolve(new Map<string, Transaction>()),
@@ -133,6 +134,10 @@ function getDefaultTransactionRepositoryMocks() {
     findByCategorizationStatus: mock(() => Promise.resolve([])),
     findUncategorized: mock(() => Promise.resolve([])),
     findTransactionSummaries: mock(() => Promise.resolve([])),
+    updateRecordType: mock(() => Promise.resolve()),
+    setAdjustedTransactionId: mock(() => Promise.resolve()),
+    createTransferPair: mock(() => Promise.resolve()),
+    deleteTransferPair: mock(() => Promise.resolve()),
   };
 }
 
@@ -143,6 +148,7 @@ function getDefaultTransactionRepositoryMocks() {
 export function createMockTransactionRepository(
   overrides: Partial<{
     findById: (id: string) => Promise<Transaction | null>;
+    findByDbId: (dbId: number) => Promise<Transaction | null>;
     findByExternalId: (externalId: string) => Promise<Transaction | null>;
     findByExternalIds: (
       externalIds: string[],
@@ -157,7 +163,7 @@ export function createMockTransactionRepository(
     saveManyAndReturn: (transactions: Transaction[]) => Promise<Transaction[]>;
     updateMany: (transactions: Transaction[]) => Promise<void>;
     updateCategorization: (
-      externalId: string,
+      dbId: number,
       data: CategorizationUpdate,
     ) => Promise<void>;
     findByCategorizationStatus: (status: string) => Promise<Transaction[]>;
@@ -254,17 +260,18 @@ export function createMockCategorizeTransactionUseCase(
     ) => Promise<CategorizeTransactionResultDTO>;
   }> = {},
 ): CategorizeTransactionUseCase {
+  const executeMock =
+    overrides.execute ??
+    mock(() =>
+      Promise.resolve({
+        success: true,
+        category: 'Test Category',
+        budget: null,
+        isNewCategory: false,
+      }),
+    );
   return {
-    execute:
-      overrides.execute ??
-      mock(() =>
-        Promise.resolve({
-          success: true,
-          category: 'Test Category',
-          budget: null,
-          isNewCategory: false,
-        }),
-      ),
+    execute: executeMock,
   } as unknown as CategorizeTransactionUseCase;
 }
 

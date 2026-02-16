@@ -38,11 +38,11 @@ import { inject, injectable } from 'tsyringe';
 import { UseCase } from './UseCase.ts';
 
 /**
- * Thrown when a transaction cannot be found by its external ID.
+ * Thrown when a transaction cannot be found by its database ID.
  */
 export class TransactionNotFoundError extends DomainError {
-  constructor(public readonly externalId: string) {
-    super(`Transaction not found with externalId: ${externalId}`);
+  constructor(public readonly transactionDbId: number) {
+    super(`Transaction not found with dbId: ${transactionDbId}`);
   }
 }
 
@@ -50,7 +50,7 @@ export class TransactionNotFoundError extends DomainError {
  * Request DTO for categorizing a transaction.
  */
 export interface CategorizeTransactionRequestDTO {
-  transactionExternalId: string;
+  transactionDbId: number;
 }
 
 /**
@@ -77,7 +77,7 @@ interface CategorizationData {
  * Use case for categorizing a transaction using LLM.
  *
  * This use case handles:
- * 1. Finding the transaction by external ID
+ * 1. Finding the transaction by database ID
  * 2. Loading active categories and budgets
  * 3. Calling the LLM gateway for category assignment
  * 4. Calling the LLM gateway for budget assignment (with category context)
@@ -110,7 +110,7 @@ export class CategorizeTransactionUseCase extends UseCase<
     request: CategorizeTransactionRequestDTO,
   ): Promise<CategorizeTransactionResultDTO> {
     const transaction = await this.findTransactionOrThrow(
-      request.transactionExternalId,
+      request.transactionDbId,
     );
     const data = await this.loadCategorizationData(transaction.date);
 
@@ -120,13 +120,10 @@ export class CategorizeTransactionUseCase extends UseCase<
     return this.createResultDTO(result);
   }
 
-  private async findTransactionOrThrow(
-    externalId: string,
-  ): Promise<Transaction> {
-    const transaction =
-      await this.transactionRepository.findByExternalId(externalId);
+  private async findTransactionOrThrow(dbId: number): Promise<Transaction> {
+    const transaction = await this.transactionRepository.findByDbId(dbId);
     if (!transaction) {
-      throw new TransactionNotFoundError(externalId);
+      throw new TransactionNotFoundError(dbId);
     }
     return transaction;
   }
@@ -229,16 +226,20 @@ export class CategorizeTransactionUseCase extends UseCase<
       await this.saveNewCategory(result.category);
     }
 
-    await this.transactionRepository.updateCategorization(
-      transaction.externalId,
-      {
-        category: result.category,
-        budget: result.budget,
-        categoryReason: result.categoryReason,
-        budgetReason: result.budgetReason,
-        status: CategorizationStatus.CATEGORIZED,
-      },
-    );
+    const dbId = transaction.dbId;
+    if (dbId === null) {
+      throw new Error(
+        `Transaction ${transaction.externalId} has no database ID`,
+      );
+    }
+
+    await this.transactionRepository.updateCategorization(dbId, {
+      category: result.category,
+      budget: result.budget,
+      categoryReason: result.categoryReason,
+      budgetReason: result.budgetReason,
+      status: CategorizationStatus.CATEGORIZED,
+    });
   }
 
   private async saveNewCategory(categoryName: string): Promise<void> {

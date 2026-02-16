@@ -1,5 +1,5 @@
 import type { QueuedWebhookTransactionDTO } from '@application/dtos/QueuedWebhookTransactionDTO.ts';
-import { transactionToBankTransaction } from '@application/services/BankTransactionMapper.ts';
+import { TransactionSyncService } from '@application/services/TransactionSyncService.ts';
 import { CategorizeTransactionUseCase } from '@application/use-cases/CategorizeTransaction.ts';
 import { Transaction } from '@domain/entities/Transaction.ts';
 import { AccountNotFoundError } from '@domain/errors/DomainErrors.ts';
@@ -15,6 +15,7 @@ import {
   TRANSACTION_REPOSITORY_TOKEN,
   type TransactionRepository,
 } from '@domain/repositories/TransactionRepository.ts';
+import { TransactionProcessingService } from '@domain/services/TransactionProcessingService.ts';
 import {
   CategorizationStatus,
   Currency,
@@ -43,8 +44,9 @@ export interface ProcessIncomingTransactionResultDTO {
  * 1. Reconstructing domain entities from the queued primitive data
  * 2. Finding the account by external ID
  * 3. Deduplication - skipping if transaction already exists
- * 4. Saving the transaction
- * 5. Updating account balance (using balance reported by the bank)
+ * 4. Saving the transaction and bank transaction record
+ * 5. Categorizing the transaction via LLM
+ * 6. Updating account balance (using balance reported by the bank)
  *
  * Throws on failure - the caller (job/queue processor) handles retry logic.
  */
@@ -53,18 +55,26 @@ export class ProcessIncomingTransactionUseCase extends UseCase<
   QueuedWebhookTransactionDTO,
   ProcessIncomingTransactionResultDTO
 > {
+  private readonly transactionSyncService: TransactionSyncService;
+
   constructor(
     @inject(ACCOUNT_REPOSITORY_TOKEN)
     private accountRepository: AccountRepository,
     @inject(TRANSACTION_REPOSITORY_TOKEN)
     private transactionRepository: TransactionRepository,
     @inject(BANK_TRANSACTION_REPOSITORY_TOKEN)
-    private bankTransactionRepository: BankTransactionRepository,
+    bankTransactionRepository: BankTransactionRepository,
     private categorizeTransaction: CategorizeTransactionUseCase,
     @inject(LOGGER_TOKEN)
     private logger: Logger,
   ) {
     super();
+    this.transactionSyncService = new TransactionSyncService(
+      transactionRepository,
+      bankTransactionRepository,
+      new TransactionProcessingService(),
+      logger,
+    );
   }
 
   async execute(
@@ -73,19 +83,18 @@ export class ProcessIncomingTransactionUseCase extends UseCase<
     const account = await this.findAccountOrThrow(input.accountExternalId);
 
     const transactionExternalId = input.transaction.externalId;
-    const isDuplicate = await this.isTransactionDuplicate(
-      transactionExternalId,
+    const transaction = this.reconstructTransaction(input);
+
+    const savedTransaction = await this.transactionSyncService.processSingle(
+      transaction,
+      account.dbId,
     );
-    if (isDuplicate) {
+
+    if (!savedTransaction) {
       return this.createSkippedResult(transactionExternalId);
     }
 
-    const transaction = this.reconstructTransaction(input);
-    await this.transactionRepository.save(transaction);
-
-    await this.saveBankTransaction(transaction, account.dbId);
-
-    await this.categorizeTransactionSafely(transactionExternalId);
+    await this.categorizeTransactionSafely(savedTransaction);
 
     const newBalance = this.reconstructBalance(input);
     await this.accountRepository.updateBalance(account.externalId, newBalance);
@@ -100,12 +109,6 @@ export class ProcessIncomingTransactionUseCase extends UseCase<
       throw new AccountNotFoundError(accountExternalId, 'externalId');
     }
     return account;
-  }
-
-  private async isTransactionDuplicate(externalId: string): Promise<boolean> {
-    const existingTransaction =
-      await this.transactionRepository.findByExternalId(externalId);
-    return existingTransaction !== null;
   }
 
   /**
@@ -195,70 +198,47 @@ export class ProcessIncomingTransactionUseCase extends UseCase<
     };
   }
 
-  /**
-   * Save a bank transaction record (best-effort).
-   * Logs and swallows errors to not block the main flow.
-   */
-  private async saveBankTransaction(
+  private async categorizeTransactionSafely(
     transaction: Transaction,
-    accountDbId: number | null,
   ): Promise<void> {
-    if (accountDbId === null) {
+    const dbId = transaction.dbId;
+    if (dbId === null) {
+      this.logger.error('Cannot categorize transaction without database ID', {
+        externalId: transaction.externalId,
+      });
       return;
     }
 
     try {
-      const existing = await this.bankTransactionRepository.findByExternalId(
-        transaction.externalId,
-      );
-      if (existing) {
-        return;
-      }
-
-      const bankTransaction = transactionToBankTransaction(
-        transaction,
-        accountDbId,
-      );
-      await this.bankTransactionRepository.save(bankTransaction);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Failed to save bank transaction: ${errorMessage}`, {
+      await this.categorizeWithRetry(dbId);
+      this.logger.info('Transaction categorized', {
         externalId: transaction.externalId,
-        error: errorMessage,
       });
-    }
-  }
-
-  private async categorizeTransactionSafely(externalId: string): Promise<void> {
-    try {
-      await this.categorizeWithRetry(externalId);
-      this.logger.info('Transaction categorized', { externalId });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.logger.error('Failed to categorize transaction', {
-        externalId,
+        externalId: transaction.externalId,
         error: errorMessage,
       });
 
-      await this.markCategorizationFailed(externalId);
+      await this.markCategorizationFailed(dbId, transaction.externalId);
     }
   }
 
-  private async categorizeWithRetry(externalId: string): Promise<void> {
+  private async categorizeWithRetry(dbId: number): Promise<void> {
     try {
       await this.categorizeTransaction.execute({
-        transactionExternalId: externalId,
+        transactionDbId: dbId,
       });
     } catch (error) {
       if (error instanceof LLMRateLimitError) {
         this.logger.warn('Rate limited, retrying categorization in 60s', {
-          externalId,
+          dbId,
         });
         await this.sleep(60_000);
         await this.categorizeTransaction.execute({
-          transactionExternalId: externalId,
+          transactionDbId: dbId,
         });
         return;
       }
@@ -266,9 +246,12 @@ export class ProcessIncomingTransactionUseCase extends UseCase<
     }
   }
 
-  private async markCategorizationFailed(externalId: string): Promise<void> {
+  private async markCategorizationFailed(
+    dbId: number,
+    externalId: string,
+  ): Promise<void> {
     try {
-      await this.transactionRepository.updateCategorization(externalId, {
+      await this.transactionRepository.updateCategorization(dbId, {
         category: null,
         budget: null,
         categoryReason: null,

@@ -112,7 +112,6 @@ describe('ArchiveBudgetUseCase', () => {
         type: 'debit',
         date: new Date(),
         accountRole: 'operational',
-        isTransfer: false,
       },
     ];
     mockTransactionRepository.findTransactionSummaries = mock(() =>
@@ -155,7 +154,6 @@ describe('ArchiveBudgetUseCase', () => {
         type: 'debit',
         date: new Date(),
         accountRole: 'operational',
-        isTransfer: false,
       },
     ];
     mockTransactionRepository.findTransactionSummaries = mock(() =>
@@ -192,7 +190,6 @@ describe('ArchiveBudgetUseCase', () => {
         type: 'debit',
         date: new Date(),
         accountRole: 'operational',
-        isTransfer: false,
       },
     ];
     mockTransactionRepository.findTransactionSummaries = mock(() =>

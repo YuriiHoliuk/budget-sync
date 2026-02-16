@@ -10,6 +10,8 @@ export const CATEGORIZATION_STATUS_TO_GQL: Record<string, string> = {
 export const TRANSACTION_TYPE_TO_GQL: Record<string, string> = {
   credit: 'CREDIT',
   debit: 'DEBIT',
+  transfer: 'TRANSFER',
+  returning: 'RETURNING',
 };
 
 export interface TransactionGql {
@@ -34,7 +36,8 @@ export interface TransactionGql {
   accountId: number | null;
   categoryId: number | null;
   budgetId: number | null;
-  excludeFromCalculations: boolean;
+  adjustedTransactionId: number | null;
+  bankTransactionCount: number;
 }
 
 export function mapTransactionRecordToGql(
@@ -64,6 +67,7 @@ export function mapTransactionRecordToGql(
     accountId: record.accountId,
     categoryId: record.categoryId,
     budgetId: record.budgetId,
-    excludeFromCalculations: record.excludeFromCalculations ?? false,
+    adjustedTransactionId: record.adjustedTransactionId,
+    bankTransactionCount: record.bankTransactionCount,
   };
 }

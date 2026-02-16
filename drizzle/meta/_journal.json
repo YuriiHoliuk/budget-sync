@@ -71,6 +71,20 @@
       "when": 1771286400000,
       "tag": "0009_bank_transactions_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771372800000,
+      "tag": "0010_adjusted_transaction_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1771459200000,
+      "tag": "0011_transactions_v2_swap",
+      "breakpoints": true
     }
   ]
 }

@@ -95,9 +95,17 @@ export class CategorizeCommand extends Command<CategorizeOptions> {
     index: number,
     total: number,
   ): Promise<boolean> {
+    const dbId = transaction.dbId;
+    if (dbId === null) {
+      this.logger.error(
+        `[${index}/${total}] ${transaction.externalId}: no database ID`,
+      );
+      return false;
+    }
+
     try {
       const result = await this.categorizeUseCase.execute({
-        transactionExternalId: transaction.externalId,
+        transactionDbId: dbId,
       });
       this.logger.info(
         `[${index}/${total}] ${transaction.externalId}: ${result.category ?? 'no category'} / ${result.budget ?? 'no budget'}`,

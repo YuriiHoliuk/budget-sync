@@ -34,10 +34,9 @@ export interface AllocationInput {
 export interface TransactionInput {
   budgetId: number | null;
   amount: number; // absolute value in minor units
-  type: 'credit' | 'debit';
+  type: 'credit' | 'debit' | 'transfer' | 'returning';
   date: Date;
   accountRole: 'operational' | 'savings';
-  isTransfer?: boolean;
 }
 
 /**
@@ -181,8 +180,7 @@ export class BudgetCalculationService {
       .filter(
         (transaction) =>
           transaction.type === 'credit' &&
-          transaction.accountRole === 'operational' &&
-          !transaction.isTransfer,
+          transaction.accountRole === 'operational',
       )
       .reduce((sum, transaction) => sum + transaction.amount, 0);
   }
@@ -232,7 +230,6 @@ export class BudgetCalculationService {
         (transaction) =>
           transaction.type === 'credit' &&
           transaction.accountRole === 'operational' &&
-          !transaction.isTransfer &&
           this.isInMonth(transaction.date, month),
       )
       .reduce((sum, transaction) => sum + transaction.amount, 0);
@@ -510,7 +507,6 @@ export class BudgetCalculationService {
       .filter(
         (transaction) =>
           transaction.type === 'debit' &&
-          !transaction.isTransfer &&
           this.toMonth(transaction.date) <= month,
       )
       .reduce((sum, transaction) => sum + transaction.amount, 0);
@@ -523,7 +519,6 @@ export class BudgetCalculationService {
     return transactions.filter(
       (transaction) =>
         transaction.type === 'debit' &&
-        !transaction.isTransfer &&
         transaction.accountRole === 'operational' &&
         this.isInMonth(transaction.date, month),
     );
