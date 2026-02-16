@@ -1,0 +1,51 @@
+import {
+  bigint,
+  boolean,
+  index,
+  integer,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  uniqueIndex,
+  varchar,
+} from 'drizzle-orm/pg-core';
+import { accounts } from './accounts.ts';
+
+export const bankTransactions = pgTable(
+  'bank_transactions',
+  {
+    id: serial('id').primaryKey(),
+    externalId: varchar('external_id', { length: 255 }).unique().notNull(),
+    accountId: integer('account_id').references(() => accounts.id, {
+      onDelete: 'set null',
+    }),
+    accountExternalId: varchar('account_external_id', { length: 255 }),
+    date: timestamp('date', { withTimezone: true }).notNull(),
+    amount: bigint('amount', { mode: 'number' }).notNull(),
+    currency: varchar('currency', { length: 3 }).notNull(),
+    type: varchar('type', { length: 10 }).notNull(),
+    mcc: integer('mcc'),
+    originalMcc: integer('original_mcc'),
+    bankCategory: varchar('bank_category', { length: 255 }),
+    bankDescription: text('bank_description'),
+    counterparty: varchar('counterparty', { length: 255 }),
+    counterpartyIban: varchar('counterparty_iban', { length: 34 }),
+    counterEdrpou: varchar('counter_edrpou', { length: 20 }),
+    balanceAfter: bigint('balance_after', { mode: 'number' }),
+    operationAmount: bigint('operation_amount', { mode: 'number' }),
+    operationCurrency: varchar('operation_currency', { length: 3 }),
+    cashback: bigint('cashback', { mode: 'number' }).default(0),
+    commission: bigint('commission', { mode: 'number' }).default(0),
+    hold: boolean('hold').default(false),
+    receiptId: varchar('receipt_id', { length: 255 }),
+    invoiceId: varchar('invoice_id', { length: 255 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('idx_bank_transactions_external_id').on(table.externalId),
+    index('idx_bank_transactions_account_id').on(table.accountId),
+    index('idx_bank_transactions_date').on(table.date),
+    index('idx_bank_transactions_account_date').on(table.accountId, table.date),
+  ],
+);
