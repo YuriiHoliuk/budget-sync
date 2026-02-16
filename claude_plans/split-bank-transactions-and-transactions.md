@@ -470,18 +470,98 @@ DROP TABLE transaction_links;
 
 ### Backfill script
 
-A one-time script that runs the `TransactionProcessingService` against all existing bank_transactions to properly handle returnings, transfers, and fee splits. This ensures existing data matches the new detection logic:
+A one-time script that runs the `TransactionProcessingService` against all existing bank_transactions to properly handle returnings, transfers, and fee splits. This ensures existing data matches the new detection logic.
 
 ```
 scripts/backfill-transactions.ts (new, run once)
 ```
 
-1. Load all bank_transactions ordered by date
-2. For each, run detection logic
-3. Update transactions_v2 amounts where refunds are found
-4. Delete transactions_v2 rows for fully cancelled ones
-5. Mark transfers (additional ones beyond what migration 2c caught)
-6. Create fee split transactions where commission > 0
+**Requirements:**
+- Idempotent — safe to re-run (checks for existing processing before creating duplicates)
+- Supports `--dry-run` flag — logs what it would do without writing to DB
+- Runs inside a DB transaction — all-or-nothing, rollback on error
+- Produces a summary report at the end
+
+**Execution order matters** — each phase depends on the previous:
+
+#### Phase 1: Detect and process returnings/cancellations
+
+Process cancellation bank_transactions (where `bank_description LIKE 'Скасування. %'`), ordered by date.
+
+For each cancellation bank_transaction:
+1. Skip if it already has a `transaction_sources` entry (already processed by migration or previous run)
+2. Strip "Скасування. " prefix → get original merchant name
+3. Find matching original bank_transaction on same account: same description, type=debit, within 30-day window before the cancellation date
+4. Find the logical transaction linked to the original via `transaction_sources`
+5. **Partial refund** (refund amount < transaction amount):
+   - Create a new returning transaction: `type = 'returning'`, `adjusted_transaction_id` → original transaction, `amount` = refund amount
+   - Link cancellation bank_transaction → returning transaction via `transaction_sources`
+   - Reduce original transaction's amount by refund amount
+6. **Full refund** (refund amount >= transaction amount):
+   - Delete the original logical transaction (cascade deletes `transaction_sources` entry)
+   - Cancellation bank_transaction gets no `transaction_sources` entry (orphaned by design)
+7. **No match found**: Log warning, skip (will appear as unprocessed bank_transaction)
+
+**Why returnings first**: A returning might delete a transaction that would otherwise be incorrectly matched as a transfer in Phase 2. Processing returnings first ensures clean data for transfer detection.
+
+#### Phase 2: Detect additional transfers
+
+Find transfer candidates not already marked by migration 2c-2d (which only migrated manually linked transfers).
+
+1. Load all own account IBANs from `accounts` table
+2. Query bank_transactions where `counterparty_iban` is in the own IBANs set AND the linked transaction (via `transaction_sources`) does NOT already have `type = 'transfer'`
+3. For each match:
+   - Update the linked transaction to `type = 'transfer'`
+   - Find the counterpart: bank_transaction on the other account with `counterparty_iban` matching the current account's IBAN, within ±2 day window
+   - If counterpart found and its linked transaction is also not yet in `transfer_pairs`:
+     - Update counterpart transaction to `type = 'transfer'`
+     - Determine outgoing/incoming by bank_transaction type (debit = outgoing, credit = incoming)
+     - Insert `transfer_pairs` row
+   - If counterpart not found: mark as transfer but leave unpaired (single-sided transfer — other account may not be synced)
+
+**Why transfers second**: Depends on returnings being resolved — a cancelled transaction shouldn't be matched as a transfer.
+
+#### Phase 3: Create fee split transactions
+
+Find bank_transactions with `commission > 0` that don't already have a fee split transaction.
+
+For each:
+1. Check if a transaction linked via `transaction_sources` to this bank_transaction with description containing "Bank Fee" / "Commission" already exists → skip if so
+2. Reduce the existing linked transaction's amount by the commission value
+3. Create a new transaction: `amount = commission`, `type = 'debit'`, `description = 'Bank commission'`, same date/account/currency
+4. Link the new fee transaction to the same bank_transaction via `transaction_sources`
+5. Auto-categorize fee transaction (set category to "Bank Fees" if it exists, otherwise leave pending)
+
+**Why fees last**: Non-destructive — only creates new transactions and adjusts amounts. No dependency on other phases.
+
+#### Summary report
+
+After all phases (or after dry-run), print:
+
+```
+Backfill Summary:
+  Returnings processed:    X (Y partial, Z full)
+  Returnings skipped:      X (already processed)
+  Returnings unmatched:    X (no original found — logged above)
+  Transfers detected:      X (Y paired, Z unpaired)
+  Transfers skipped:       X (already marked by migration)
+  Fee splits created:      X
+  Fee splits skipped:      X (already existed)
+  Errors:                  X
+```
+
+#### Running the script
+
+```bash
+# Dry run first (always)
+bun scripts/backfill-transactions.ts --dry-run
+
+# Review output, then run for real
+bun scripts/backfill-transactions.ts
+
+# If something went wrong, safe to re-run (idempotent)
+bun scripts/backfill-transactions.ts
+```
 
 ---
 
