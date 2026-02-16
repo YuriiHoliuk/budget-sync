@@ -64,6 +64,13 @@
       "when": 1770750400000,
       "tag": "0008_drop_old_budget_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771286400000,
+      "tag": "0009_bank_transactions_schema",
+      "breakpoints": true
     }
   ]
 }

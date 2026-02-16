@@ -1,6 +1,7 @@
 import type {
   accounts,
   allocations,
+  bankTransactions,
   budgetGroups,
   budgetizationRules,
   budgets,
@@ -8,7 +9,9 @@ import type {
   categories,
   categorizationRules,
   exchangeRates,
+  transactionSources,
   transactions,
+  transferPairs,
 } from './schema/index.ts';
 
 export interface DatabaseConfig {
@@ -21,8 +24,17 @@ export interface DatabaseConfig {
 export type AccountRow = typeof accounts.$inferSelect;
 export type NewAccountRow = typeof accounts.$inferInsert;
 
+export type BankTransactionRow = typeof bankTransactions.$inferSelect;
+export type NewBankTransactionRow = typeof bankTransactions.$inferInsert;
+
 export type TransactionRow = typeof transactions.$inferSelect;
 export type NewTransactionRow = typeof transactions.$inferInsert;
+
+export type TransactionSourceRow = typeof transactionSources.$inferSelect;
+export type NewTransactionSourceRow = typeof transactionSources.$inferInsert;
+
+export type TransferPairRow = typeof transferPairs.$inferSelect;
+export type NewTransferPairRow = typeof transferPairs.$inferInsert;
 
 export type CategoryRow = typeof categories.$inferSelect;
 export type NewCategoryRow = typeof categories.$inferInsert;

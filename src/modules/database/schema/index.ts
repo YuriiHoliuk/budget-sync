@@ -1,5 +1,6 @@
 export { accounts } from './accounts.ts';
 export { allocations } from './allocations.ts';
+export { bankTransactions } from './bankTransactions.ts';
 export { budgetGroups } from './budgetGroups.ts';
 export { budgetizationRules } from './budgetizationRules.ts';
 export { budgets } from './budgets.ts';
@@ -11,4 +12,6 @@ export {
   transactionLinkMembers,
   transactionLinks,
 } from './transactionLinks.ts';
+export { transactionSources } from './transactionSources.ts';
 export { transactions } from './transactions.ts';
+export { transferPairs } from './transferPairs.ts';
