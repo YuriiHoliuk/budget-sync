@@ -31,18 +31,13 @@ boundary.
               |                               |
               +---------------+---------------+
                               |
-                    DualWrite Repository
-                     /              \
-              PostgreSQL       Google Spreadsheet
-              (primary)            (mirror)
-                    \              /
-                     +-----+-----+
-                           |
-                     GraphQL API
-                     (Apollo Server)
-                           |
-                     Next.js Frontend
-                     (Apollo Client)
+                     PostgreSQL (via Drizzle)
+                              |
+                        GraphQL API
+                       (Apollo Server)
+                              |
+                       Next.js Frontend
+                       (Apollo Client)
 ```
 
 ## Data Sources
@@ -51,7 +46,6 @@ boundary.
 |--------|----------|-----------------|
 | Monobank API | HTTPS REST | Accounts, transactions (polling + webhooks) |
 | Gemini LLM | HTTPS REST | Category and budget assignment for transactions |
-| Google Spreadsheet | Google Sheets API | Legacy read/write mirror of all entities |
 | User (via UI) | GraphQL mutations | Manual transactions, budget config, allocations, category edits |
 
 ## Sync Flow (Scheduled)
@@ -79,9 +73,7 @@ SyncMonobankUseCase.execute()
   |     accountRepository.save/update()
   |       |
   |       v
-  |     DualWriteAccountRepository
-  |       |-> DatabaseAccountRepository (Drizzle -> PostgreSQL)
-  |       +-> SpreadsheetAccountRepository (mirror, errors swallowed)
+  |     DatabaseAccountRepository (Drizzle -> PostgreSQL)
   |
   +---> For each account:
           |
@@ -229,7 +221,7 @@ Resolver class (e.g. TransactionsResolver, BudgetsResolver)
   |       e.g. createBudgetUseCase.execute()
   |
   v
-Repository (DualWrite or Database)
+Repository (Database implementation)
   |
   v
 DatabaseClient (Drizzle ORM)  -->  PostgreSQL
@@ -277,32 +269,9 @@ MonthlyOverviewResolver.getMonthlyOverview(month)
 
 ## Storage Layer
 
-### Dual-Write Pattern
-
-Most repositories use a dual-write pattern for backward compatibility with the
-legacy Google Spreadsheet:
-
-```
-Use Case
-  |
-  v
-DualWriteRepository
-  |
-  +---> DatabaseRepository (primary, Drizzle ORM -> PostgreSQL)
-  |       - All reads come from here
-  |       - Writes must succeed
-  |
-  +---> SpreadsheetRepository (mirror, Google Sheets API)
-          - Write-only mirror (best effort)
-          - Errors are logged and swallowed
-          - Never blocks the primary operation
-```
-
-**Exceptions** (database-only, no spreadsheet mirror):
-- `AllocationRepository` -- new feature, never existed in spreadsheet
-- `TransactionLinkRepository` -- new feature
-
 ### Database (PostgreSQL via Drizzle)
+
+All repositories use direct Database implementations (Drizzle ORM -> PostgreSQL).
 
 Tables: `accounts`, `transactions`, `categories`, `budgets`, `allocations`,
 `categorization_rules`, `budgetization_rules`, `exchange_rates`, `transaction_links`
@@ -311,8 +280,9 @@ All monetary values stored in **minor units** (kopecks/cents).
 
 ### Spreadsheet (Google Sheets API)
 
-Used as a legacy mirror and manual-input interface. Each entity type has its own
-sheet tab. The `SpreadsheetTable` module provides schema-validated table access.
+The spreadsheet module and repositories remain in the codebase but are no longer
+wired as write mirrors. The `SpreadsheetsClient` is still registered for potential
+manual use via scripts.
 
 ## Data Transformations
 
