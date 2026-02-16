@@ -7,14 +7,18 @@ import {
 import type { Transaction } from '@domain/entities/Transaction.ts';
 import type { BankGateway } from '@domain/gateways/BankGateway.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
+import type { BankTransactionRepository } from '@domain/repositories/BankTransactionRepository.ts';
 import type { TransactionRepository } from '@domain/repositories/TransactionRepository.ts';
 import { Currency } from '@domain/value-objects/Currency.ts';
 import { Money } from '@domain/value-objects/Money.ts';
 import { TransactionType } from '@domain/value-objects/TransactionType.ts';
 import { MonobankRateLimitError } from '@infrastructure/gateways/monobank/errors.ts';
+import type { Logger } from '@modules/logging';
 import {
   createMockAccountRepository,
   createMockBankGateway,
+  createMockBankTransactionRepository,
+  createMockLogger,
   createMockTransactionRepository,
   createTestAccount,
   createTestTransaction as createTestTransactionBase,
@@ -44,16 +48,22 @@ describe('SyncTransactionsUseCase', () => {
   let bankGateway: BankGateway;
   let accountRepository: AccountRepository;
   let transactionRepository: TransactionRepository;
+  let bankTransactionRepository: BankTransactionRepository;
+  let logger: Logger;
   let useCase: SyncTransactionsUseCase;
 
   beforeEach(() => {
     bankGateway = createMockBankGateway();
     accountRepository = createMockAccountRepository();
     transactionRepository = createMockTransactionRepository();
+    bankTransactionRepository = createMockBankTransactionRepository();
+    logger = createMockLogger();
     useCase = new SyncTransactionsUseCase(
       bankGateway,
       accountRepository,
       transactionRepository,
+      bankTransactionRepository,
+      logger,
     );
   });
 

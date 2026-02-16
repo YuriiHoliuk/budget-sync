@@ -6,6 +6,7 @@ import type {
 } from '@application/use-cases/CategorizeTransaction.ts';
 import type { Account } from '@domain/entities/Account.ts';
 import type { Allocation } from '@domain/entities/Allocation.ts';
+import type { BankTransaction } from '@domain/entities/BankTransaction.ts';
 import type { Budget } from '@domain/entities/Budget.ts';
 import type { BudgetGroup } from '@domain/entities/BudgetGroup.ts';
 import type { BudgetTarget } from '@domain/entities/BudgetTarget.ts';
@@ -25,6 +26,7 @@ import type {
 } from '@domain/gateways/MessageQueueGateway.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
 import type { AllocationRepository } from '@domain/repositories/AllocationRepository.ts';
+import type { BankTransactionRepository } from '@domain/repositories/BankTransactionRepository.ts';
 import type { BudgetGroupRepository } from '@domain/repositories/BudgetGroupRepository.ts';
 import type { BudgetizationRuleRepository } from '@domain/repositories/BudgetizationRuleRepository.ts';
 import type { BudgetRepository } from '@domain/repositories/BudgetRepository.ts';
@@ -164,6 +166,51 @@ export function createMockTransactionRepository(
 ): TransactionRepository {
   const defaults = getDefaultTransactionRepositoryMocks();
   return { ...defaults, ...overrides } as unknown as TransactionRepository;
+}
+
+/**
+ * Creates a mock BankTransactionRepository with default implementations.
+ * All find methods return null/empty, all mutation methods resolve successfully.
+ */
+export function createMockBankTransactionRepository(
+  overrides: Partial<{
+    save: (bankTransaction: BankTransaction) => Promise<BankTransaction>;
+    saveMany: (
+      bankTransactions: BankTransaction[],
+    ) => Promise<BankTransaction[]>;
+    findByExternalId: (externalId: string) => Promise<BankTransaction | null>;
+    findByExternalIds: (
+      externalIds: string[],
+    ) => Promise<Map<string, BankTransaction>>;
+    findByAccountAndDateRange: (
+      accountId: number,
+      from: Date,
+      to: Date,
+    ) => Promise<BankTransaction[]>;
+    findByTransactionId: (transactionId: number) => Promise<BankTransaction[]>;
+  }> = {},
+): BankTransactionRepository {
+  return {
+    save:
+      overrides.save ??
+      mock((bankTransaction: BankTransaction) =>
+        Promise.resolve(bankTransaction),
+      ),
+    saveMany:
+      overrides.saveMany ??
+      mock((bankTransactions: BankTransaction[]) =>
+        Promise.resolve(bankTransactions),
+      ),
+    findByExternalId:
+      overrides.findByExternalId ?? mock(() => Promise.resolve(null)),
+    findByExternalIds:
+      overrides.findByExternalIds ??
+      mock(() => Promise.resolve(new Map<string, BankTransaction>())),
+    findByAccountAndDateRange:
+      overrides.findByAccountAndDateRange ?? mock(() => Promise.resolve([])),
+    findByTransactionId:
+      overrides.findByTransactionId ?? mock(() => Promise.resolve([])),
+  } as unknown as BankTransactionRepository;
 }
 
 /**

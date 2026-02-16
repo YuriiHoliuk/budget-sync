@@ -6,6 +6,7 @@ import type { Account } from '@domain/entities/Account.ts';
 import type { Transaction } from '@domain/entities/Transaction.ts';
 import type { BankGateway } from '@domain/gateways/BankGateway.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
+import type { BankTransactionRepository } from '@domain/repositories/BankTransactionRepository.ts';
 import type { TransactionRepository } from '@domain/repositories/TransactionRepository.ts';
 import { Currency } from '@domain/value-objects/Currency.ts';
 import { Money } from '@domain/value-objects/Money.ts';
@@ -14,6 +15,7 @@ import type { Logger } from '@modules/logging';
 import {
   createMockAccountRepository,
   createMockBankGateway,
+  createMockBankTransactionRepository,
   createMockLogger,
   createMockTransactionRepository,
   createTestAccount,
@@ -31,6 +33,7 @@ describe('SyncMonobankUseCase', () => {
   let mockBankGateway: BankGateway;
   let mockAccountRepository: AccountRepository;
   let mockTransactionRepository: TransactionRepository;
+  let mockBankTransactionRepository: BankTransactionRepository;
   let useCase: SyncMonobankUseCase;
 
   beforeEach(() => {
@@ -38,11 +41,13 @@ describe('SyncMonobankUseCase', () => {
     mockBankGateway = createMockBankGateway();
     mockAccountRepository = createMockAccountRepository();
     mockTransactionRepository = createMockTransactionRepository();
+    mockBankTransactionRepository = createMockBankTransactionRepository();
 
     useCase = new SyncMonobankUseCase(
       mockBankGateway,
       mockAccountRepository,
       mockTransactionRepository,
+      mockBankTransactionRepository,
       mockLogger,
     );
   });
@@ -100,6 +105,7 @@ describe('SyncMonobankUseCase', () => {
         mockBankGateway,
         mockAccountRepository,
         mockTransactionRepository,
+        mockBankTransactionRepository,
         mockLogger,
       );
 
@@ -144,6 +150,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -175,6 +182,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -211,6 +219,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -244,6 +253,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -276,6 +286,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -308,6 +319,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -340,6 +352,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -372,6 +385,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -401,6 +415,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -452,6 +467,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -485,6 +501,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -523,6 +540,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -564,6 +582,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -595,6 +614,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -631,6 +651,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -670,6 +691,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -707,6 +729,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -748,6 +771,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -798,6 +822,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -828,6 +853,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -852,6 +878,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -874,6 +901,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -909,6 +937,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -930,6 +959,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -963,6 +993,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -1004,6 +1035,7 @@ describe('SyncMonobankUseCase', () => {
         mockBankGateway,
         mockAccountRepository,
         mockTransactionRepository,
+        mockBankTransactionRepository,
         mockLogger,
       );
 
@@ -1042,6 +1074,7 @@ describe('SyncMonobankUseCase', () => {
         mockBankGateway,
         mockAccountRepository,
         mockTransactionRepository,
+        mockBankTransactionRepository,
         mockLogger,
       );
 
@@ -1082,6 +1115,7 @@ describe('SyncMonobankUseCase', () => {
         mockBankGateway,
         mockAccountRepository,
         mockTransactionRepository,
+        mockBankTransactionRepository,
         mockLogger,
       );
 
@@ -1119,6 +1153,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 
@@ -1152,6 +1187,7 @@ describe('SyncMonobankUseCase', () => {
           mockBankGateway,
           mockAccountRepository,
           mockTransactionRepository,
+          mockBankTransactionRepository,
           mockLogger,
         );
 

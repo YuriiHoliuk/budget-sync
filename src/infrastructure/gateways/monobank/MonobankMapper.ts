@@ -1,4 +1,5 @@
 import { Account, type AccountType } from '@domain/entities/Account.ts';
+import { BankTransaction } from '@domain/entities/BankTransaction.ts';
 import { Transaction } from '@domain/entities/Transaction.ts';
 import {
   Currency,
@@ -66,6 +67,42 @@ export class MonobankMapper {
       receiptId: raw.receiptId,
       invoiceId: raw.invoiceId,
       counterEdrpou: raw.counterEdrpou,
+    });
+  }
+
+  toBankTransaction(
+    raw: MonobankStatementItem,
+    accountId: number,
+    accountExternalId: string,
+  ): BankTransaction {
+    const currency = Currency.fromNumericCode(raw.currencyCode);
+    const amount = Money.create(raw.amount, currency);
+    const balanceAfter = Money.create(raw.balance, currency);
+    const operationAmount = Money.create(raw.operationAmount, currency);
+    const transactionType =
+      raw.amount >= 0 ? TransactionType.CREDIT : TransactionType.DEBIT;
+
+    return BankTransaction.create({
+      externalId: raw.id,
+      accountId,
+      accountExternalId,
+      date: new Date(raw.time * 1000),
+      amount,
+      currency,
+      type: transactionType,
+      mcc: raw.mcc,
+      originalMcc: this.mapOriginalMcc(raw.originalMcc, raw.mcc),
+      bankDescription: raw.description,
+      counterparty: raw.counterName,
+      counterpartyIban: raw.counterIban,
+      counterEdrpou: raw.counterEdrpou,
+      balanceAfter,
+      operationAmount,
+      cashback: this.mapCashbackAmount(raw.cashbackAmount, currency),
+      commission: this.mapCommissionRate(raw.commissionRate, currency),
+      hold: raw.hold,
+      receiptId: raw.receiptId,
+      invoiceId: raw.invoiceId,
     });
   }
 
