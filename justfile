@@ -34,6 +34,10 @@ dev-fresh:
     docker compose down -v
     just dev
 
+# Restart services (or a specific service, e.g. `just dev-restart web`)
+dev-restart *services:
+    docker compose restart {{services}}
+
 # Stop all services
 dev-down:
     docker compose down
@@ -173,6 +177,10 @@ e2e-up:
 e2e-down:
     docker compose -f docker-compose.e2e.yml down -v
 
+# Restart E2E environment from scratch (useful when stuck)
+e2e-restart:
+    docker compose -f docker-compose.e2e.yml down -v && docker compose -f docker-compose.e2e.yml up -d --wait
+
 # View E2E service logs
 e2e-logs service='api-e2e':
     docker compose -f docker-compose.e2e.yml logs -f {{service}}
@@ -181,17 +189,17 @@ e2e-logs service='api-e2e':
 test-e2e:
     docker compose -f docker-compose.e2e.yml up -d --wait && bunx playwright test
 
-# Run E2E tests with Playwright UI
+# Run E2E tests with Playwright UI (starts environment automatically)
 test-e2e-ui:
-    bunx playwright test --ui
+    docker compose -f docker-compose.e2e.yml up -d --wait && bunx playwright test --ui
 
-# Run E2E tests in headed mode (see the browser)
+# Run E2E tests in headed mode (starts environment automatically)
 test-e2e-headed:
-    bunx playwright test --headed
+    docker compose -f docker-compose.e2e.yml up -d --wait && bunx playwright test --headed
 
-# Run a specific E2E test file
+# Run a specific E2E test file (starts environment automatically)
 test-e2e-file file:
-    bunx playwright test {{file}}
+    docker compose -f docker-compose.e2e.yml up -d --wait && bunx playwright test {{file}}
 
 # Generate Playwright test report
 e2e-report:

@@ -92,9 +92,11 @@ Project uses [Just](https://github.com/casey/just) for common commands. Run `jus
 just init
 
 # Sync operations
-just sync              # Sync accounts and transactions from Monobank
-just job               # Run Cloud Run job locally
-just job-debug         # Run job with debug logging (DEBUG=*)
+just sync                  # Sync accounts and transactions from Monobank
+just job-sync-accounts     # Run sync-accounts job locally
+just job-process-webhooks  # Run process-webhooks job locally
+just job-debug             # Run sync-accounts job with debug logging (DEBUG=*)
+just job-debug <job>       # Run a specific job with debug logging
 
 # Code quality
 just check             # typecheck + lint
@@ -263,7 +265,26 @@ See `docs/testing-guide.md` for full examples of all test types.
 just test              # Unit tests
 just test-api          # API integration tests (Docker DB)
 just test-e2e          # E2E tests (full stack)
+just test-e2e-file <path>  # Run a specific E2E test file
 just test-e2e-ui       # Interactive Playwright UI
+just test-e2e-headed   # Run E2E tests with visible browser
+just e2e-down          # Stop E2E environment
+just e2e-restart       # Restart E2E environment from scratch
+```
+
+### E2E Testing Rules
+
+**NEVER run `bunx playwright test` or `npx playwright test` directly.** E2E tests require an isolated Docker environment (DB on port 5434, API on port 4002, frontend on port 3001). All `just test-e2e*` commands handle starting this environment automatically.
+
+```bash
+# Run a specific E2E test:
+just test-e2e-file e2e/tests/transactions/verify-transaction.spec.ts
+
+# Run all E2E tests:
+just test-e2e
+
+# If E2E environment is broken/stuck:
+just e2e-restart
 ```
 
 ### What to Test

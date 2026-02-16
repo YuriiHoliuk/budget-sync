@@ -219,6 +219,22 @@ E2E tests run the full stack (database, API, frontend) in an isolated Docker Com
 
 **CI configuration**: 4 parallel workers, Playwright browser cache (`~/.cache/ms-playwright`), 1 retry on failure. Locally, tests run with 1 worker by default.
 
+### Running E2E Tests
+
+**Always use `just` commands** — never run `bunx playwright test` directly. The E2E environment requires Docker services (DB port 5434, API port 4002, frontend port 3001) and all `just test-e2e*` commands handle starting them automatically.
+
+```bash
+just test-e2e                              # Run all E2E tests
+just test-e2e-file e2e/tests/path.spec.ts  # Run a specific test file
+just test-e2e-ui                           # Interactive Playwright UI
+just test-e2e-headed                       # Run with visible browser
+just e2e-down                              # Stop E2E environment
+just e2e-restart                           # Restart from scratch (when stuck)
+just e2e-logs                              # View API logs (default)
+just e2e-logs web-e2e                      # View frontend logs
+just e2e-report                            # Open HTML test report
+```
+
 ### Structure
 
 ```

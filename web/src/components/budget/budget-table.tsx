@@ -479,28 +479,28 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
           New Budget
         </Button>
       </div>
-      <div className="rounded-xl border">
-        <Table data-qa="budget-table">
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[32px]" />
-              <TableHead className="w-[200px]">Budget</TableHead>
-              <TableHead className="w-[100px] text-right">Target</TableHead>
-              <TableHead className="w-[140px] text-right">Allocated</TableHead>
-              <TableHead className="w-[100px] text-right">Suggested</TableHead>
-              <TableHead className="w-[100px] text-right">Spent</TableHead>
-              <TableHead className="w-[100px] text-right">Available</TableHead>
-              <TableHead className="w-[120px]">Progress</TableHead>
-              <TableHead className="w-[48px]" />
-            </TableRow>
-          </TableHeader>
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
-          >
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <div className="rounded-xl border">
+          <Table data-qa="budget-table">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[32px]" />
+                <TableHead className="w-[200px]">Budget</TableHead>
+                <TableHead className="w-[100px] text-right">Target</TableHead>
+                <TableHead className="w-[140px] text-right">Allocated</TableHead>
+                <TableHead className="w-[100px] text-right">Suggested</TableHead>
+                <TableHead className="w-[100px] text-right">Spent</TableHead>
+                <TableHead className="w-[100px] text-right">Available</TableHead>
+                <TableHead className="w-[120px]">Progress</TableHead>
+                <TableHead className="w-[48px]" />
+              </TableRow>
+            </TableHeader>
             <SortableContext
               items={sortableIds}
               strategy={verticalListSortingStrategy}
@@ -545,28 +545,28 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
                 })}
               </TableBody>
             </SortableContext>
-            <DragOverlay>
-              {activeDragSummary ? (
-                <table className="w-full text-sm">
-                  <tbody>
-                    <BudgetRow
-                      summary={activeDragSummary}
-                      isEditing={false}
-                      isDragOverlay
-                      onStartEdit={() => {}}
-                      onSave={async () => {}}
-                      onCancel={() => {}}
-                      onMoveFunds={() => {}}
-                      onEditBudget={() => {}}
-                      onArchiveBudget={() => {}}
-                    />
-                  </tbody>
-                </table>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        </Table>
-      </div>
+          </Table>
+        </div>
+        <DragOverlay>
+          {activeDragSummary ? (
+            <table className="w-full text-sm">
+              <tbody>
+                <BudgetRow
+                  summary={activeDragSummary}
+                  isEditing={false}
+                  isDragOverlay
+                  onStartEdit={() => {}}
+                  onSave={async () => {}}
+                  onCancel={() => {}}
+                  onMoveFunds={() => {}}
+                  onEditBudget={() => {}}
+                  onArchiveBudget={() => {}}
+                />
+              </tbody>
+            </table>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
       <MoveFundsSheet
         open={moveFundsOpen}
         onOpenChange={setMoveFundsOpen}

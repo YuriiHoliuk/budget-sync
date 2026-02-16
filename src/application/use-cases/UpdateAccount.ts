@@ -25,6 +25,7 @@ export interface UpdateAccountRequestDTO {
   balance?: number;
   iban?: string | null;
   creditLimit?: number | null;
+  initialBalance?: number;
 }
 
 @injectable()
@@ -114,6 +115,10 @@ export class UpdateAccountUseCase extends UseCase<
         : account.balance;
 
     const creditLimit = this.resolveCreditLimit(account, request, currency);
+    const initialBalance =
+      request.initialBalance !== undefined
+        ? Money.create(request.initialBalance, currency)
+        : account.initialBalance;
 
     return account.withUpdatedProps({
       name: request.name ?? account.name,
@@ -122,6 +127,7 @@ export class UpdateAccountUseCase extends UseCase<
       currency,
       balance,
       creditLimit,
+      initialBalance,
       iban:
         request.iban !== undefined ? (request.iban ?? undefined) : account.iban,
     });

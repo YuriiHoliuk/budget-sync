@@ -37,7 +37,7 @@ export interface TransactionInput {
   type: 'credit' | 'debit';
   date: Date;
   accountRole: 'operational' | 'savings';
-  excludeFromCalculations?: boolean;
+  isTransfer?: boolean;
 }
 
 /**
@@ -156,10 +156,9 @@ export class BudgetCalculationService {
   /**
    * Computes total inflows for the flow-based Ready to Assign calculation.
    *
-   * Total inflows = sum(account initial balances) + sum(income transactions) - sum(excluded transactions)
+   * Total inflows = sum(account initial balances) + sum(income transactions)
    *
-   * Income transactions are credits to operational accounts.
-   * Excluded transactions are those marked with excludeFromCalculations = true.
+   * Income transactions are credits to operational accounts that are not transfers.
    */
   private computeTotalInflows(
     accountBalances: AccountBalanceInput[],
@@ -167,9 +166,8 @@ export class BudgetCalculationService {
   ): number {
     const initialBalancesSum = this.sumInitialBalances(accountBalances);
     const incomeSum = this.sumIncomeTransactions(transactions);
-    const excludedSum = this.sumExcludedTransactions(transactions);
 
-    return initialBalancesSum + incomeSum - excludedSum;
+    return initialBalancesSum + incomeSum;
   }
 
   private sumInitialBalances(accountBalances: AccountBalanceInput[]): number {
@@ -184,17 +182,7 @@ export class BudgetCalculationService {
         (transaction) =>
           transaction.type === 'credit' &&
           transaction.accountRole === 'operational' &&
-          !transaction.excludeFromCalculations,
-      )
-      .reduce((sum, transaction) => sum + transaction.amount, 0);
-  }
-
-  private sumExcludedTransactions(transactions: TransactionInput[]): number {
-    return transactions
-      .filter(
-        (transaction) =>
-          transaction.excludeFromCalculations &&
-          transaction.accountRole === 'operational',
+          !transaction.isTransfer,
       )
       .reduce((sum, transaction) => sum + transaction.amount, 0);
   }
@@ -233,7 +221,7 @@ export class BudgetCalculationService {
 
   /**
    * Total income from operational accounts in a given month.
-   * Excludes transactions marked with excludeFromCalculations.
+   * Excludes transfer transactions.
    */
   private computeIncomeForMonth(
     transactions: TransactionInput[],
@@ -244,7 +232,7 @@ export class BudgetCalculationService {
         (transaction) =>
           transaction.type === 'credit' &&
           transaction.accountRole === 'operational' &&
-          !transaction.excludeFromCalculations &&
+          !transaction.isTransfer &&
           this.isInMonth(transaction.date, month),
       )
       .reduce((sum, transaction) => sum + transaction.amount, 0);
@@ -522,6 +510,7 @@ export class BudgetCalculationService {
       .filter(
         (transaction) =>
           transaction.type === 'debit' &&
+          !transaction.isTransfer &&
           this.toMonth(transaction.date) <= month,
       )
       .reduce((sum, transaction) => sum + transaction.amount, 0);
@@ -533,7 +522,10 @@ export class BudgetCalculationService {
   ): TransactionInput[] {
     return transactions.filter(
       (transaction) =>
-        transaction.type === 'debit' && this.isInMonth(transaction.date, month),
+        transaction.type === 'debit' &&
+        !transaction.isTransfer &&
+        transaction.accountRole === 'operational' &&
+        this.isInMonth(transaction.date, month),
     );
   }
 

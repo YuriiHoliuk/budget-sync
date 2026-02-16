@@ -81,7 +81,7 @@ describe('BudgetCalculationService', () => {
 
   describe('readyToAssign (flow-based)', () => {
     test('should equal totalInflows minus all allocations ever', () => {
-      // totalInflows = initialBalances + income - excluded
+      // totalInflows = initialBalances + income
       const accounts = makeAccounts([
         { balance: 5000000, role: 'operational', initialBalance: 3000000 },
         { balance: 3000000, role: 'operational', initialBalance: 2000000 },
@@ -160,7 +160,7 @@ describe('BudgetCalculationService', () => {
       expect(result.readyToAssign).toBe(3000000);
     });
 
-    test('should subtract excluded transactions from inflows', () => {
+    test('should not count transfer credits as income', () => {
       const accounts = makeAccounts([
         { balance: 5000000, role: 'operational', initialBalance: 5000000 },
       ]);
@@ -174,33 +174,14 @@ describe('BudgetCalculationService', () => {
           amount: 500000,
           type: 'credit',
           accountRole: 'operational',
-          excludeFromCalculations: true,
+          isTransfer: true,
         }),
       ];
 
       const result = service.compute(MONTH, [], [], transactions, accounts);
 
-      // totalInflows = 5000000 (initial) + 2000000 (income) - 500000 (excluded) = 6500000
-      expect(result.readyToAssign).toBe(6500000);
-    });
-
-    test('should not count excluded credits as income', () => {
-      const accounts = makeAccounts([
-        { balance: 5000000, role: 'operational', initialBalance: 5000000 },
-      ]);
-      const transactions = [
-        makeTransaction({
-          amount: 2000000,
-          type: 'credit',
-          accountRole: 'operational',
-          excludeFromCalculations: true,
-        }),
-      ];
-
-      const result = service.compute(MONTH, [], [], transactions, accounts);
-
-      // totalInflows = 5000000 (initial) + 0 (excluded credit not counted) - 2000000 (excluded) = 3000000
-      expect(result.readyToAssign).toBe(3000000);
+      // totalInflows = 5000000 (initial) + 2000000 (income, transfer excluded) = 7000000
+      expect(result.readyToAssign).toBe(7000000);
     });
 
     test('should handle accounts without initial balance as zero', () => {
@@ -377,7 +358,7 @@ describe('BudgetCalculationService', () => {
       expect(result.savingsRate).toBeCloseTo(0.7);
     });
 
-    test('should exclude transactions marked excludeFromCalculations from income', () => {
+    test('should exclude transfer credits from income', () => {
       const txns = [
         makeTransaction({
           amount: 100000,
@@ -388,7 +369,7 @@ describe('BudgetCalculationService', () => {
           amount: 50000,
           type: 'credit',
           accountRole: 'operational',
-          excludeFromCalculations: true,
+          isTransfer: true,
         }),
         makeTransaction({
           amount: 30000,
@@ -399,7 +380,7 @@ describe('BudgetCalculationService', () => {
 
       const result = service.compute(MONTH, [], [], txns, []);
 
-      // income = 100000 (excluded credit not counted), expenses = 30000
+      // income = 100000 (transfer credit not counted), expenses = 30000
       expect(result.savingsRate).toBeCloseTo(0.7);
     });
   });
@@ -870,6 +851,68 @@ describe('BudgetCalculationService', () => {
       expect(result.budgetSummaries.length).toBe(1);
       const summary = getSummary(result, 0);
       expect(summary.isExpired).toBe(false);
+    });
+  });
+
+  describe('transfer and savings filtering', () => {
+    test('should not count savings debits in totalSpent', () => {
+      const txns = [
+        makeTransaction({
+          amount: 10000,
+          type: 'debit',
+          accountRole: 'operational',
+        }),
+        makeTransaction({
+          amount: 50000,
+          type: 'debit',
+          accountRole: 'savings',
+        }),
+      ];
+
+      const result = service.compute(MONTH, [], [], txns, []);
+
+      // Only operational debits count: 10000
+      expect(result.totalSpent).toBe(10000);
+    });
+
+    test('should not count transfer debits in totalSpent', () => {
+      const txns = [
+        makeTransaction({
+          amount: 10000,
+          type: 'debit',
+          accountRole: 'operational',
+        }),
+        makeTransaction({
+          amount: 90000,
+          type: 'debit',
+          accountRole: 'operational',
+          isTransfer: true,
+        }),
+      ];
+
+      const result = service.compute(MONTH, [], [], txns, []);
+
+      // Transfer debits excluded: only 10000
+      expect(result.totalSpent).toBe(10000);
+    });
+
+    test('should not count transfer debits in per-budget spent', () => {
+      const budget = makeBudget({ budgetId: 1 });
+      const allocations = [
+        makeAllocation({ budgetId: 1, amount: 500000, period: MONTH }),
+      ];
+      const txns = [
+        makeTransaction({ budgetId: 1, amount: 100000 }),
+        makeTransaction({ budgetId: 1, amount: 50000, isTransfer: true }),
+      ];
+
+      const result = service.compute(MONTH, [budget], allocations, txns, []);
+
+      const summary = getSummary(result, 0);
+      // Transfer debit excluded from budget spent
+      expect(summary.spent).toBe(100000);
+      // available = 500000 - 100000 = 400000
+      expect(summary.available).toBe(400000);
     });
   });
 

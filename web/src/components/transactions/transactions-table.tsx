@@ -16,9 +16,12 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  PanelRightClose,
+  PanelRightOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -188,6 +191,7 @@ export function TransactionsTable() {
   const [editingTransaction, setEditingTransaction] = useState<number | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<number | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
 
   // Sync state changes back to URL
   useEffect(() => {
@@ -286,7 +290,7 @@ export function TransactionsTable() {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center dark:border-red-900/50 dark:bg-red-950/50">
+      <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/50">
         <p className="text-sm text-red-600 dark:text-red-400">
           Failed to load transactions: {error.message}
         </p>
@@ -306,36 +310,70 @@ export function TransactionsTable() {
 
   return (
     <>
-      <div className="flex gap-6">
-        {/* Main content */}
-        <div className="min-w-0 flex-1 space-y-4">
-          {/* Mobile filter button */}
-          <div className="flex items-center gap-2 lg:hidden">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => setMobileFiltersOpen(true)}
-              data-qa="btn-filters"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0">
-                  {activeFilterCount}
-                </Badge>
-              )}
-            </Button>
+      {/* Page header */}
+      <div className="flex shrink-0 items-start justify-between border-b pb-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Browse and manage your financial transactions.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Mobile: opens sheet */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 lg:hidden"
+            onClick={() => setMobileFiltersOpen(true)}
+            data-qa="btn-filters"
+          >
+            <Filter className="h-4 w-4" />
+            Filters
             {activeFilterCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={handleClearFilters} className="gap-1" data-qa="btn-clear-filters-mobile">
-                <X className="h-4 w-4" />
-                Clear
-              </Button>
+              <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0">
+                {activeFilterCount}
+              </Badge>
             )}
-          </div>
+          </Button>
+          {activeFilterCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={handleClearFilters} className="gap-1 lg:hidden" data-qa="btn-clear-filters-mobile">
+              <X className="h-4 w-4" />
+              Clear
+            </Button>
+          )}
 
+          {/* Desktop: toggles sidebar */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hidden lg:inline-flex"
+                onClick={() => setFiltersOpen((prev) => !prev)}
+                data-qa="btn-toggle-filters"
+              >
+                {filtersOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+                <span className="sr-only">{filtersOpen ? "Hide filters" : "Show filters"}</span>
+                {!filtersOpen && activeFilterCount > 0 && (
+                  <Badge variant="secondary" className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 text-[10px]">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {filtersOpen ? "Hide filters" : "Show filters"}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+
+      {/* Content: table + sidebar */}
+      <div className="flex min-h-0 flex-1">
+        {/* Table column */}
+        <div className={cn("flex min-w-0 flex-1 flex-col pt-4 pb-4 md:pb-6", filtersOpen && "lg:pr-6")}>
           {transactions.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-8 text-center">
+            <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed">
               <p className="text-sm text-muted-foreground" data-qa="text-no-transactions">
                 {activeFilterCount > 0
                   ? "No transactions match your filters."
@@ -344,7 +382,7 @@ export function TransactionsTable() {
             </div>
           ) : (
             <>
-              <div className="rounded-xl border">
+              <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border">
                 <Table data-qa="transactions-table">
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -390,12 +428,12 @@ export function TransactionsTable() {
           )}
         </div>
 
-        {/* Filter sidebar — desktop only */}
-        <aside className="hidden w-[260px] shrink-0 lg:block">
-          <div className="sticky top-20 rounded-xl border bg-card p-4">
+        {/* Filter sidebar — border-l spans full height from header border to bottom */}
+        {filtersOpen && (
+          <aside className="hidden w-[280px] shrink-0 self-stretch overflow-y-auto border-l pl-6 pt-4 pb-4 md:pb-6 lg:block">
             <TransactionFiltersSidebar {...sidebarProps} />
-          </div>
-        </aside>
+          </aside>
+        )}
       </div>
 
       {/* Filter sheet — mobile only */}
@@ -695,7 +733,7 @@ function TransactionPagination({
   const pageNumbers = getPageNumbers(page, totalPages);
 
   return (
-    <div className="sticky bottom-0 z-10 flex items-center justify-between border-t bg-background py-3 text-sm text-muted-foreground">
+    <div className="flex shrink-0 items-center justify-between bg-background py-3 text-sm text-muted-foreground">
       <div data-qa="text-pagination-info">
         Showing {startItem} - {endItem} of {totalCount} transactions
       </div>
@@ -747,12 +785,12 @@ function TransactionPagination({
 
 function TransactionsTableSkeleton() {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="flex shrink-0 items-center gap-4">
         <Skeleton className="h-10 flex-1" />
         <Skeleton className="h-9 w-24" />
       </div>
-      <div className="rounded-xl border">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border">
         <div className="space-y-0">
           {Array.from({ length: 10 }).map((_, index) => (
             <div

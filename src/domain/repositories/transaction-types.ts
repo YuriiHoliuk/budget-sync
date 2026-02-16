@@ -72,5 +72,5 @@ export interface TransactionSummary {
   type: 'credit' | 'debit';
   date: Date;
   accountRole: 'operational' | 'savings';
-  excludeFromCalculations: boolean;
+  isTransfer: boolean;
 }

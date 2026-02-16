@@ -99,13 +99,6 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package.json') }}
-
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
 
@@ -300,8 +293,6 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.image }}
-          cache-from: type=gha,scope=build-backend
-          cache-to: type=gha,scope=build-backend,mode=max
 
   build-web:
     name: Build Web App
@@ -358,8 +349,6 @@ jobs:
             NEXT_PUBLIC_ALLOWED_EMAIL=${{ secrets.ALLOWED_EMAIL }}
             NEXT_PUBLIC_ALLOWED_PASSWORD=${{ secrets.ALLOWED_PASSWORD }}
             API_URL=${{ steps.webhook.outputs.url }}
-          cache-from: type=gha,scope=build-web
-          cache-to: type=gha,scope=build-web,mode=max
 
   deploy-backend:
     name: Deploy Backend

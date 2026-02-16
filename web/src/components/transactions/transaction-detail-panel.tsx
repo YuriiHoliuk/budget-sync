@@ -154,6 +154,7 @@ export function TransactionDetailPanel({
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+        <SheetTitle className="sr-only">Transaction details</SheetTitle>
         {loading ? (
           <TransactionDetailSkeleton />
         ) : data?.transaction ? (

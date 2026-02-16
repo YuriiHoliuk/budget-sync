@@ -35,6 +35,7 @@ interface UpdateAccountInput {
   balance?: number | null;
   iban?: string | null;
   creditLimit?: number | null;
+  initialBalance?: number | null;
 }
 
 @injectable()
@@ -126,6 +127,7 @@ export class AccountsResolver extends Resolver {
       balance: this.mapOptionalBalance(input.balance),
       iban: input.iban !== undefined ? input.iban : undefined,
       creditLimit: this.mapOptionalCreditLimit(input.creditLimit),
+      initialBalance: this.mapOptionalBalance(input.initialBalance),
     };
   }
 

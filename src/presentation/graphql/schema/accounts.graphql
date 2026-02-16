@@ -137,6 +137,11 @@ input UpdateAccountInput {
   Credit limit in major units. Pass null to remove.
   """
   creditLimit: Float
+
+  """
+  Initial balance in major units.
+  """
+  initialBalance: Float
 }
 
 """

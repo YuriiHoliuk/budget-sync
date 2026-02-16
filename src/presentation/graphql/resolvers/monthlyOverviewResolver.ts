@@ -215,7 +215,7 @@ export class MonthlyOverviewResolver extends Resolver {
         type: summary.type,
         date: summary.date,
         accountRole: summary.accountRole,
-        excludeFromCalculations: summary.excludeFromCalculations,
+        isTransfer: summary.isTransfer,
       }),
     );
 

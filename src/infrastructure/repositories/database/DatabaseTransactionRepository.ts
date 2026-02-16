@@ -15,6 +15,8 @@ import {
   accounts,
   budgets,
   categories,
+  transactionLinkMembers,
+  transactionLinks,
   transactions,
 } from '@modules/database/schema/index.ts';
 import type { TransactionRow } from '@modules/database/types.ts';
@@ -93,12 +95,18 @@ export class DatabaseTransactionRepository implements TransactionRepository {
   }
 
   async save(transaction: Transaction): Promise<void> {
-    const insertData = this.mapper.toInsert(transaction);
+    const accountIdMap = await this.resolveAccountIds([transaction]);
+    const insertData = this.mapper.toInsert(transaction, {
+      accountDbId: accountIdMap.get(transaction.accountId),
+    });
     await this.db.insert(transactions).values(insertData);
   }
 
   async saveAndReturn(transaction: Transaction): Promise<Transaction> {
-    const insertData = this.mapper.toInsert(transaction);
+    const accountIdMap = await this.resolveAccountIds([transaction]);
+    const insertData = this.mapper.toInsert(transaction, {
+      accountDbId: accountIdMap.get(transaction.accountId),
+    });
     const rows = await this.db
       .insert(transactions)
       .values(insertData)
@@ -114,8 +122,11 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     if (transactionList.length === 0) {
       return;
     }
+    const accountIdMap = await this.resolveAccountIds(transactionList);
     const insertData = transactionList.map((transaction) =>
-      this.mapper.toInsert(transaction),
+      this.mapper.toInsert(transaction, {
+        accountDbId: accountIdMap.get(transaction.accountId),
+      }),
     );
     await this.db.insert(transactions).values(insertData);
   }
@@ -319,17 +330,20 @@ export class DatabaseTransactionRepository implements TransactionRepository {
   }
 
   async findTransactionSummaries(): Promise<TransactionSummary[]> {
-    const rows = await this.db
-      .select({
-        budgetId: transactions.budgetId,
-        amount: transactions.amount,
-        type: transactions.type,
-        date: transactions.date,
-        accountRole: accounts.role,
-        excludeFromCalculations: transactions.excludeFromCalculations,
-      })
-      .from(transactions)
-      .leftJoin(accounts, eq(transactions.accountId, accounts.id));
+    const [rows, transferTxIds] = await Promise.all([
+      this.db
+        .select({
+          id: transactions.id,
+          budgetId: transactions.budgetId,
+          amount: transactions.amount,
+          type: transactions.type,
+          date: transactions.date,
+          accountRole: accounts.role,
+        })
+        .from(transactions)
+        .leftJoin(accounts, eq(transactions.accountId, accounts.id)),
+      this.getTransferTransactionIds(),
+    ]);
 
     return rows.map((row) => ({
       budgetId: row.budgetId,
@@ -339,8 +353,20 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       accountRole: (row.accountRole ?? 'operational') as
         | 'operational'
         | 'savings',
-      excludeFromCalculations: row.excludeFromCalculations ?? false,
+      isTransfer: transferTxIds.has(row.id),
     }));
+  }
+
+  private async getTransferTransactionIds(): Promise<Set<number>> {
+    const rows = await this.db
+      .select({ transactionId: transactionLinkMembers.transactionId })
+      .from(transactionLinkMembers)
+      .innerJoin(
+        transactionLinks,
+        eq(transactionLinkMembers.linkId, transactionLinks.id),
+      )
+      .where(eq(transactionLinks.linkType, 'transfer'));
+    return new Set(rows.map((row) => row.transactionId));
   }
 
   private rowToRecord(row: TransactionRow): TransactionRecord {
