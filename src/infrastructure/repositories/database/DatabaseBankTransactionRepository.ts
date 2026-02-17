@@ -109,4 +109,26 @@ export class DatabaseBankTransactionRepository
       .where(eq(transactionSources.transactionId, transactionId));
     return rows.map((row) => this.mapper.toEntity(row.bankTransaction));
   }
+
+  async linkTransactionSource(
+    transactionId: number,
+    bankTransactionId: number,
+  ): Promise<void> {
+    await this.db
+      .insert(transactionSources)
+      .values({ transactionId, bankTransactionId })
+      .onConflictDoNothing();
+  }
+
+  async linkTransactionSources(
+    links: Array<{ transactionId: number; bankTransactionId: number }>,
+  ): Promise<void> {
+    if (links.length === 0) {
+      return;
+    }
+    await this.db
+      .insert(transactionSources)
+      .values(links)
+      .onConflictDoNothing();
+  }
 }

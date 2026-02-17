@@ -137,7 +137,15 @@ function getDefaultTransactionRepositoryMocks() {
     findByCategorizationStatus: mock(() => Promise.resolve([])),
     findUncategorized: mock(() => Promise.resolve([])),
     findTransactionSummaries: mock(() => Promise.resolve([])),
+    findRecordById: mock(() => Promise.resolve(null)),
+    findRecordsFiltered: mock(() => Promise.resolve([])),
+    countFiltered: mock(() => Promise.resolve(0)),
+    updateRecordCategory: mock(() => Promise.resolve(null)),
+    updateRecordBudget: mock(() => Promise.resolve(null)),
+    updateRecordStatus: mock(() => Promise.resolve(null)),
     findTransferCandidate: mock(() => Promise.resolve(null)),
+    findCancellationCandidate: mock(() => Promise.resolve(null)),
+    updateTransactionAmount: mock(() => Promise.resolve()),
     updateRecordType: mock(() => Promise.resolve()),
     setAdjustedTransactionId: mock(() => Promise.resolve()),
     createTransferPair: mock(() => Promise.resolve()),
@@ -198,6 +206,13 @@ export function createMockBankTransactionRepository(
       to: Date,
     ) => Promise<BankTransaction[]>;
     findByTransactionId: (transactionId: number) => Promise<BankTransaction[]>;
+    linkTransactionSource: (
+      transactionId: number,
+      bankTransactionId: number,
+    ) => Promise<void>;
+    linkTransactionSources: (
+      links: Array<{ transactionId: number; bankTransactionId: number }>,
+    ) => Promise<void>;
   }> = {},
 ): BankTransactionRepository {
   return {
@@ -220,6 +235,10 @@ export function createMockBankTransactionRepository(
       overrides.findByAccountAndDateRange ?? mock(() => Promise.resolve([])),
     findByTransactionId:
       overrides.findByTransactionId ?? mock(() => Promise.resolve([])),
+    linkTransactionSource:
+      overrides.linkTransactionSource ?? mock(() => Promise.resolve()),
+    linkTransactionSources:
+      overrides.linkTransactionSources ?? mock(() => Promise.resolve()),
   } as unknown as BankTransactionRepository;
 }
 

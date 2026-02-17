@@ -14,10 +14,13 @@ import type * as schema from '@modules/database/schema/index.ts';
 import {
   accounts,
   allocations,
+  bankTransactions,
   budgets,
   budgetTargets,
   categories,
+  transactionSources,
   transactions,
+  transferPairs,
 } from '@modules/database/schema/index.ts';
 import { sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -269,9 +272,77 @@ export async function createTestBudgetTarget(
   return result;
 }
 
+/**
+ * Bank transaction factory - creates test bank transactions
+ */
+interface TestBankTransactionData {
+  externalId?: string;
+  accountId: number;
+  date?: Date;
+  amount?: number;
+  currency?: string;
+  type?: string;
+  bankDescription?: string;
+  counterparty?: string;
+  mcc?: number;
+  commission?: number;
+}
+
+export async function createTestBankTransaction(
+  db: Db,
+  data: TestBankTransactionData,
+) {
+  const values = {
+    externalId: data.externalId ?? `test-btx-${Date.now()}-${Math.random()}`,
+    accountId: data.accountId,
+    date: data.date ?? new Date(),
+    amount: data.amount ?? -15000,
+    currency: data.currency ?? 'UAH',
+    type: data.type ?? 'debit',
+    bankDescription: data.bankDescription ?? 'Test Description',
+    counterparty: data.counterparty ?? 'Test Counterparty',
+    mcc: data.mcc ?? 5411,
+    commission: data.commission ?? 0,
+  };
+
+  const [result] = await db.insert(bankTransactions).values(values).returning();
+  if (!result) {
+    throw new Error('Failed to create test bank transaction');
+  }
+  return result;
+}
+
+/**
+ * Transaction source factory - links a transaction to a bank transaction
+ */
+export async function createTestTransactionSource(
+  db: Db,
+  data: { transactionId: number; bankTransactionId: number },
+) {
+  const [result] = await db.insert(transactionSources).values(data).returning();
+  if (!result) {
+    throw new Error('Failed to create test transaction source');
+  }
+  return result;
+}
+
+/**
+ * Transfer pair factory - creates a transfer pair between two transactions
+ */
+export async function createTestTransferPair(
+  db: Db,
+  data: { outgoingTransactionId: number; incomingTransactionId: number },
+) {
+  const [result] = await db.insert(transferPairs).values(data).returning();
+  if (!result) {
+    throw new Error('Failed to create test transfer pair');
+  }
+  return result;
+}
+
 export async function clearAllTestData(db: Db): Promise<void> {
   await db.execute(
-    sql`TRUNCATE TABLE allocations, transactions, budget_targets, budgets, budget_groups, categories, accounts RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE transfer_pairs, transaction_sources, bank_transactions, allocations, transactions, budget_targets, budgets, budget_groups, categories, accounts RESTART IDENTITY CASCADE`,
   );
 }
 

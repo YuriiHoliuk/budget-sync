@@ -16,11 +16,14 @@ import postgres from 'postgres';
 import {
   accounts,
   allocations,
+  bankTransactions,
   budgetGroups,
   budgetTargets,
   budgets,
   categories,
+  transactionSources,
   transactions,
+  transferPairs,
 } from '../src/modules/database/schema/index.ts';
 
 // --- Production safety guard ---
@@ -63,7 +66,7 @@ const db = drizzle(client);
 
 async function clearDatabase() {
   console.log('Clearing existing data...');
-  await db.execute(sql`TRUNCATE TABLE budget_targets, allocations, transactions, budgets, budget_groups, categories, accounts RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE transfer_pairs, transaction_sources, bank_transactions, budget_targets, allocations, transactions, budgets, budget_groups, categories, accounts RESTART IDENTITY CASCADE`);
 }
 
 async function seedAccounts() {
@@ -596,6 +599,431 @@ async function seedTransactions(
   console.log(`  Inserted ${transactionRows.length} transactions`);
 }
 
+async function seedBankTransactionsAndSources() {
+  console.log('Seeding bank transactions and transaction sources...');
+
+  // Get all transactions to create bank_transactions for each
+  const allTxRows = await db.select().from(transactions);
+
+  const bankTxRows: Array<{
+    externalId: string;
+    accountId: number;
+    date: Date;
+    amount: number;
+    currency: string;
+    type: string;
+    bankDescription: string | null;
+    counterparty: string | null;
+    mcc: number | null;
+    commission: number | null;
+  }> = [];
+
+  for (const tx of allTxRows) {
+    if (!tx.externalId || !tx.accountId) continue;
+    bankTxRows.push({
+      externalId: tx.externalId,
+      accountId: tx.accountId,
+      date: tx.date,
+      amount: tx.amount,
+      currency: tx.currency,
+      type: tx.type,
+      bankDescription: tx.bankDescription,
+      counterparty: tx.counterparty,
+      mcc: tx.mcc,
+      commission: tx.commission,
+    });
+  }
+
+  // Insert bank_transactions in batches
+  const savedBankTxs: Array<{ id: number; externalId: string }> = [];
+  for (let batchIdx = 0; batchIdx < bankTxRows.length; batchIdx += 50) {
+    const batch = bankTxRows.slice(batchIdx, batchIdx + 50);
+    const saved = await db.insert(bankTransactions).values(batch).returning();
+    for (const row of saved) {
+      savedBankTxs.push({ id: row.id, externalId: row.externalId });
+    }
+  }
+
+  // Build externalId -> bankTx.id map
+  const bankTxMap = new Map(savedBankTxs.map((bt) => [bt.externalId, bt.id]));
+
+  // Create transaction_sources links
+  const links: Array<{ transactionId: number; bankTransactionId: number }> = [];
+  for (const tx of allTxRows) {
+    if (!tx.externalId) continue;
+    const bankTxId = bankTxMap.get(tx.externalId);
+    if (bankTxId !== undefined) {
+      links.push({ transactionId: tx.id, bankTransactionId: bankTxId });
+    }
+  }
+
+  for (let batchIdx = 0; batchIdx < links.length; batchIdx += 50) {
+    await db
+      .insert(transactionSources)
+      .values(links.slice(batchIdx, batchIdx + 50));
+  }
+
+  console.log(`  Inserted ${savedBankTxs.length} bank transactions`);
+  console.log(`  Inserted ${links.length} transaction sources`);
+
+  return bankTxMap;
+}
+
+async function seedTransferExamples(seedAccounts: SeedAccount[]) {
+  console.log('Seeding transfer examples...');
+
+  const blackAccount = seedAccounts.find((account) => account.role === 'operational');
+  const whiteAccount = seedAccounts.find(
+    (account) => account.role === 'operational' && account.id !== blackAccount?.id,
+  );
+  if (!blackAccount || !whiteAccount) {
+    console.log('  Skipped: need at least 2 operational accounts');
+    return;
+  }
+
+  let transferCount = 0;
+
+  // 2 transfers per month for 3 months
+  for (let monthOffset = 0; monthOffset < 3; monthOffset++) {
+    const year = monthOffset === 0 ? 2025 : 2026;
+    const month = monthOffset === 0 ? 12 : monthOffset;
+
+    for (let transferIdx = 0; transferIdx < 2; transferIdx++) {
+      transferCount++;
+      const day = transferIdx === 0 ? 10 : 25;
+      const amount = transferIdx === 0 ? 500000 : 300000;
+      const date = new Date(year, month - 1, day, 14, 30, 0);
+      const datePlusMinute = new Date(date.getTime() + 60 * 1000);
+
+      // Outgoing (debit) on Black
+      const [outgoing] = await db
+        .insert(transactions)
+        .values({
+          externalId: `seed-transfer-out-${transferCount}`,
+          date,
+          amount: -amount,
+          currency: 'UAH',
+          type: 'transfer',
+          accountId: blackAccount.id,
+          accountExternalId: `mono-account-${blackAccount.id}`,
+          bankDescription: 'Переказ на картку',
+          counterparty: 'Mono White UAH',
+          mcc: 0,
+          categorizationStatus: 'verified',
+        })
+        .returning();
+
+      // Incoming (credit) on White
+      const [incoming] = await db
+        .insert(transactions)
+        .values({
+          externalId: `seed-transfer-in-${transferCount}`,
+          date: datePlusMinute,
+          amount,
+          currency: 'UAH',
+          type: 'transfer',
+          accountId: whiteAccount.id,
+          accountExternalId: `mono-account-${whiteAccount.id}`,
+          bankDescription: 'Від Mono Black UAH',
+          counterparty: 'Mono Black UAH',
+          mcc: 0,
+          categorizationStatus: 'verified',
+        })
+        .returning();
+
+      if (outgoing && incoming) {
+        await db.insert(transferPairs).values({
+          outgoingTransactionId: outgoing.id,
+          incomingTransactionId: incoming.id,
+        });
+
+        // Create bank_transactions and transaction_sources for transfers
+        for (const tx of [outgoing, incoming]) {
+          const [bankTx] = await db
+            .insert(bankTransactions)
+            .values({
+              externalId: tx.externalId!,
+              accountId: tx.accountId!,
+              date: tx.date,
+              amount: tx.amount,
+              currency: tx.currency,
+              type: tx.type,
+              bankDescription: tx.bankDescription,
+              counterparty: tx.counterparty,
+              mcc: tx.mcc,
+            })
+            .returning();
+          if (bankTx) {
+            await db.insert(transactionSources).values({
+              transactionId: tx.id,
+              bankTransactionId: bankTx.id,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  console.log(`  Inserted ${transferCount * 2} transfer transactions + ${transferCount} transfer pairs`);
+}
+
+async function seedReturningExamples(
+  seedAccounts: SeedAccount[],
+  seedCategories: SeedCategory[],
+  seedBudgets: SeedBudget[],
+) {
+  console.log('Seeding returning/cancellation examples...');
+
+  const account = seedAccounts.find((acc) => acc.role === 'operational');
+  if (!account) return;
+
+  const category = seedCategories.find((cat) => cat.parentId !== null);
+  const budget = seedBudgets.find((bud) => !bud.cadenceUnit && !bud.targetDate);
+
+  // Example 1: Partial refund — original reduced, returning with adjustedTransactionId
+  const partialDate = new Date(2026, 0, 15, 10, 0, 0);
+  const [partialOriginal] = await db
+    .insert(transactions)
+    .values({
+      externalId: 'seed-partial-original',
+      date: partialDate,
+      amount: -35000, // Was -50000, reduced by 15000 refund
+      currency: 'UAH',
+      type: 'debit',
+      accountId: account.id,
+      accountExternalId: `mono-account-${account.id}`,
+      bankDescription: 'Glovo',
+      counterparty: 'Glovo',
+      mcc: 5812,
+      categoryId: category?.id ?? null,
+      budgetId: budget?.id ?? null,
+      categorizationStatus: 'verified',
+    })
+    .returning();
+
+  if (partialOriginal) {
+    const partialCancelDate = new Date(2026, 0, 17, 12, 0, 0);
+    const [partialReturning] = await db
+      .insert(transactions)
+      .values({
+        externalId: 'seed-partial-returning',
+        date: partialCancelDate,
+        amount: 15000,
+        currency: 'UAH',
+        type: 'returning',
+        accountId: account.id,
+        accountExternalId: `mono-account-${account.id}`,
+        bankDescription: 'Glovo',
+        counterparty: 'Glovo',
+        mcc: 5812,
+        adjustedTransactionId: partialOriginal.id,
+        categoryId: category?.id ?? null,
+        budgetId: budget?.id ?? null,
+        categorizationStatus: 'verified',
+      })
+      .returning();
+
+    // Create bank_transactions for both
+    for (const tx of [partialOriginal, partialReturning].filter(Boolean)) {
+      if (!tx) continue;
+      const bankDesc =
+        tx.externalId === 'seed-partial-returning'
+          ? 'Скасування. Glovo'
+          : 'Glovo';
+      const bankAmount =
+        tx.externalId === 'seed-partial-returning' ? 15000 : -50000;
+      const [bankTx] = await db
+        .insert(bankTransactions)
+        .values({
+          externalId: tx.externalId!,
+          accountId: tx.accountId!,
+          date: tx.date,
+          amount: bankAmount,
+          currency: tx.currency,
+          type: bankAmount > 0 ? 'credit' : 'debit',
+          bankDescription: bankDesc,
+          counterparty: tx.counterparty,
+          mcc: tx.mcc,
+        })
+        .returning();
+      if (bankTx) {
+        await db.insert(transactionSources).values({
+          transactionId: tx.id,
+          bankTransactionId: bankTx.id,
+        });
+      }
+    }
+  }
+
+  // Example 2: Full refund — original transaction deleted, bank_tx orphaned
+  const fullRefundDate = new Date(2026, 1, 5, 16, 0, 0);
+  // The original transaction was deleted, so only the bank_transaction remains (orphaned)
+  await db.insert(bankTransactions).values({
+    externalId: 'seed-full-refund-original',
+    accountId: account.id,
+    date: fullRefundDate,
+    amount: -25000,
+    currency: 'UAH',
+    type: 'debit',
+    bankDescription: 'Amazon',
+    counterparty: 'Amazon',
+    mcc: 5942,
+  });
+  // The cancellation bank_transaction is also orphaned
+  await db.insert(bankTransactions).values({
+    externalId: 'seed-full-refund-cancel',
+    accountId: account.id,
+    date: new Date(2026, 1, 7, 10, 0, 0),
+    amount: 25000,
+    currency: 'UAH',
+    type: 'credit',
+    bankDescription: 'Скасування. Amazon',
+    counterparty: 'Amazon',
+    mcc: 5942,
+  });
+
+  console.log('  Inserted partial refund example + full refund orphaned bank_txs');
+}
+
+async function seedFeeSplitExamples(seedAccounts: SeedAccount[]) {
+  console.log('Seeding fee split examples...');
+
+  const account = seedAccounts.find((acc) => acc.role === 'operational');
+  if (!account) return;
+
+  // Example 1: International purchase with commission
+  const feeDate1 = new Date(2026, 0, 20, 15, 0, 0);
+  const [mainTx1] = await db
+    .insert(transactions)
+    .values({
+      externalId: 'seed-fee-split-1',
+      date: feeDate1,
+      amount: -47500, // Original was -50000, reduced by 2500 commission
+      currency: 'UAH',
+      type: 'debit',
+      accountId: account.id,
+      accountExternalId: `mono-account-${account.id}`,
+      bankDescription: 'Amazon.com',
+      counterparty: 'Amazon',
+      mcc: 5942,
+      categorizationStatus: 'verified',
+    })
+    .returning();
+
+  const [feeTx1] = await db
+    .insert(transactions)
+    .values({
+      externalId: 'seed-fee-split-1-fee',
+      date: feeDate1,
+      amount: -2500,
+      currency: 'UAH',
+      type: 'debit',
+      accountId: account.id,
+      accountExternalId: `mono-account-${account.id}`,
+      bankDescription: 'Bank commission',
+      mcc: 0,
+      categorizationStatus: 'verified',
+    })
+    .returning();
+
+  // Bank transaction for this fee split (original amount with commission)
+  const [bankTx1] = await db
+    .insert(bankTransactions)
+    .values({
+      externalId: 'seed-fee-split-1',
+      accountId: account.id,
+      date: feeDate1,
+      amount: -50000,
+      currency: 'UAH',
+      type: 'debit',
+      bankDescription: 'Amazon.com',
+      counterparty: 'Amazon',
+      mcc: 5942,
+      commission: 2500,
+    })
+    .returning();
+
+  // Link both transactions to the same bank_transaction
+  if (bankTx1 && mainTx1) {
+    await db.insert(transactionSources).values({
+      transactionId: mainTx1.id,
+      bankTransactionId: bankTx1.id,
+    });
+  }
+  if (bankTx1 && feeTx1) {
+    await db.insert(transactionSources).values({
+      transactionId: feeTx1.id,
+      bankTransactionId: bankTx1.id,
+    });
+  }
+
+  // Example 2: Another fee split
+  const feeDate2 = new Date(2026, 1, 8, 11, 0, 0);
+  const [mainTx2] = await db
+    .insert(transactions)
+    .values({
+      externalId: 'seed-fee-split-2',
+      date: feeDate2,
+      amount: -98500, // Original was -100000, reduced by 1500 commission
+      currency: 'UAH',
+      type: 'debit',
+      accountId: account.id,
+      accountExternalId: `mono-account-${account.id}`,
+      bankDescription: 'Booking.com',
+      counterparty: 'Booking',
+      mcc: 7011,
+      categorizationStatus: 'verified',
+    })
+    .returning();
+
+  const [feeTx2] = await db
+    .insert(transactions)
+    .values({
+      externalId: 'seed-fee-split-2-fee',
+      date: feeDate2,
+      amount: -1500,
+      currency: 'UAH',
+      type: 'debit',
+      accountId: account.id,
+      accountExternalId: `mono-account-${account.id}`,
+      bankDescription: 'Bank commission',
+      mcc: 0,
+      categorizationStatus: 'verified',
+    })
+    .returning();
+
+  const [bankTx2] = await db
+    .insert(bankTransactions)
+    .values({
+      externalId: 'seed-fee-split-2',
+      accountId: account.id,
+      date: feeDate2,
+      amount: -100000,
+      currency: 'UAH',
+      type: 'debit',
+      bankDescription: 'Booking.com',
+      counterparty: 'Booking',
+      mcc: 7011,
+      commission: 1500,
+    })
+    .returning();
+
+  if (bankTx2 && mainTx2) {
+    await db.insert(transactionSources).values({
+      transactionId: mainTx2.id,
+      bankTransactionId: bankTx2.id,
+    });
+  }
+  if (bankTx2 && feeTx2) {
+    await db.insert(transactionSources).values({
+      transactionId: feeTx2.id,
+      bankTransactionId: bankTx2.id,
+    });
+  }
+
+  console.log('  Inserted 2 fee split examples (4 transactions, 2 bank_transactions)');
+}
+
 async function main() {
   console.log('Seeding local database...');
   console.log(`Database: ${DATABASE_URL}\n`);
@@ -610,6 +1038,10 @@ async function main() {
     await seedBudgetTargets(seededBudgets);
     await seedAllocations(seededBudgets);
     await seedTransactions(seededAccounts, seededCategories, seededBudgets);
+    await seedBankTransactionsAndSources();
+    await seedTransferExamples(seededAccounts);
+    await seedReturningExamples(seededAccounts, seededCategories, seededBudgets);
+    await seedFeeSplitExamples(seededAccounts);
 
     console.log('\nSeed complete!');
     console.log(`  Accounts: ${seededAccounts.length}`);

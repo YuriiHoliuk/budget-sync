@@ -247,8 +247,19 @@ export class SyncTransactionsUseCase extends UseCase<
         );
 
       if (accountDbId !== null && savedTransactions.length > 0) {
-        await this.transactionSyncService.detectTransfers(
+        const deletedIds = await this.transactionSyncService.detectReturnings(
           savedTransactions,
+          accountDbId,
+        );
+        const remaining = savedTransactions.filter(
+          (tx) => tx.dbId !== null && !deletedIds.has(tx.dbId),
+        );
+        await this.transactionSyncService.detectFeeSplits(
+          remaining,
+          accountDbId,
+        );
+        await this.transactionSyncService.detectTransfers(
+          remaining,
           accountDbId,
           ownAccountIds,
         );

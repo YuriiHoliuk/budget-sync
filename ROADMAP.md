@@ -47,15 +47,15 @@ Originally implemented as spreadsheet sheets, then migrated to Neon PostgreSQL w
 
 ---
 
-## Phase 5: Chat Interface `not started` → merged into Phase 10
+## Phase 5: Chat Interface `not started` → merged into Phase 11
 
-~~Originally planned as standalone phase. Now part of Phase 10 (Telegram Bot).~~
+~~Originally planned as standalone phase. Now part of Phase 11 (Telegram Bot).~~
 
 ---
 
-## Phase 6: Review System `not started` → merged into Phase 9
+## Phase 6: Review System `not started` → merged into Phase 10
 
-~~Originally planned as standalone phase. Review/approval workflows now part of Phase 9 (Rules UI) and Phase 10 (Telegram Bot).~~
+~~Originally planned as standalone phase. Review/approval workflows now part of Phase 10 (Rules UI) and Phase 11 (Telegram Bot).~~
 
 ---
 
@@ -88,7 +88,43 @@ Spreadsheet is no longer the primary interface. Web UI (Phase 8) replaced this.
 
 ---
 
-## Phase 9: Categorization Rules & Verification UI `not started`
+## Phase 9: Transaction UI Improvements & Data Correctness `not started`
+
+> Backend context: [`claude_plans/split-bank-transactions-and-transactions.md`](claude_plans/split-bank-transactions-and-transactions.md) (implemented)
+
+The bank_transactions / transactions split is implemented and working. This phase covers UI improvements and ensuring all production data is correctly processed.
+
+### Problem 1: Fee + main transaction display
+
+When a bank transaction has a commission (e.g., transfer fee), it creates two logical transactions: the main payment and a fee. On the UI, the fee row shows as "Bank" with no category or budget — it needs auto-categorization or additional context sent to the LLM for categorization.
+
+**Example:** "Bank" row (fee) next to "Марія тренерка Соломії" (main) — fee has no category/budget, requires manual assignment.
+
+### Problem 2: Returnings rendered as separate rows
+
+A partial return (e.g., "Скасування. ОККО") creates a returning transaction linked to the original. Currently both show as independent rows on the UI. Should be **one row** showing the original transaction with a "partially returned" indicator, the returned amount, and both bank transactions visible in the detail panel.
+
+**Example:** "Скасування. ОККО" (+268.12) and "ОККО" (-3519.45) show as two rows. Should be one row with net amount and a return indicator.
+
+### Problem 3: Transfers need better display and no categorization
+
+Transfer pairs show as two rows with mismatched names ("Переказ на картку" vs "З Білої картки"), both prompting for category and budget. Transfers should have consistent naming, no category/budget prompts, and no verification needed. The "Categorized" warning badge should not appear on transfers.
+
+**Example:** Two transfer rows both showing "Add category", "Add budget", and a "Categorized" warning badge despite being correctly detected as transfers.
+
+### Tasks
+
+- [ ] **Audit production data** — check all prod transactions for edge cases beyond the three examples above, verify detection rules and backfill handled everything correctly
+- [ ] **Fee transactions** — auto-categorize fee transactions or provide better context to LLM for categorization
+- [ ] **Returnings UI** — render returning + original as a single row, show return amount and indicator, show both bank transactions in detail panel
+- [ ] **Transfers UI** — consistent naming for both sides, hide category/budget prompts, remove "Categorized" warning badge, skip verification
+- [ ] **Type filter** — add TRANSFER and RETURNING options to transaction filter sidebar
+
+---
+
+## Phase 10: Categorization Rules & Verification UI `not started`
+
+> Previously Phase 9
 
 ### Verification panel
 - [ ] Quick-verify panel for categorized transactions — review queue with one-click approve or inline edit (category, budget)
@@ -111,7 +147,7 @@ Spreadsheet is no longer the primary interface. Web UI (Phase 8) replaced this.
 
 ---
 
-## Phase 10: Telegram Bot `not started`
+## Phase 11: Telegram Bot `not started`
 
 - [ ] Telegram bot for push notifications (new transactions, uncategorized alerts)
 - [ ] Record spendings for manual accounts via chat
@@ -120,7 +156,7 @@ Spreadsheet is no longer the primary interface. Web UI (Phase 8) replaced this.
 
 ---
 
-## Phase 11: AI-Native Interface `not started`
+## Phase 12: AI-Native Interface `not started`
 
 - [ ] Natural language input on web UI (text field + voice dictation)
 - [ ] Agent with tools that interprets user intent and performs operations:
@@ -133,7 +169,7 @@ Spreadsheet is no longer the primary interface. Web UI (Phase 8) replaced this.
 
 ---
 
-## Phase 12: Custom Dashboard `not started`
+## Phase 13: Custom Dashboard `not started`
 
 - [ ] Chart builder — create charts from available data (transactions, budgets, categories, accounts)
 - [ ] Supported chart types: column, pie, flow/river (Sankey), line, etc.

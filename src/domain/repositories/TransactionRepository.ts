@@ -104,6 +104,24 @@ export abstract class TransactionRepository extends Repository<
     dateTo: Date;
   }): Promise<{ id: number; accountId: number } | null>;
 
+  // Returning/cancellation detection
+  abstract findCancellationCandidate(params: {
+    accountId: number;
+    bankDescription: string;
+    refundAmount: number;
+    dateFrom: Date;
+    dateTo: Date;
+  }): Promise<{
+    id: number;
+    amount: number;
+    categoryId: number | null;
+    budgetId: number | null;
+    categorizationStatus: string | null;
+    categoryReason: string | null;
+    budgetReason: string | null;
+  } | null>;
+  abstract updateTransactionAmount(dbId: number, amount: number): Promise<void>;
+
   // Summary methods for budget calculations
   abstract findTransactionSummaries(): Promise<TransactionSummary[]>;
 }

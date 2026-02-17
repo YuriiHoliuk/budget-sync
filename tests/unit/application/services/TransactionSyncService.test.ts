@@ -586,4 +586,301 @@ describe('TransactionSyncService', () => {
       expect(result).toBe(false);
     });
   });
+
+  describe('transaction_sources linking', () => {
+    test('should link transaction_sources in processBatch when accountDbId provided', async () => {
+      const newTx = createTestTransaction({
+        externalId: 'tx-link-1',
+        dbId: 10,
+      });
+      const savedTx = newTx.withDbId(10);
+
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map());
+      (
+        transactionRepository.saveManyAndReturn as ReturnType<typeof mock>
+      ).mockResolvedValue([savedTx]);
+
+      const savedBankTx = {
+        id: 100,
+        externalId: 'tx-link-1',
+      };
+      (
+        bankTransactionRepository.saveMany as ReturnType<typeof mock>
+      ).mockResolvedValue([savedBankTx]);
+
+      await service.processBatch([newTx], 42);
+
+      expect(
+        bankTransactionRepository.linkTransactionSources,
+      ).toHaveBeenCalledWith([{ transactionId: 10, bankTransactionId: 100 }]);
+    });
+
+    test('should link transaction_sources in processSingle when accountDbId provided', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-link-single',
+      });
+
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(null);
+      (
+        transactionRepository.saveAndReturn as ReturnType<typeof mock>
+      ).mockImplementation((txn: Transaction) =>
+        Promise.resolve(txn.withDbId(50)),
+      );
+      (
+        bankTransactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(null);
+
+      const savedBankTx = {
+        id: 200,
+        externalId: 'tx-link-single',
+      };
+      (
+        bankTransactionRepository.save as ReturnType<typeof mock>
+      ).mockResolvedValue(savedBankTx);
+
+      await service.processSingle(transaction, 42);
+
+      expect(
+        bankTransactionRepository.linkTransactionSource,
+      ).toHaveBeenCalledWith(50, 200);
+    });
+  });
+
+  describe('detectReturnings()', () => {
+    test('should skip non-cancellation transactions', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-normal',
+        description: 'Grocery purchase',
+        amount: Money.create(-5000, Currency.UAH),
+        type: TransactionType.DEBIT,
+        dbId: 10,
+      });
+
+      const result = await service.detectReturnings([transaction], 1);
+
+      expect(result.size).toBe(0);
+      expect(
+        transactionRepository.findCancellationCandidate,
+      ).not.toHaveBeenCalled();
+    });
+
+    test('should find and handle partial refund', async () => {
+      const cancellation = createTestTransaction({
+        externalId: 'tx-cancel-1',
+        description:
+          '\u0421\u043a\u0430\u0441\u0443\u0432\u0430\u043d\u043d\u044f. Grocery purchase',
+        amount: Money.create(1500, Currency.UAH),
+        type: TransactionType.CREDIT,
+        dbId: 20,
+      });
+
+      (
+        transactionRepository.findCancellationCandidate as ReturnType<
+          typeof mock
+        >
+      ).mockResolvedValue({
+        id: 10,
+        amount: -5000,
+        categoryId: 3,
+        budgetId: 5,
+        categorizationStatus: 'categorized',
+        categoryReason: 'test reason',
+        budgetReason: 'budget reason',
+      });
+
+      const result = await service.detectReturnings([cancellation], 1);
+
+      expect(result.size).toBe(0);
+      expect(
+        transactionRepository.updateTransactionAmount,
+      ).toHaveBeenCalledWith(10, -3500); // -5000 + 1500 = -3500
+      expect(transactionRepository.updateRecordType).toHaveBeenCalledWith(
+        20,
+        'returning',
+      );
+      expect(
+        transactionRepository.setAdjustedTransactionId,
+      ).toHaveBeenCalledWith(20, 10);
+      expect(transactionRepository.updateRecordCategory).toHaveBeenCalledWith(
+        20,
+        3,
+      );
+      expect(transactionRepository.updateRecordBudget).toHaveBeenCalledWith(
+        20,
+        5,
+      );
+    });
+
+    test('should handle full refund by deleting both transactions', async () => {
+      const cancellation = createTestTransaction({
+        externalId: 'tx-cancel-full',
+        description:
+          '\u0421\u043a\u0430\u0441\u0443\u0432\u0430\u043d\u043d\u044f. Big purchase',
+        amount: Money.create(5000, Currency.UAH),
+        type: TransactionType.CREDIT,
+        dbId: 30,
+      });
+
+      (
+        transactionRepository.findCancellationCandidate as ReturnType<
+          typeof mock
+        >
+      ).mockResolvedValue({
+        id: 25,
+        amount: -5000,
+        categoryId: null,
+        budgetId: null,
+        categorizationStatus: null,
+        categoryReason: null,
+        budgetReason: null,
+      });
+      (
+        transactionRepository.findByDbId as ReturnType<typeof mock>
+      ).mockResolvedValue(
+        createTestTransaction({ externalId: 'tx-original-25', dbId: 25 }),
+      );
+
+      const result = await service.detectReturnings([cancellation], 1);
+
+      expect(result.size).toBe(1);
+      expect(result.has(30)).toBe(true);
+      expect(transactionRepository.delete).toHaveBeenCalledWith(
+        'tx-cancel-full',
+      );
+      expect(transactionRepository.delete).toHaveBeenCalledWith(
+        'tx-original-25',
+      );
+    });
+
+    test('should warn when no match found', async () => {
+      const cancellation = createTestTransaction({
+        externalId: 'tx-no-match',
+        description:
+          '\u0421\u043a\u0430\u0441\u0443\u0432\u0430\u043d\u043d\u044f. Unknown purchase',
+        amount: Money.create(5000, Currency.UAH),
+        type: TransactionType.CREDIT,
+        dbId: 40,
+      });
+
+      (
+        transactionRepository.findCancellationCandidate as ReturnType<
+          typeof mock
+        >
+      ).mockResolvedValue(null);
+
+      const result = await service.detectReturnings([cancellation], 1);
+
+      expect(result.size).toBe(0);
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Returning transaction has no matching original',
+        expect.objectContaining({
+          transactionId: 40,
+        }),
+      );
+    });
+
+    test('should prefer exact amount match via findCancellationCandidate', async () => {
+      const cancellation = createTestTransaction({
+        externalId: 'tx-exact',
+        description:
+          '\u0421\u043a\u0430\u0441\u0443\u0432\u0430\u043d\u043d\u044f. Exact purchase',
+        amount: Money.create(3000, Currency.UAH),
+        type: TransactionType.CREDIT,
+        dbId: 50,
+      });
+
+      (
+        transactionRepository.findCancellationCandidate as ReturnType<
+          typeof mock
+        >
+      ).mockResolvedValue({
+        id: 45,
+        amount: -3000,
+        categoryId: null,
+        budgetId: null,
+        categorizationStatus: null,
+        categoryReason: null,
+        budgetReason: null,
+      });
+
+      await service.detectReturnings([cancellation], 1);
+
+      expect(
+        transactionRepository.findCancellationCandidate,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 1,
+          bankDescription: 'Exact purchase',
+          refundAmount: 3000,
+        }),
+      );
+    });
+  });
+
+  describe('detectFeeSplits()', () => {
+    test('should skip transactions without commission', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-no-fee',
+        description: 'Regular purchase',
+        amount: Money.create(-5000, Currency.UAH),
+        type: TransactionType.DEBIT,
+        dbId: 10,
+      });
+
+      await service.detectFeeSplits([transaction], 1);
+
+      expect(
+        transactionRepository.updateTransactionAmount,
+      ).not.toHaveBeenCalled();
+      expect(transactionRepository.saveAndReturn).not.toHaveBeenCalled();
+    });
+
+    test('should reduce amount and create fee transaction', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-with-fee',
+        description: 'International purchase',
+        amount: Money.create(-50000, Currency.UAH),
+        type: TransactionType.DEBIT,
+        dbId: 60,
+        commissionRate: Money.create(2500, Currency.UAH),
+      });
+
+      const savedFee = createTestTransaction({
+        externalId: 'tx-with-fee-fee',
+        dbId: 61,
+      });
+      (
+        transactionRepository.saveAndReturn as ReturnType<typeof mock>
+      ).mockResolvedValue(savedFee);
+
+      const bankTx = { id: 300, externalId: 'tx-with-fee' };
+      (
+        bankTransactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(bankTx);
+
+      await service.detectFeeSplits([transaction], 1);
+
+      // Main transaction reduced: -50000 + 2500 = -47500
+      expect(
+        transactionRepository.updateTransactionAmount,
+      ).toHaveBeenCalledWith(60, -47500);
+
+      // Fee transaction created
+      expect(transactionRepository.saveAndReturn).toHaveBeenCalledTimes(1);
+      const savedCall = (
+        transactionRepository.saveAndReturn as ReturnType<typeof mock>
+      ).mock.calls[0]?.[0] as Transaction;
+      expect(savedCall.amount.amount).toBe(-2500);
+      expect(savedCall.description).toBe('Bank commission');
+
+      // Fee transaction linked to same bank transaction
+      expect(
+        bankTransactionRepository.linkTransactionSource,
+      ).toHaveBeenCalledWith(61, 300);
+    });
+  });
 });

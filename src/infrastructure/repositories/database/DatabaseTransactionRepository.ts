@@ -481,6 +481,70 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     return { id: row.id, accountId: row.accountId };
   }
 
+  async findCancellationCandidate(params: {
+    accountId: number;
+    bankDescription: string;
+    refundAmount: number;
+    dateFrom: Date;
+    dateTo: Date;
+  }): Promise<{
+    id: number;
+    amount: number;
+    categoryId: number | null;
+    budgetId: number | null;
+    categorizationStatus: string | null;
+    categoryReason: string | null;
+    budgetReason: string | null;
+  } | null> {
+    const rows = await this.db
+      .select({
+        id: transactions.id,
+        amount: transactions.amount,
+        categoryId: transactions.categoryId,
+        budgetId: transactions.budgetId,
+        categorizationStatus: transactions.categorizationStatus,
+        categoryReason: transactions.categoryReason,
+        budgetReason: transactions.budgetReason,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.accountId, params.accountId),
+          eq(transactions.bankDescription, params.bankDescription),
+          eq(transactions.type, 'debit'),
+          gte(transactions.date, params.dateFrom),
+          lte(transactions.date, params.dateTo),
+        ),
+      )
+      .orderBy(
+        sql`CASE WHEN ABS(${transactions.amount}) = ${params.refundAmount} THEN 0 ELSE 1 END`,
+        desc(transactions.date),
+      )
+      .limit(1);
+
+    const row = rows[0];
+    if (!row) {
+      return null;
+    }
+
+    return {
+      id: row.id,
+      amount: row.amount,
+      categoryId: row.categoryId,
+      budgetId: row.budgetId,
+      categorizationStatus: row.categorizationStatus,
+      categoryReason: row.categoryReason,
+      budgetReason: row.budgetReason,
+    };
+  }
+
+  async updateTransactionAmount(dbId: number, amount: number): Promise<void> {
+    await this.db
+      .update(transactions)
+      .set({ amount, updatedAt: new Date() })
+      .where(eq(transactions.id, dbId));
+  }
+
   private rowToRecord(
     row: TransactionRow,
     bankTransactionCount = 0,
