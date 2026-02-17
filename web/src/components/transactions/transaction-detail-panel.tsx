@@ -19,9 +19,6 @@ import {
   AlertCircle,
   Sparkles,
   Check,
-  Receipt,
-  Coins,
-  Percent,
   Loader2,
   ChevronDown,
   ChevronUp,
@@ -447,63 +444,8 @@ function TransactionDetailContent({
               />
             )}
 
-            {transaction.hold && (
-              <DetailRow
-                icon={Clock}
-                label="Status"
-                value="Hold (pending settlement)"
-                badge="Hold"
-              />
-            )}
           </div>
         </div>
-
-        {(transaction.cashbackAmount ||
-          transaction.commissionAmount ||
-          transaction.receiptId) && (
-          <>
-            <Separator />
-
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium text-muted-foreground">
-                Additional Info
-              </h3>
-
-              <div className="grid gap-3 text-sm">
-                {transaction.cashbackAmount !== null &&
-                  transaction.cashbackAmount !== undefined &&
-                  transaction.cashbackAmount > 0 && (
-                    <DetailRow
-                      icon={Coins}
-                      label="Cashback"
-                      value={`+${formatCurrency(transaction.cashbackAmount)} ${transaction.currency}`}
-                      highlight="green"
-                    />
-                  )}
-
-                {transaction.commissionAmount !== null &&
-                  transaction.commissionAmount !== undefined &&
-                  transaction.commissionAmount > 0 && (
-                    <DetailRow
-                      icon={Percent}
-                      label="Commission"
-                      value={`-${formatCurrency(transaction.commissionAmount)} ${transaction.currency}`}
-                      highlight="red"
-                    />
-                  )}
-
-                {transaction.receiptId && (
-                  <DetailRow
-                    icon={Receipt}
-                    label="Receipt ID"
-                    value={transaction.receiptId}
-                    mono
-                  />
-                )}
-              </div>
-            </div>
-          </>
-        )}
 
         {transaction.adjustedTransactionId != null && (
           <>
@@ -563,12 +505,6 @@ function TransactionDetailContent({
             <div className="flex justify-between">
               <span>Internal ID</span>
               <span className="font-mono">{transaction.id}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>External ID</span>
-              <span className="truncate ml-4 font-mono">
-                {transaction.externalId}
-              </span>
             </div>
           </div>
         </div>

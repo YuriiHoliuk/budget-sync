@@ -142,7 +142,6 @@ describe('Query: transactions', () => {
       transactions: {
         items: Array<{
           id: number;
-          externalId: string;
           date: string;
           amount: number;
           currency: string;
@@ -161,7 +160,6 @@ describe('Query: transactions', () => {
         transactions {
           items {
             id
-            externalId
             date
             amount
             currency

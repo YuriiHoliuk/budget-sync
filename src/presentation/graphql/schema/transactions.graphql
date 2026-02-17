@@ -201,7 +201,6 @@ type TransactionConnection {
 
 type Transaction {
   id: Int!
-  externalId: String!
   date: String!
   """
   Amount in major units (always positive).
@@ -216,16 +215,6 @@ type Transaction {
   mcc: Int
   counterpartyName: String
   counterpartyIban: String
-  hold: Boolean!
-  """
-  Cashback in major units.
-  """
-  cashbackAmount: Float
-  """
-  Commission in major units.
-  """
-  commissionAmount: Float
-  receiptId: String
   notes: String
 
   """
