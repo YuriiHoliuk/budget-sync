@@ -40,7 +40,12 @@ describe('TransactionSyncService', () => {
     test('should return zeros for empty transaction list', async () => {
       const result = await service.processBatch([], null);
 
-      expect(result).toEqual({ newCount: 0, updatedCount: 0, skippedCount: 0 });
+      expect(result).toEqual({
+        newCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
+        savedTransactions: [],
+      });
       expect(transactionRepository.findByExternalIds).not.toHaveBeenCalled();
     });
 
@@ -55,7 +60,24 @@ describe('TransactionSyncService', () => {
 
       expect(result.newCount).toBe(1);
       expect(result.skippedCount).toBe(0);
-      expect(transactionRepository.saveMany).toHaveBeenCalledTimes(1);
+      expect(transactionRepository.saveManyAndReturn).toHaveBeenCalledTimes(1);
+    });
+
+    test('should return saved transactions with dbIds', async () => {
+      const newTx = createTestTransaction({ externalId: 'new-tx-1' });
+      const savedTx = newTx.withDbId(42);
+
+      (
+        transactionRepository.findByExternalIds as ReturnType<typeof mock>
+      ).mockResolvedValue(new Map());
+      (
+        transactionRepository.saveManyAndReturn as ReturnType<typeof mock>
+      ).mockResolvedValue([savedTx]);
+
+      const result = await service.processBatch([newTx], null);
+
+      expect(result.savedTransactions).toHaveLength(1);
+      expect(result.savedTransactions[0]?.dbId).toBe(42);
     });
 
     test('should skip existing transactions with no new fields', async () => {
@@ -78,7 +100,7 @@ describe('TransactionSyncService', () => {
 
       expect(result.newCount).toBe(0);
       expect(result.skippedCount).toBe(1);
-      expect(transactionRepository.saveMany).not.toHaveBeenCalled();
+      expect(transactionRepository.saveManyAndReturn).not.toHaveBeenCalled();
     });
 
     test('should update existing transactions with missing bank fields', async () => {
@@ -159,7 +181,7 @@ describe('TransactionSyncService', () => {
       await service.processBatch([newerTx, olderTx, middleTx], null);
 
       const savedTransactions = (
-        transactionRepository.saveMany as ReturnType<typeof mock>
+        transactionRepository.saveManyAndReturn as ReturnType<typeof mock>
       ).mock.calls[0]?.[0] as Transaction[];
       expect(savedTransactions[0]?.externalId).toBe('old-tx');
       expect(savedTransactions[1]?.externalId).toBe('mid-tx');
@@ -366,14 +388,12 @@ describe('TransactionSyncService', () => {
       });
 
       const context = {
-        ownAccountIbans: new Map<string, number>(),
         accountId: 1,
       };
 
       const result = service.classifyTransaction(transaction, context);
 
       expect(result.isReturning).toBe(false);
-      expect(result.isTransfer).toBe(false);
       expect(result.hasFee).toBe(false);
       expect(result.transaction).not.toBeNull();
     });
@@ -388,38 +408,159 @@ describe('TransactionSyncService', () => {
       });
 
       const context = {
-        ownAccountIbans: new Map<string, number>(),
         accountId: 1,
       };
 
       const result = service.classifyTransaction(transaction, context);
 
       expect(result.isReturning).toBe(true);
-      expect(result.isTransfer).toBe(false);
     });
+  });
 
-    test('should detect transfer between own accounts', () => {
-      const counterpartyIban = 'UA111111111111111111111111111';
+  describe('detectTransfers()', () => {
+    test('should skip when only one own account', async () => {
       const transaction = createTestTransaction({
-        externalId: 'tx-transfer',
-        description: 'Transfer',
-        counterpartyIban,
-        amount: Money.create(-10000, Currency.UAH),
+        externalId: 'tx-1',
+        dbId: 10,
+        amount: Money.create(-50000, Currency.UAH),
         type: TransactionType.DEBIT,
       });
 
-      const ownAccountIbans = new Map<string, number>();
-      ownAccountIbans.set(counterpartyIban, 2);
+      await service.detectTransfers([transaction], 1, [1]);
 
-      const context = {
-        ownAccountIbans,
-        accountId: 1,
-      };
+      expect(
+        transactionRepository.findTransferCandidate,
+      ).not.toHaveBeenCalled();
+    });
 
-      const result = service.classifyTransaction(transaction, context);
+    test('should skip transactions without dbId', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-1',
+        amount: Money.create(-50000, Currency.UAH),
+        type: TransactionType.DEBIT,
+      });
 
-      expect(result.isTransfer).toBe(true);
-      expect(result.isReturning).toBe(false);
+      await service.detectTransfers([transaction], 1, [1, 2]);
+
+      expect(
+        transactionRepository.findTransferCandidate,
+      ).not.toHaveBeenCalled();
+    });
+
+    test('should search for transfer candidate with correct parameters', async () => {
+      const date = new Date('2026-02-15T12:00:00Z');
+      const transaction = createTestTransaction({
+        externalId: 'tx-1',
+        dbId: 10,
+        date,
+        amount: Money.create(-50000, Currency.UAH),
+        type: TransactionType.DEBIT,
+      });
+
+      await service.detectTransfers([transaction], 1, [1, 2]);
+
+      expect(transactionRepository.findTransferCandidate).toHaveBeenCalledWith({
+        absoluteAmount: 50000,
+        oppositeType: 'credit',
+        excludeAccountId: 1,
+        ownAccountIds: [1, 2],
+        dateFrom: new Date(date.getTime() - 5 * 60 * 1000),
+        dateTo: new Date(date.getTime() + 5 * 60 * 1000),
+      });
+    });
+
+    test('should pair transactions when candidate found', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-1',
+        dbId: 10,
+        amount: Money.create(-50000, Currency.UAH),
+        type: TransactionType.DEBIT,
+      });
+
+      (
+        transactionRepository.findTransferCandidate as ReturnType<typeof mock>
+      ).mockResolvedValue({ id: 20, accountId: 2 });
+
+      await service.detectTransfers([transaction], 1, [1, 2]);
+
+      // Both transactions marked as transfer
+      expect(transactionRepository.updateRecordType).toHaveBeenCalledWith(
+        10,
+        'transfer',
+      );
+      expect(transactionRepository.updateRecordType).toHaveBeenCalledWith(
+        20,
+        'transfer',
+      );
+
+      // Transfer pair created (debit = outgoing)
+      expect(transactionRepository.createTransferPair).toHaveBeenCalledWith(
+        10,
+        20,
+      );
+    });
+
+    test('should set credit as incoming in transfer pair', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-1',
+        dbId: 10,
+        amount: Money.create(50000, Currency.UAH),
+        type: TransactionType.CREDIT,
+      });
+
+      (
+        transactionRepository.findTransferCandidate as ReturnType<typeof mock>
+      ).mockResolvedValue({ id: 20, accountId: 2 });
+
+      await service.detectTransfers([transaction], 1, [1, 2]);
+
+      // Credit transaction is incoming, candidate is outgoing
+      expect(transactionRepository.createTransferPair).toHaveBeenCalledWith(
+        20,
+        10,
+      );
+    });
+
+    test('should not pair when no candidate found', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-1',
+        dbId: 10,
+        amount: Money.create(-50000, Currency.UAH),
+        type: TransactionType.DEBIT,
+      });
+
+      (
+        transactionRepository.findTransferCandidate as ReturnType<typeof mock>
+      ).mockResolvedValue(null);
+
+      await service.detectTransfers([transaction], 1, [1, 2]);
+
+      expect(transactionRepository.updateRecordType).not.toHaveBeenCalled();
+      expect(transactionRepository.createTransferPair).not.toHaveBeenCalled();
+    });
+
+    test('should log when transfer is detected', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-1',
+        dbId: 10,
+        amount: Money.create(-50000, Currency.UAH),
+        type: TransactionType.DEBIT,
+      });
+
+      (
+        transactionRepository.findTransferCandidate as ReturnType<typeof mock>
+      ).mockResolvedValue({ id: 20, accountId: 2 });
+
+      await service.detectTransfers([transaction], 1, [1, 2]);
+
+      expect(logger.info).toHaveBeenCalledWith(
+        'Transfer detected and paired',
+        expect.objectContaining({
+          outgoingId: 10,
+          incomingId: 20,
+          amount: 50000,
+        }),
+      );
     });
   });
 

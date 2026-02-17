@@ -454,4 +454,17 @@ export class SpreadsheetTransactionRepository
       'deleteTransferPair is not supported by SpreadsheetTransactionRepository',
     );
   }
+
+  findTransferCandidate(_params: {
+    absoluteAmount: number;
+    oppositeType: 'credit' | 'debit';
+    excludeAccountId: number;
+    ownAccountIds: number[];
+    dateFrom: Date;
+    dateTo: Date;
+  }): Promise<{ id: number; accountId: number } | null> {
+    throw new Error(
+      'findTransferCandidate is not supported by SpreadsheetTransactionRepository',
+    );
+  }
 }

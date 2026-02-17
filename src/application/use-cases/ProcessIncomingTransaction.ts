@@ -94,6 +94,19 @@ export class ProcessIncomingTransactionUseCase extends UseCase<
       return this.createSkippedResult(transactionExternalId);
     }
 
+    if (account.dbId !== null) {
+      const allActiveAccounts = await this.accountRepository.findActive();
+      const ownAccountIds = allActiveAccounts
+        .map((activeAccount) => activeAccount.dbId)
+        .filter((dbId): dbId is number => dbId !== null);
+
+      await this.transactionSyncService.detectTransfers(
+        [savedTransaction],
+        account.dbId,
+        ownAccountIds,
+      );
+    }
+
     await this.categorizeTransactionSafely(savedTransaction);
 
     const newBalance = this.reconstructBalance(input);

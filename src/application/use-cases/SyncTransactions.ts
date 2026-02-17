@@ -84,8 +84,13 @@ export class SyncTransactionsUseCase extends UseCase<
       return result;
     }
 
+    const allActiveAccounts = await this.accountRepository.findActive();
+    const ownAccountIds = allActiveAccounts
+      .map((account) => account.dbId)
+      .filter((dbId): dbId is number => dbId !== null);
+
     result.totalAccounts = accounts.length;
-    await this.syncAllAccounts(accounts, config, result);
+    await this.syncAllAccounts(accounts, config, result, ownAccountIds);
 
     return result;
   }
@@ -132,6 +137,7 @@ export class SyncTransactionsUseCase extends UseCase<
     accounts: Account[],
     config: ReturnType<typeof this.buildConfig>,
     result: SyncTransactionsResultDTO,
+    ownAccountIds: number[],
   ): Promise<void> {
     let isFirstRequest = true;
 
@@ -140,6 +146,7 @@ export class SyncTransactionsUseCase extends UseCase<
         account,
         config,
         isFirstRequest,
+        ownAccountIds,
       );
       isFirstRequest = false;
 
@@ -151,6 +158,7 @@ export class SyncTransactionsUseCase extends UseCase<
     account: Account,
     config: ReturnType<typeof this.buildConfig>,
     isFirstRequest: boolean,
+    ownAccountIds: number[],
   ): Promise<{
     synced: boolean;
     newTransactions: number;
@@ -176,6 +184,7 @@ export class SyncTransactionsUseCase extends UseCase<
           config,
           isFirstRequest,
           accountDbId,
+          ownAccountIds,
         );
 
       await this.accountRepository.updateLastSyncTime(
@@ -209,6 +218,7 @@ export class SyncTransactionsUseCase extends UseCase<
     config: ReturnType<typeof this.buildConfig>,
     isFirstRequest: boolean,
     accountDbId: number | null,
+    ownAccountIds: number[],
   ): Promise<{ newCount: number; updatedCount: number; skippedCount: number }> {
     const chunks = chunkDateRange(syncFrom, syncTo, 31);
     let totalNewCount = 0;
@@ -230,11 +240,19 @@ export class SyncTransactionsUseCase extends UseCase<
         config.initialBackoffMs,
       );
 
-      const { newCount, updatedCount, skippedCount } =
+      const { newCount, updatedCount, skippedCount, savedTransactions } =
         await this.transactionSyncService.processBatch(
           transactions,
           accountDbId,
         );
+
+      if (accountDbId !== null && savedTransactions.length > 0) {
+        await this.transactionSyncService.detectTransfers(
+          savedTransactions,
+          accountDbId,
+          ownAccountIds,
+        );
+      }
 
       totalNewCount += newCount;
       totalUpdatedCount += updatedCount;

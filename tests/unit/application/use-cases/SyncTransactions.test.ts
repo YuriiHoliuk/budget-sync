@@ -202,9 +202,9 @@ describe('SyncTransactionsUseCase', () => {
 
       expect(result.newTransactions).toBe(2);
       expect(result.skippedTransactions).toBe(1);
-      expect(transactionRepository.saveMany).toHaveBeenCalledTimes(1);
+      expect(transactionRepository.saveManyAndReturn).toHaveBeenCalledTimes(1);
       const savedTransactions = (
-        transactionRepository.saveMany as ReturnType<typeof mock>
+        transactionRepository.saveManyAndReturn as ReturnType<typeof mock>
       ).mock.calls[0]?.[0] as Transaction[];
       expect(savedTransactions).toHaveLength(2);
       expect(savedTransactions.map((tx) => tx.externalId)).toContain(
@@ -239,7 +239,7 @@ describe('SyncTransactionsUseCase', () => {
 
       expect(result.newTransactions).toBe(0);
       expect(result.skippedTransactions).toBe(2);
-      expect(transactionRepository.saveMany).not.toHaveBeenCalled();
+      expect(transactionRepository.saveManyAndReturn).not.toHaveBeenCalled();
     });
 
     test('should handle empty transactions list', async () => {
@@ -255,7 +255,7 @@ describe('SyncTransactionsUseCase', () => {
 
       expect(result.newTransactions).toBe(0);
       expect(result.skippedTransactions).toBe(0);
-      expect(transactionRepository.saveMany).not.toHaveBeenCalled();
+      expect(transactionRepository.saveManyAndReturn).not.toHaveBeenCalled();
     });
 
     test('should sort new transactions by date ascending before saving', async () => {
@@ -286,7 +286,7 @@ describe('SyncTransactionsUseCase', () => {
       await useCase.execute(DEFAULT_TEST_OPTIONS);
 
       const savedTransactions = (
-        transactionRepository.saveMany as ReturnType<typeof mock>
+        transactionRepository.saveManyAndReturn as ReturnType<typeof mock>
       ).mock.calls[0]?.[0] as Transaction[];
       expect(savedTransactions[0]?.externalId).toBe('old-tx');
       expect(savedTransactions[1]?.externalId).toBe('middle-tx');
@@ -664,7 +664,7 @@ describe('SyncTransactionsUseCase', () => {
       expect(result.newTransactions).toBe(1);
       expect(result.updatedTransactions).toBe(1);
       expect(result.skippedTransactions).toBe(1);
-      expect(transactionRepository.saveMany).toHaveBeenCalledTimes(1);
+      expect(transactionRepository.saveManyAndReturn).toHaveBeenCalledTimes(1);
       expect(transactionRepository.updateMany).toHaveBeenCalledTimes(1);
     });
 

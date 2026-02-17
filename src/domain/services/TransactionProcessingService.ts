@@ -21,11 +21,8 @@ export interface BankTransactionData {
 
 /**
  * Context needed to process a bank transaction.
- * Provides information about own accounts for transfer detection.
  */
 export interface ProcessingContext {
-  /** Map of IBAN to accountId for all own accounts */
-  ownAccountIbans: Map<string, number>;
   /** The account ID being processed */
   accountId: number;
 }
@@ -58,8 +55,6 @@ export interface ProcessingResult {
   isReturning: boolean;
   /** The stripped description of the original transaction (without "Скасування. " prefix) */
   returningOriginalDescription?: string;
-  /** Whether this bank transaction is a transfer between own accounts */
-  isTransfer: boolean;
   /** Whether this bank transaction has a separate commission fee */
   hasFee: boolean;
   /** The commission fee amount in minor units (positive) */
@@ -69,15 +64,17 @@ export interface ProcessingResult {
 /**
  * Pure domain service for processing bank transactions into logical transactions.
  *
- * Given bank transaction data and context about own accounts, determines what
- * logical transaction(s) to create. This service contains no I/O and no
+ * Given bank transaction data and context, determines what logical
+ * transaction(s) to create. This service contains no I/O and no
  * injected dependencies -- it is a pure function of its inputs.
  *
  * Detection rules are applied in priority order:
  * 1. Cancellation/returning -- bankDescription starts with "Скасування. "
- * 2. Transfer -- counterpartyIban matches an own account
- * 3. Fee split -- commission > 0
- * 4. Normal -- default case
+ * 2. Fee split -- commission > 0
+ * 3. Normal -- default case
+ *
+ * Transfer detection is handled separately in the application layer
+ * via amount + time window matching (see TransactionSyncService.detectTransfers).
  */
 export class TransactionProcessingService {
   /**
@@ -89,10 +86,6 @@ export class TransactionProcessingService {
   ): ProcessingResult {
     if (this.isCancellation(bankTransaction)) {
       return this.processCancellation(bankTransaction, context);
-    }
-
-    if (this.isTransfer(bankTransaction, context)) {
-      return this.processTransfer(bankTransaction, context);
     }
 
     if (this.hasFee(bankTransaction)) {
@@ -108,16 +101,6 @@ export class TransactionProcessingService {
       (bankTransaction.bankDescription?.startsWith(CANCELLATION_PREFIX) ??
         false)
     );
-  }
-
-  private isTransfer(
-    bankTransaction: BankTransactionData,
-    context: ProcessingContext,
-  ): boolean {
-    if (!bankTransaction.counterpartyIban) {
-      return false;
-    }
-    return context.ownAccountIbans.has(bankTransaction.counterpartyIban);
   }
 
   private hasFee(bankTransaction: BankTransactionData): boolean {
@@ -150,40 +133,7 @@ export class TransactionProcessingService {
       transaction,
       isReturning: true,
       returningOriginalDescription: originalDescription,
-      isTransfer: false,
       hasFee: false,
-    };
-  }
-
-  private processTransfer(
-    bankTransaction: BankTransactionData,
-    context: ProcessingContext,
-  ): ProcessingResult {
-    const transaction: ProcessedTransaction = {
-      date: bankTransaction.date,
-      amount: Math.abs(bankTransaction.amount),
-      currency: bankTransaction.currency,
-      type: 'transfer',
-      accountId: context.accountId,
-      description: bankTransaction.bankDescription ?? '',
-      counterparty: bankTransaction.counterparty,
-      counterpartyIban: bankTransaction.counterpartyIban,
-      mcc: bankTransaction.mcc,
-    };
-
-    const commission = bankTransaction.commission ?? 0;
-    const hasCommission = commission > 0;
-
-    if (hasCommission) {
-      transaction.amount = Math.abs(bankTransaction.amount) - commission;
-    }
-
-    return {
-      transaction,
-      isReturning: false,
-      isTransfer: true,
-      hasFee: hasCommission,
-      feeAmount: hasCommission ? commission : undefined,
     };
   }
 
@@ -210,7 +160,6 @@ export class TransactionProcessingService {
     return {
       transaction,
       isReturning: false,
-      isTransfer: false,
       hasFee: true,
       feeAmount: commission,
     };
@@ -235,7 +184,6 @@ export class TransactionProcessingService {
     return {
       transaction,
       isReturning: false,
-      isTransfer: false,
       hasFee: false,
     };
   }

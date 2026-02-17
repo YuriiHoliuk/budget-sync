@@ -19,7 +19,12 @@ export interface TransactionSyncResult {
   newCount: number;
   updatedCount: number;
   skippedCount: number;
+  /** Newly saved transactions (with dbIds) for post-processing like transfer detection. */
+  savedTransactions: Transaction[];
 }
+
+/** Time window for matching transfer candidates (5 minutes). */
+const TRANSFER_TIME_WINDOW_MS = 5 * 60 * 1000;
 
 /**
  * Shared application service that encapsulates the common sync logic for
@@ -46,7 +51,12 @@ export class TransactionSyncService {
     accountDbId: number | null,
   ): Promise<TransactionSyncResult> {
     if (transactions.length === 0) {
-      return { newCount: 0, updatedCount: 0, skippedCount: 0 };
+      return {
+        newCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
+        savedTransactions: [],
+      };
     }
 
     const externalIds = transactions.map(
@@ -58,7 +68,7 @@ export class TransactionSyncService {
     const { newTransactions, transactionsToUpdate, skippedCount } =
       this.categorizeTransactions(transactions, existingTransactions);
 
-    await this.saveNewTransactions(newTransactions);
+    const savedTransactions = await this.saveNewTransactions(newTransactions);
     await this.updateExistingTransactions(transactionsToUpdate);
 
     await this.saveBankTransactions(transactions, accountDbId);
@@ -67,6 +77,7 @@ export class TransactionSyncService {
       newCount: newTransactions.length,
       updatedCount: transactionsToUpdate.length,
       skippedCount,
+      savedTransactions,
     };
   }
 
@@ -126,6 +137,76 @@ export class TransactionSyncService {
   }
 
   /**
+   * Detect transfers among newly saved transactions by matching amount + time window.
+   * For each transaction, looks for a candidate on a different own account with
+   * the same absolute amount, opposite type, within ±5 minutes.
+   */
+  async detectTransfers(
+    savedTransactions: Transaction[],
+    accountDbId: number,
+    ownAccountIds: number[],
+  ): Promise<void> {
+    if (ownAccountIds.length <= 1) {
+      return;
+    }
+
+    for (const transaction of savedTransactions) {
+      await this.detectTransferForTransaction(
+        transaction,
+        accountDbId,
+        ownAccountIds,
+      );
+    }
+  }
+
+  private async detectTransferForTransaction(
+    transaction: Transaction,
+    accountDbId: number,
+    ownAccountIds: number[],
+  ): Promise<void> {
+    const dbId = transaction.dbId;
+    if (dbId === null) {
+      return;
+    }
+
+    const oppositeType: 'credit' | 'debit' = transaction.isCredit
+      ? 'debit'
+      : 'credit';
+    const dateFrom = new Date(
+      transaction.date.getTime() - TRANSFER_TIME_WINDOW_MS,
+    );
+    const dateTo = new Date(
+      transaction.date.getTime() + TRANSFER_TIME_WINDOW_MS,
+    );
+
+    const candidate = await this.transactionRepository.findTransferCandidate({
+      absoluteAmount: Math.abs(transaction.amount.amount),
+      oppositeType,
+      excludeAccountId: accountDbId,
+      ownAccountIds,
+      dateFrom,
+      dateTo,
+    });
+
+    if (!candidate) {
+      return;
+    }
+
+    await this.transactionRepository.updateRecordType(dbId, 'transfer');
+    await this.transactionRepository.updateRecordType(candidate.id, 'transfer');
+
+    const outgoingId = transaction.isDebit ? dbId : candidate.id;
+    const incomingId = transaction.isDebit ? candidate.id : dbId;
+    await this.transactionRepository.createTransferPair(outgoingId, incomingId);
+
+    this.logger.info('Transfer detected and paired', {
+      outgoingId,
+      incomingId,
+      amount: Math.abs(transaction.amount.amount),
+    });
+  }
+
+  /**
    * Categorize incoming transactions into new, to update, or skipped.
    */
   private categorizeTransactions(
@@ -161,19 +242,20 @@ export class TransactionSyncService {
 
   /**
    * Save new transactions to the repository (sorted by date ascending).
+   * Returns the saved transactions with database IDs assigned.
    */
-  private async saveNewTransactions(
+  private saveNewTransactions(
     transactions: Transaction[],
-  ): Promise<void> {
+  ): Promise<Transaction[]> {
     if (transactions.length === 0) {
-      return;
+      return Promise.resolve([]);
     }
 
     const sortedTransactions = [...transactions].sort(
       (txA, txB) => txA.date.getTime() - txB.date.getTime(),
     );
 
-    await this.transactionRepository.saveMany(sortedTransactions);
+    return this.transactionRepository.saveManyAndReturn(sortedTransactions);
   }
 
   /**

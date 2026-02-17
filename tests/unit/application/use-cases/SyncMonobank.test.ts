@@ -679,12 +679,14 @@ describe('SyncMonobankUseCase', () => {
           getTransactions: mock(() => Promise.resolve([newTransaction])),
         });
 
-        const saveManyMock = mock(() => Promise.resolve());
+        const saveManyAndReturnMock = mock((transactions: Transaction[]) =>
+          Promise.resolve(transactions),
+        );
         mockTransactionRepository = createMockTransactionRepository({
           findByExternalIds: mock(() =>
             Promise.resolve(new Map<string, Transaction>()),
           ),
-          saveMany: saveManyMock,
+          saveManyAndReturn: saveManyAndReturnMock,
         });
 
         useCase = new SyncMonobankUseCase(
@@ -698,7 +700,7 @@ describe('SyncMonobankUseCase', () => {
         const result = await useCase.execute(fastTestOptions);
 
         expect(result.transactions.newTransactions).toBe(1);
-        expect(saveManyMock).toHaveBeenCalledTimes(1);
+        expect(saveManyAndReturnMock).toHaveBeenCalledTimes(1);
       });
 
       test('should skip existing transactions', async () => {
@@ -719,10 +721,12 @@ describe('SyncMonobankUseCase', () => {
         const existingMap = new Map<string, Transaction>();
         existingMap.set('existing-tx-1', existingTransaction);
 
-        const saveManyMock = mock(() => Promise.resolve());
+        const saveManyAndReturnMock = mock((transactions: Transaction[]) =>
+          Promise.resolve(transactions),
+        );
         mockTransactionRepository = createMockTransactionRepository({
           findByExternalIds: mock(() => Promise.resolve(existingMap)),
-          saveMany: saveManyMock,
+          saveManyAndReturn: saveManyAndReturnMock,
         });
 
         useCase = new SyncMonobankUseCase(
@@ -737,7 +741,7 @@ describe('SyncMonobankUseCase', () => {
 
         expect(result.transactions.skippedTransactions).toBe(1);
         expect(result.transactions.newTransactions).toBe(0);
-        expect(saveManyMock).not.toHaveBeenCalled();
+        expect(saveManyAndReturnMock).not.toHaveBeenCalled();
       });
 
       test('should handle mix of new and existing transactions', async () => {
@@ -761,10 +765,12 @@ describe('SyncMonobankUseCase', () => {
         const existingMap = new Map<string, Transaction>();
         existingMap.set('existing-tx-1', existingTransaction);
 
-        const saveManyMock = mock(() => Promise.resolve());
+        const saveManyAndReturnMock = mock((transactions: Transaction[]) =>
+          Promise.resolve(transactions),
+        );
         mockTransactionRepository = createMockTransactionRepository({
           findByExternalIds: mock(() => Promise.resolve(existingMap)),
-          saveMany: saveManyMock,
+          saveManyAndReturn: saveManyAndReturnMock,
         });
 
         useCase = new SyncMonobankUseCase(
@@ -779,7 +785,7 @@ describe('SyncMonobankUseCase', () => {
 
         expect(result.transactions.newTransactions).toBe(1);
         expect(result.transactions.skippedTransactions).toBe(1);
-        expect(saveManyMock).toHaveBeenCalledTimes(1);
+        expect(saveManyAndReturnMock).toHaveBeenCalledTimes(1);
       });
 
       test('should sort transactions by date ascending before saving', async () => {
@@ -806,16 +812,16 @@ describe('SyncMonobankUseCase', () => {
         });
 
         let savedTransactions: Transaction[] = [];
-        const saveManyMock = mock((transactions: Transaction[]) => {
+        const saveManyAndReturnMock = mock((transactions: Transaction[]) => {
           savedTransactions = transactions;
-          return Promise.resolve();
+          return Promise.resolve(transactions);
         });
 
         mockTransactionRepository = createMockTransactionRepository({
           findByExternalIds: mock(() =>
             Promise.resolve(new Map<string, Transaction>()),
           ),
-          saveMany: saveManyMock,
+          saveManyAndReturn: saveManyAndReturnMock,
         });
 
         useCase = new SyncMonobankUseCase(

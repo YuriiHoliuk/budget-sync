@@ -72,9 +72,12 @@ export function createMockBankGateway(
 function getDefaultAccountRepositoryMocks() {
   return {
     findById: mock(() => Promise.resolve(null)),
+    findByDbId: mock(() => Promise.resolve(null)),
     findByExternalId: mock(() => Promise.resolve(null)),
     findByIban: mock(() => Promise.resolve(null)),
     findByBank: mock(() => Promise.resolve([])),
+    findByName: mock(() => Promise.resolve(null)),
+    findActive: mock(() => Promise.resolve([])),
     findAll: mock(() => Promise.resolve([])),
     save: mock(() => Promise.resolve()),
     saveAndReturn: mock((account: Account) => Promise.resolve(account)),
@@ -134,6 +137,7 @@ function getDefaultTransactionRepositoryMocks() {
     findByCategorizationStatus: mock(() => Promise.resolve([])),
     findUncategorized: mock(() => Promise.resolve([])),
     findTransactionSummaries: mock(() => Promise.resolve([])),
+    findTransferCandidate: mock(() => Promise.resolve(null)),
     updateRecordType: mock(() => Promise.resolve()),
     setAdjustedTransactionId: mock(() => Promise.resolve()),
     createTransferPair: mock(() => Promise.resolve()),

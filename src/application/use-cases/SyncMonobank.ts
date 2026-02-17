@@ -280,7 +280,12 @@ export class SyncMonobankUseCase extends UseCase<
       `Found ${accounts.length} Monobank accounts to sync`,
     );
 
-    await this.syncAllAccounts(accounts, config, result);
+    const allActiveAccounts = await this.accountRepository.findActive();
+    const ownAccountIds = allActiveAccounts
+      .map((account) => account.dbId)
+      .filter((dbId): dbId is number => dbId !== null);
+
+    await this.syncAllAccounts(accounts, config, result, ownAccountIds);
 
     this.logger.info('Transactions sync completed', {
       totalAccounts: result.transactions.totalAccounts,
@@ -309,6 +314,7 @@ export class SyncMonobankUseCase extends UseCase<
     accounts: Account[],
     config: ReturnType<typeof this.buildConfig>,
     result: SyncMonobankResultDTO,
+    ownAccountIds: number[],
   ): Promise<void> {
     let isFirstRequest = true;
 
@@ -321,6 +327,7 @@ export class SyncMonobankUseCase extends UseCase<
         account,
         config,
         isFirstRequest,
+        ownAccountIds,
       );
       isFirstRequest = false;
 
@@ -332,6 +339,7 @@ export class SyncMonobankUseCase extends UseCase<
     account: Account,
     config: ReturnType<typeof this.buildConfig>,
     isFirstRequest: boolean,
+    ownAccountIds: number[],
   ): Promise<{
     synced: boolean;
     newTransactions: number;
@@ -365,6 +373,7 @@ export class SyncMonobankUseCase extends UseCase<
           config,
           isFirstRequest,
           accountDbId,
+          ownAccountIds,
         );
 
       await this.accountRepository.updateLastSyncTime(
@@ -412,6 +421,7 @@ export class SyncMonobankUseCase extends UseCase<
     config: ReturnType<typeof this.buildConfig>,
     isFirstRequest: boolean,
     accountDbId: number | null,
+    ownAccountIds: number[],
   ): Promise<{ newCount: number; updatedCount: number; skippedCount: number }> {
     const chunks = chunkDateRange(syncFrom, syncTo, 31);
     let totalNewCount = 0;
@@ -451,11 +461,19 @@ export class SyncMonobankUseCase extends UseCase<
         config.initialBackoffMs,
       );
 
-      const { newCount, updatedCount, skippedCount } =
+      const { newCount, updatedCount, skippedCount, savedTransactions } =
         await this.transactionSyncService.processBatch(
           transactions,
           accountDbId,
         );
+
+      if (accountDbId !== null && savedTransactions.length > 0) {
+        await this.transactionSyncService.detectTransfers(
+          savedTransactions,
+          accountDbId,
+          ownAccountIds,
+        );
+      }
 
       this.logger.debug('monobank', 'Chunk processed', {
         accountExternalId,

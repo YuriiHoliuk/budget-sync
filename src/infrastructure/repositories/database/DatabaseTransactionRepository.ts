@@ -30,8 +30,10 @@ import {
   inArray,
   isNull,
   lte,
+  ne,
   or,
   type SQL,
+  sql,
 } from 'drizzle-orm';
 import { inject, injectable } from 'tsyringe';
 import { DatabaseTransactionMapper } from '../../mappers/DatabaseTransactionMapper.ts';
@@ -428,6 +430,55 @@ export class DatabaseTransactionRepository implements TransactionRepository {
           eq(transferPairs.incomingTransactionId, incomingId),
         ),
       );
+  }
+
+  async findTransferCandidate(params: {
+    absoluteAmount: number;
+    oppositeType: 'credit' | 'debit';
+    excludeAccountId: number;
+    ownAccountIds: number[];
+    dateFrom: Date;
+    dateTo: Date;
+  }): Promise<{ id: number; accountId: number } | null> {
+    if (params.ownAccountIds.length === 0) {
+      return null;
+    }
+
+    const rows = await this.db
+      .select({
+        id: transactions.id,
+        accountId: transactions.accountId,
+        date: transactions.date,
+      })
+      .from(transactions)
+      .leftJoin(
+        transferPairs,
+        or(
+          eq(transferPairs.outgoingTransactionId, transactions.id),
+          eq(transferPairs.incomingTransactionId, transactions.id),
+        ),
+      )
+      .where(
+        and(
+          eq(sql`ABS(${transactions.amount})`, params.absoluteAmount),
+          eq(transactions.type, params.oppositeType),
+          inArray(transactions.accountId, params.ownAccountIds),
+          ne(transactions.accountId, params.excludeAccountId),
+          ne(transactions.type, 'transfer'),
+          gte(transactions.date, params.dateFrom),
+          lte(transactions.date, params.dateTo),
+          isNull(transferPairs.id),
+        ),
+      )
+      .orderBy(transactions.date)
+      .limit(1);
+
+    const row = rows[0];
+    if (!row?.accountId) {
+      return null;
+    }
+
+    return { id: row.id, accountId: row.accountId };
   }
 
   private rowToRecord(

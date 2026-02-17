@@ -94,6 +94,16 @@ export abstract class TransactionRepository extends Repository<
     incomingId: number,
   ): Promise<void>;
 
+  // Transfer detection
+  abstract findTransferCandidate(params: {
+    absoluteAmount: number;
+    oppositeType: 'credit' | 'debit';
+    excludeAccountId: number;
+    ownAccountIds: number[];
+    dateFrom: Date;
+    dateTo: Date;
+  }): Promise<{ id: number; accountId: number } | null>;
+
   // Summary methods for budget calculations
   abstract findTransactionSummaries(): Promise<TransactionSummary[]>;
 }

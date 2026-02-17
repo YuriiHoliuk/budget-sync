@@ -8,13 +8,7 @@ import {
 describe('TransactionProcessingService', () => {
   const service = new TransactionProcessingService();
 
-  const ownAccountIbans = new Map<string, number>([
-    ['UA123456789012345678901234567', 1],
-    ['UA987654321098765432109876543', 2],
-  ]);
-
   const defaultContext: ProcessingContext = {
-    ownAccountIbans,
     accountId: 1,
   };
 
@@ -47,7 +41,6 @@ describe('TransactionProcessingService', () => {
       const result = service.process(bankTx, defaultContext);
 
       expect(result.isReturning).toBe(false);
-      expect(result.isTransfer).toBe(false);
       expect(result.hasFee).toBe(false);
       expect(result.transaction).not.toBeNull();
       expect(result.transaction?.amount).toBe(10000);
@@ -70,7 +63,6 @@ describe('TransactionProcessingService', () => {
       const result = service.process(bankTx, defaultContext);
 
       expect(result.isReturning).toBe(false);
-      expect(result.isTransfer).toBe(false);
       expect(result.hasFee).toBe(false);
       expect(result.transaction).not.toBeNull();
       expect(result.transaction?.amount).toBe(50000);
@@ -118,7 +110,6 @@ describe('TransactionProcessingService', () => {
 
       expect(result.hasFee).toBe(false);
       expect(result.isReturning).toBe(false);
-      expect(result.isTransfer).toBe(false);
     });
 
     test('handles transaction with undefined commission as normal', () => {
@@ -141,7 +132,6 @@ describe('TransactionProcessingService', () => {
       const result = service.process(bankTx, defaultContext);
 
       expect(result.isReturning).toBe(true);
-      expect(result.isTransfer).toBe(false);
       expect(result.hasFee).toBe(false);
       expect(result.returningOriginalDescription).toBe('Glovo');
     });
@@ -181,21 +171,6 @@ describe('TransactionProcessingService', () => {
 
       expect(result.transaction?.description).toBe('Some Merchant Name');
       expect(result.returningOriginalDescription).toBe('Some Merchant Name');
-    });
-
-    test('cancellation takes priority over transfer detection', () => {
-      const bankTx = makeBankTransaction({
-        amount: 5000,
-        type: 'credit',
-        bankDescription: 'Скасування. Transfer',
-        counterpartyIban: 'UA987654321098765432109876543', // own account
-      });
-
-      const result = service.process(bankTx, defaultContext);
-
-      expect(result.isReturning).toBe(true);
-      expect(result.isTransfer).toBe(false);
-      expect(result.transaction?.type).toBe('returning');
     });
 
     test('cancellation takes priority over fee detection', () => {
@@ -252,94 +227,6 @@ describe('TransactionProcessingService', () => {
     });
   });
 
-  describe('transfer detection', () => {
-    test('detects debit transfer when counterpartyIban is own account', () => {
-      const bankTx = makeBankTransaction({
-        amount: -100000,
-        type: 'debit',
-        bankDescription: 'Transfer to savings',
-        counterpartyIban: 'UA987654321098765432109876543',
-      });
-
-      const result = service.process(bankTx, defaultContext);
-
-      expect(result.isTransfer).toBe(true);
-      expect(result.isReturning).toBe(false);
-      expect(result.transaction?.type).toBe('transfer');
-      expect(result.transaction?.amount).toBe(100000);
-    });
-
-    test('detects credit transfer when counterpartyIban is own account', () => {
-      const context: ProcessingContext = {
-        ownAccountIbans,
-        accountId: 2,
-      };
-
-      const bankTx = makeBankTransaction({
-        amount: 100000,
-        type: 'credit',
-        bankDescription: 'Transfer from main',
-        counterpartyIban: 'UA123456789012345678901234567',
-      });
-
-      const result = service.process(bankTx, context);
-
-      expect(result.isTransfer).toBe(true);
-      expect(result.transaction?.type).toBe('transfer');
-      expect(result.transaction?.accountId).toBe(2);
-    });
-
-    test('does not detect transfer when counterpartyIban is not own account', () => {
-      const bankTx = makeBankTransaction({
-        counterpartyIban: 'UA000000000000000000000000000',
-      });
-
-      const result = service.process(bankTx, defaultContext);
-
-      expect(result.isTransfer).toBe(false);
-      expect(result.transaction?.type).toBe('debit');
-    });
-
-    test('does not detect transfer when counterpartyIban is undefined', () => {
-      const bankTx = makeBankTransaction({
-        counterpartyIban: undefined,
-      });
-
-      const result = service.process(bankTx, defaultContext);
-
-      expect(result.isTransfer).toBe(false);
-    });
-
-    test('preserves counterparty iban on transfer transaction', () => {
-      const bankTx = makeBankTransaction({
-        counterpartyIban: 'UA987654321098765432109876543',
-      });
-
-      const result = service.process(bankTx, defaultContext);
-
-      expect(result.transaction?.counterpartyIban).toBe(
-        'UA987654321098765432109876543',
-      );
-    });
-
-    test('transfer with commission splits fee from amount', () => {
-      const bankTx = makeBankTransaction({
-        amount: -100000,
-        type: 'debit',
-        counterpartyIban: 'UA987654321098765432109876543',
-        commission: 5000,
-      });
-
-      const result = service.process(bankTx, defaultContext);
-
-      expect(result.isTransfer).toBe(true);
-      expect(result.hasFee).toBe(true);
-      expect(result.feeAmount).toBe(5000);
-      expect(result.transaction?.amount).toBe(95000);
-      expect(result.transaction?.type).toBe('transfer');
-    });
-  });
-
   describe('fee split detection', () => {
     test('detects fee when commission is positive', () => {
       const bankTx = makeBankTransaction({
@@ -353,7 +240,6 @@ describe('TransactionProcessingService', () => {
       expect(result.hasFee).toBe(true);
       expect(result.feeAmount).toBe(2500);
       expect(result.isReturning).toBe(false);
-      expect(result.isTransfer).toBe(false);
     });
 
     test('main transaction amount is reduced by commission', () => {
@@ -403,13 +289,12 @@ describe('TransactionProcessingService', () => {
   });
 
   describe('detection priority', () => {
-    test('cancellation > transfer > fee > normal', () => {
-      // All flags set: cancellation prefix + own IBAN + commission
+    test('cancellation > fee > normal', () => {
+      // All flags set: cancellation prefix + commission
       const bankTx = makeBankTransaction({
         amount: 10000,
         type: 'credit',
         bankDescription: 'Скасування. Transfer payment',
-        counterpartyIban: 'UA987654321098765432109876543',
         commission: 500,
       });
 
@@ -417,39 +302,20 @@ describe('TransactionProcessingService', () => {
 
       // Cancellation wins
       expect(result.isReturning).toBe(true);
-      expect(result.isTransfer).toBe(false);
       expect(result.hasFee).toBe(false);
       expect(result.transaction?.type).toBe('returning');
     });
 
-    test('transfer > fee > normal (no cancellation)', () => {
-      const bankTx = makeBankTransaction({
-        amount: -100000,
-        type: 'debit',
-        bankDescription: 'Internal transfer',
-        counterpartyIban: 'UA987654321098765432109876543',
-        commission: 5000,
-      });
-
-      const result = service.process(bankTx, defaultContext);
-
-      // Transfer wins, but also flags fee
-      expect(result.isTransfer).toBe(true);
-      expect(result.hasFee).toBe(true);
-      expect(result.transaction?.type).toBe('transfer');
-    });
-
-    test('fee > normal (no cancellation, no transfer)', () => {
+    test('fee > normal (no cancellation)', () => {
       const bankTx = makeBankTransaction({
         amount: -50000,
         type: 'debit',
-        counterpartyIban: 'UA000000000000000000000000000', // not own account
+        counterpartyIban: 'UA000000000000000000000000000',
         commission: 2500,
       });
 
       const result = service.process(bankTx, defaultContext);
 
-      expect(result.isTransfer).toBe(false);
       expect(result.hasFee).toBe(true);
       expect(result.transaction?.type).toBe('debit');
     });
@@ -521,7 +387,6 @@ describe('TransactionProcessingService', () => {
       const result = service.process(bankTx, defaultContext);
 
       expect(result.isReturning).toBe(false);
-      expect(result.isTransfer).toBe(false);
       expect(result.hasFee).toBe(false);
       expect(result.transaction?.type).toBe('debit');
       expect(result.transaction?.amount).toBe(35000);
@@ -539,25 +404,8 @@ describe('TransactionProcessingService', () => {
 
       const result = service.process(bankTx, defaultContext);
 
-      expect(result.isTransfer).toBe(false);
       expect(result.transaction?.type).toBe('credit');
       expect(result.transaction?.amount).toBe(5000000);
-    });
-
-    test('transfer between own accounts', () => {
-      const bankTx = makeBankTransaction({
-        externalId: 'tx-300',
-        amount: -200000,
-        type: 'debit',
-        bankDescription: 'Переказ на картку',
-        counterpartyIban: 'UA987654321098765432109876543',
-      });
-
-      const result = service.process(bankTx, defaultContext);
-
-      expect(result.isTransfer).toBe(true);
-      expect(result.transaction?.type).toBe('transfer');
-      expect(result.transaction?.amount).toBe(200000);
     });
   });
 
@@ -608,7 +456,6 @@ describe('TransactionProcessingService', () => {
 
     test('uses accountId from context, not derived from bank transaction', () => {
       const context: ProcessingContext = {
-        ownAccountIbans,
         accountId: 42,
       };
       const bankTx = makeBankTransaction();
@@ -616,20 +463,6 @@ describe('TransactionProcessingService', () => {
       const result = service.process(bankTx, context);
 
       expect(result.transaction?.accountId).toBe(42);
-    });
-
-    test('empty ownAccountIbans means no transfers detected', () => {
-      const context: ProcessingContext = {
-        ownAccountIbans: new Map(),
-        accountId: 1,
-      };
-      const bankTx = makeBankTransaction({
-        counterpartyIban: 'UA987654321098765432109876543',
-      });
-
-      const result = service.process(bankTx, context);
-
-      expect(result.isTransfer).toBe(false);
     });
   });
 });

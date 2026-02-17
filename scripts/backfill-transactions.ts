@@ -119,7 +119,7 @@ function assertDatabaseSafety(url: string, allowProduction: boolean): void {
 
 const CANCELLATION_PREFIX = 'Скасування. ';
 const RETURNING_MATCH_WINDOW_DAYS = 30;
-const TRANSFER_MATCH_WINDOW_DAYS = 2;
+const TRANSFER_TIME_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 // --- Phase 0: Populate transaction_sources for existing transactions ---
 
@@ -398,249 +398,124 @@ async function processOneCancellation(
   }
 }
 
-// --- Phase 2: Detect transfers ---
+// --- Phase 2: Detect transfers via amount + time window matching ---
 
 async function processTransfers(
   tx: Db,
   summary: Summary,
   isDryRun: boolean,
 ): Promise<void> {
-  console.log('\n--- Phase 2: Detect transfers ---');
+  console.log('\n--- Phase 2: Detect transfers (amount + time matching) ---');
 
-  // 1. Load all own account IBANs
-  const ownAccounts = await tx
-    .select({ id: accounts.id, iban: accounts.iban })
-    .from(accounts)
-    .where(not(isNull(accounts.iban)));
+  // Load all own account IDs
+  const ownAccountRows = await tx
+    .select({ id: accounts.id })
+    .from(accounts);
 
-  const ownIbans = new Map<string, number>();
-  for (const account of ownAccounts) {
-    if (account.iban) {
-      ownIbans.set(account.iban, account.id);
-    }
-  }
+  const ownAccountIds = ownAccountRows.map((row) => row.id);
 
-  if (ownIbans.size === 0) {
-    console.log('  No accounts with IBANs found, skipping transfer detection');
+  if (ownAccountIds.length < 2) {
+    console.log('  Less than 2 accounts found, skipping transfer detection');
     return;
   }
 
-  const ibanValues = Array.from(ownIbans.keys());
-  console.log(`  Loaded ${ibanValues.length} own account IBANs`);
+  console.log(`  Loaded ${ownAccountIds.length} own accounts`);
 
-  // 2. Find bank_transactions where counterparty_iban is in own IBANs
-  //    AND the linked transaction is NOT already type='transfer'
-  const transferCandidates = await tx
-    .select({
-      bankTx: bankTransactions,
-      txId: transactionSources.transactionId,
-      txType: transactions.type,
-    })
-    .from(bankTransactions)
-    .innerJoin(
-      transactionSources,
-      eq(transactionSources.bankTransactionId, bankTransactions.id),
-    )
-    .innerJoin(
-      transactions,
-      eq(transactions.id, transactionSources.transactionId),
-    )
-    .where(
-      and(
-        inArray(bankTransactions.counterpartyIban, ibanValues),
-        not(eq(transactions.type, 'transfer')),
-      ),
-    )
-    .orderBy(bankTransactions.date);
-
-  console.log(`  Found ${transferCandidates.length} transfer candidates`);
-
-  // Track already-paired transaction IDs to avoid double-pairing
+  // Load existing transfer pairs to skip already-paired transactions
   const alreadyPaired = new Set<number>();
-
-  // Load existing transfer pairs
   const existingPairs = await tx.select().from(transferPairs);
   for (const pair of existingPairs) {
     alreadyPaired.add(pair.outgoingTransactionId);
     alreadyPaired.add(pair.incomingTransactionId);
   }
 
-  for (const candidate of transferCandidates) {
-    try {
-      await processOneTransfer(
-        tx,
-        candidate.bankTx,
-        candidate.txId,
-        ownIbans,
-        alreadyPaired,
-        summary,
-        isDryRun,
+  // Find all potential transfer pairs using a single self-join query:
+  // Match transactions with same absolute amount, opposite types (credit/debit),
+  // on different accounts, within 5-minute window, neither already type='transfer'
+  // or already in transfer_pairs.
+  const pairs = await tx.execute(sql`
+    SELECT
+      t1.id AS debit_id,
+      t1.account_id AS debit_account_id,
+      t1.date AS debit_date,
+      t1.amount AS debit_amount,
+      t2.id AS credit_id,
+      t2.account_id AS credit_account_id,
+      t2.date AS credit_date,
+      t2.amount AS credit_amount
+    FROM transactions t1
+    JOIN transactions t2
+      ON ABS(t1.amount) = ABS(t2.amount)
+      AND t1.type = 'debit'
+      AND t2.type = 'credit'
+      AND t1.account_id != t2.account_id
+      AND t1.account_id IN (${sql.join(ownAccountIds.map((id) => sql`${id}`), sql`, `)})
+      AND t2.account_id IN (${sql.join(ownAccountIds.map((id) => sql`${id}`), sql`, `)})
+      AND ABS(EXTRACT(EPOCH FROM (t1.date - t2.date))) <= ${TRANSFER_TIME_WINDOW_MS / 1000}
+      AND t1.id < t2.id
+    LEFT JOIN transfer_pairs tp1
+      ON tp1.outgoing_transaction_id = t1.id OR tp1.incoming_transaction_id = t1.id
+    LEFT JOIN transfer_pairs tp2
+      ON tp2.outgoing_transaction_id = t2.id OR tp2.incoming_transaction_id = t2.id
+    WHERE tp1.id IS NULL
+      AND tp2.id IS NULL
+      AND t1.type != 'transfer'
+      AND t2.type != 'transfer'
+    ORDER BY t1.date
+  `);
+
+  console.log(`  Found ${pairs.length} potential transfer pairs`);
+
+  for (const pair of pairs) {
+    const debitId = Number(pair.debit_id);
+    const creditId = Number(pair.credit_id);
+
+    // Skip if either side was already paired in this run
+    if (alreadyPaired.has(debitId) || alreadyPaired.has(creditId)) {
+      summary.transfersSkipped++;
+      continue;
+    }
+
+    if (isDryRun) {
+      console.log(
+        `  [DRY RUN] Would pair transfer: tx #${debitId} (debit, account ${pair.debit_account_id}) <-> tx #${creditId} (credit, account ${pair.credit_account_id}), amount: ${Math.abs(Number(pair.debit_amount))}`,
       );
+      summary.transfersDetected += 2;
+      summary.transfersPaired++;
+      alreadyPaired.add(debitId);
+      alreadyPaired.add(creditId);
+      continue;
+    }
+
+    try {
+      // Mark both as transfer
+      await tx
+        .update(transactions)
+        .set({ type: 'transfer' })
+        .where(inArray(transactions.id, [debitId, creditId]));
+
+      // Create transfer pair (debit = outgoing, credit = incoming)
+      await tx.insert(transferPairs).values({
+        outgoingTransactionId: debitId,
+        incomingTransactionId: creditId,
+      });
+
+      alreadyPaired.add(debitId);
+      alreadyPaired.add(creditId);
+
+      console.log(
+        `  Paired transfer: tx #${debitId} (out) <-> tx #${creditId} (in)`,
+      );
+      summary.transfersDetected += 2;
+      summary.transfersPaired++;
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       console.error(
-        `  ERROR processing transfer candidate bank_tx #${candidate.bankTx.id}: ${message}`,
+        `  ERROR pairing transfer tx #${debitId} <-> tx #${creditId}: ${message}`,
       );
       summary.errors++;
     }
   }
-}
-
-async function processOneTransfer(
-  tx: Db,
-  bankTx: typeof bankTransactions.$inferSelect,
-  txId: number,
-  ownIbans: Map<string, number>,
-  alreadyPaired: Set<number>,
-  summary: Summary,
-  isDryRun: boolean,
-): Promise<void> {
-  // Skip if already paired
-  if (alreadyPaired.has(txId)) {
-    summary.transfersSkipped++;
-    return;
-  }
-
-  // Check if already marked as transfer
-  const txRows = await tx
-    .select({ type: transactions.type })
-    .from(transactions)
-    .where(eq(transactions.id, txId))
-    .limit(1);
-
-  if (txRows.length > 0 && txRows[0]!.type === 'transfer') {
-    summary.transfersSkipped++;
-    return;
-  }
-
-  if (isDryRun) {
-    console.log(
-      `  [DRY RUN] Would mark tx #${txId} as transfer (bank_tx #${bankTx.id}, counterparty IBAN: ${bankTx.counterpartyIban})`,
-    );
-    summary.transfersDetected++;
-    // Try to find counterpart for the report
-    const counterpartResult = await findCounterpart(tx, bankTx, ownIbans);
-    if (counterpartResult) {
-      console.log(
-        `  [DRY RUN] Would pair with counterpart tx #${counterpartResult.txId} (bank_tx #${counterpartResult.bankTxId})`,
-      );
-      summary.transfersPaired++;
-    } else {
-      summary.transfersUnpaired++;
-    }
-    return;
-  }
-
-  // 3. Update linked transaction to type='transfer'
-  await tx
-    .update(transactions)
-    .set({ type: 'transfer' })
-    .where(eq(transactions.id, txId));
-
-  summary.transfersDetected++;
-
-  // 4. Try to find counterpart
-  const counterpart = await findCounterpart(tx, bankTx, ownIbans);
-
-  if (counterpart && !alreadyPaired.has(counterpart.txId)) {
-    // Update counterpart transaction to type='transfer'
-    await tx
-      .update(transactions)
-      .set({ type: 'transfer' })
-      .where(eq(transactions.id, counterpart.txId));
-
-    // Determine outgoing/incoming by bank_transaction type
-    const outgoingTxId = bankTx.type === 'debit' ? txId : counterpart.txId;
-    const incomingTxId = bankTx.type === 'debit' ? counterpart.txId : txId;
-
-    // Insert transfer_pairs row
-    await tx.insert(transferPairs).values({
-      outgoingTransactionId: outgoingTxId,
-      incomingTransactionId: incomingTxId,
-    });
-
-    alreadyPaired.add(txId);
-    alreadyPaired.add(counterpart.txId);
-
-    console.log(
-      `  Paired transfer: tx #${outgoingTxId} (out) <-> tx #${incomingTxId} (in)`,
-    );
-    summary.transfersPaired++;
-  } else {
-    console.log(
-      `  Unpaired transfer: tx #${txId} (no counterpart found)`,
-    );
-    summary.transfersUnpaired++;
-  }
-}
-
-async function findCounterpart(
-  tx: Db,
-  bankTx: typeof bankTransactions.$inferSelect,
-  ownIbans: Map<string, number>,
-): Promise<{ txId: number; bankTxId: number } | null> {
-  if (!bankTx.counterpartyIban || !bankTx.accountId) {
-    return null;
-  }
-
-  const counterpartyAccountId = ownIbans.get(bankTx.counterpartyIban);
-  if (counterpartyAccountId === undefined) {
-    return null;
-  }
-
-  // Get the current account's IBAN for matching
-  const currentAccountRows = await tx
-    .select({ iban: accounts.iban })
-    .from(accounts)
-    .where(eq(accounts.id, bankTx.accountId))
-    .limit(1);
-
-  const currentIban = currentAccountRows[0]?.iban;
-  if (!currentIban) {
-    return null;
-  }
-
-  // Find counterpart: bank_transaction on the other account with
-  // counterparty_iban matching current account's IBAN, within +/- 2 day window
-  const windowStart = new Date(bankTx.date);
-  windowStart.setDate(windowStart.getDate() - TRANSFER_MATCH_WINDOW_DAYS);
-  const windowEnd = new Date(bankTx.date);
-  windowEnd.setDate(windowEnd.getDate() + TRANSFER_MATCH_WINDOW_DAYS);
-
-  const counterpartBankTxRows = await tx
-    .select({
-      bankTxId: bankTransactions.id,
-      txId: transactionSources.transactionId,
-    })
-    .from(bankTransactions)
-    .innerJoin(
-      transactionSources,
-      eq(transactionSources.bankTransactionId, bankTransactions.id),
-    )
-    .leftJoin(
-      transferPairs,
-      sql`${transferPairs.outgoingTransactionId} = ${transactionSources.transactionId}
-        OR ${transferPairs.incomingTransactionId} = ${transactionSources.transactionId}`,
-    )
-    .where(
-      and(
-        eq(bankTransactions.accountId, counterpartyAccountId),
-        eq(bankTransactions.counterpartyIban, currentIban),
-        gte(bankTransactions.date, windowStart),
-        lte(bankTransactions.date, windowEnd),
-        not(eq(bankTransactions.id, bankTx.id)),
-        isNull(transferPairs.id),
-      ),
-    )
-    .limit(1);
-
-  if (counterpartBankTxRows.length === 0) {
-    return null;
-  }
-
-  const row = counterpartBankTxRows[0]!;
-  return { txId: row.txId, bankTxId: row.bankTxId };
 }
 
 // --- Phase 3: Fee splits ---
