@@ -100,6 +100,16 @@ export class SpreadsheetTransactionRepository
   }
 
   /**
+   * Find a transaction by database ID.
+   * Not supported by spreadsheet repository - use DatabaseTransactionRepository instead.
+   */
+  findByDbId(_dbId: number): Promise<Transaction | null> {
+    throw new Error(
+      'findByDbId is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  /**
    * Find a transaction by its external ID (e.g., from Monobank).
    */
   findByExternalId(externalId: string): Promise<Transaction | null> {
@@ -351,32 +361,15 @@ export class SpreadsheetTransactionRepository
 
   /**
    * Update categorization fields for a transaction.
-   * Finds the transaction by externalId and updates only categorization-related fields.
+   * Not supported by spreadsheet repository - use DatabaseTransactionRepository instead.
    */
-  async updateCategorization(
-    externalId: string,
-    data: CategorizationUpdate,
+  updateCategorization(
+    _dbId: number,
+    _data: CategorizationUpdate,
   ): Promise<void> {
-    const predicate = (record: SchemaToRecord<TransactionSchema>) =>
-      record.externalId === externalId;
-
-    const result = await this.table.findRow(predicate, {
-      skipInvalidRows: true,
-    });
-
-    if (!result) {
-      throw new Error(
-        `Transaction not found for categorization update: ${externalId}`,
-      );
-    }
-
-    const categorizationRecord = this.mapper.categorizationToRecord(data);
-    const updatedRecord = {
-      ...result.record,
-      ...categorizationRecord,
-    };
-
-    await this.table.updateRowAt(result.rowIndex, updatedRecord);
+    throw new Error(
+      'updateCategorization is not supported by SpreadsheetTransactionRepository',
+    );
   }
 
   // Record-based methods - not supported by spreadsheet repository
@@ -432,6 +425,33 @@ export class SpreadsheetTransactionRepository
   findTransactionSummaries(): Promise<TransactionSummary[]> {
     throw new Error(
       'findTransactionSummaries is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  updateRecordType(_dbId: number, _type: string): Promise<void> {
+    throw new Error(
+      'updateRecordType is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  setAdjustedTransactionId(
+    _dbId: number,
+    _adjustedTransactionId: number | null,
+  ): Promise<void> {
+    throw new Error(
+      'setAdjustedTransactionId is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  createTransferPair(_outgoingId: number, _incomingId: number): Promise<void> {
+    throw new Error(
+      'createTransferPair is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  deleteTransferPair(_outgoingId: number, _incomingId: number): Promise<void> {
+    throw new Error(
+      'deleteTransferPair is not supported by SpreadsheetTransactionRepository',
     );
   }
 }

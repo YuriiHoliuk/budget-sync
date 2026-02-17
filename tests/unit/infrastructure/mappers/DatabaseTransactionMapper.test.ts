@@ -31,23 +31,16 @@ describe('DatabaseTransactionMapper', () => {
         categoryReason: null,
         budgetReason: null,
         mcc: 5411,
-        originalMcc: 5499,
-        bankCategory: null,
         bankDescription: 'ATB Market',
         counterparty: 'ATB Corp',
         counterpartyIban: 'UA123456789',
-        counterEdrpou: '12345678',
-        balanceAfter: 100000,
-        operationAmount: -5000,
-        operationCurrency: 'UAH',
         cashback: 50,
         commission: 10,
         hold: false,
         receiptId: 'receipt-123',
-        invoiceId: 'invoice-456',
         tags: null,
         notes: 'Test note',
-        excludeFromCalculations: false,
+        adjustedTransactionId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -63,19 +56,13 @@ describe('DatabaseTransactionMapper', () => {
       expect(transaction.accountId).toBe('acc-1');
       expect(transaction.description).toBe('ATB Market');
       expect(transaction.mcc).toBe(5411);
-      expect(transaction.originalMcc).toBe(5499);
       expect(transaction.comment).toBe('Test note');
-      expect(transaction.balance?.amount).toBe(100000);
-      expect(transaction.operationAmount?.amount).toBe(-5000);
-      expect(transaction.operationAmount?.currency.code).toBe('UAH');
       expect(transaction.counterpartyName).toBe('ATB Corp');
       expect(transaction.counterpartyIban).toBe('UA123456789');
-      expect(transaction.counterEdrpou).toBe('12345678');
       expect(transaction.isHold).toBe(false);
       expect(transaction.cashbackAmount?.amount).toBe(50);
       expect(transaction.commissionRate?.amount).toBe(10);
       expect(transaction.receiptId).toBe('receipt-123');
-      expect(transaction.invoiceId).toBe('invoice-456');
       expect(transaction.dbId).toBe(123);
     });
 
@@ -95,23 +82,16 @@ describe('DatabaseTransactionMapper', () => {
         categoryReason: null,
         budgetReason: null,
         mcc: null,
-        originalMcc: null,
-        bankCategory: null,
         bankDescription: 'Salary',
         counterparty: null,
         counterpartyIban: null,
-        counterEdrpou: null,
-        balanceAfter: null,
-        operationAmount: null,
-        operationCurrency: null,
         cashback: null,
         commission: null,
         hold: null,
         receiptId: null,
-        invoiceId: null,
         tags: null,
         notes: null,
-        excludeFromCalculations: false,
+        adjustedTransactionId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -119,18 +99,13 @@ describe('DatabaseTransactionMapper', () => {
       const transaction = mapper.toEntity(row);
 
       expect(transaction.mcc).toBeUndefined();
-      expect(transaction.originalMcc).toBeUndefined();
       expect(transaction.comment).toBeUndefined();
-      expect(transaction.balance).toBeUndefined();
-      expect(transaction.operationAmount).toBeUndefined();
       expect(transaction.counterpartyName).toBeUndefined();
       expect(transaction.counterpartyIban).toBeUndefined();
-      expect(transaction.counterEdrpou).toBeUndefined();
       expect(transaction.isHold).toBe(false);
       expect(transaction.cashbackAmount).toBeUndefined();
       expect(transaction.commissionRate).toBeUndefined();
       expect(transaction.receiptId).toBeUndefined();
-      expect(transaction.invoiceId).toBeUndefined();
     });
 
     test('should set dbId from row.id', () => {
@@ -149,23 +124,16 @@ describe('DatabaseTransactionMapper', () => {
         categoryReason: null,
         budgetReason: null,
         mcc: null,
-        originalMcc: null,
-        bankCategory: null,
         bankDescription: 'Test',
         counterparty: null,
         counterpartyIban: null,
-        counterEdrpou: null,
-        balanceAfter: null,
-        operationAmount: null,
-        operationCurrency: null,
         cashback: null,
         commission: null,
         hold: null,
         receiptId: null,
-        invoiceId: null,
         tags: null,
         notes: null,
-        excludeFromCalculations: false,
+        adjustedTransactionId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -191,23 +159,16 @@ describe('DatabaseTransactionMapper', () => {
         categoryReason: null,
         budgetReason: null,
         mcc: null,
-        originalMcc: null,
-        bankCategory: null,
         bankDescription: 'Test',
         counterparty: null,
         counterpartyIban: null,
-        counterEdrpou: null,
-        balanceAfter: null,
-        operationAmount: null,
-        operationCurrency: null,
         cashback: null,
         commission: null,
         hold: null,
         receiptId: null,
-        invoiceId: null,
         tags: null,
         notes: null,
-        excludeFromCalculations: false,
+        adjustedTransactionId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -236,23 +197,16 @@ describe('DatabaseTransactionMapper', () => {
         categoryReason: null,
         budgetReason: null,
         mcc: null,
-        originalMcc: null,
-        bankCategory: null,
         bankDescription: 'Test',
         counterparty: null,
         counterpartyIban: null,
-        counterEdrpou: null,
-        balanceAfter: null,
-        operationAmount: null,
-        operationCurrency: null,
         cashback: null,
         commission: null,
         hold: null,
         receiptId: null,
-        invoiceId: null,
         tags: null,
         notes: null,
-        excludeFromCalculations: false,
+        adjustedTransactionId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -360,36 +314,25 @@ describe('DatabaseTransactionMapper', () => {
         type: TransactionType.DEBIT,
         accountId: 'acc-5',
         mcc: 5411,
-        originalMcc: 5499,
         comment: 'Test comment',
-        balance: Money.create(100000, currency),
-        operationAmount: Money.create(5000, currency),
         counterpartyName: 'ATB Corp',
         counterpartyIban: 'UA123456789',
-        counterEdrpou: '12345678',
         hold: true,
         cashbackAmount: Money.create(50, currency),
         commissionRate: Money.create(10, currency),
         receiptId: 'receipt-123',
-        invoiceId: 'invoice-456',
       });
 
       const row: NewTransactionRow = mapper.toInsert(transaction);
 
       expect(row.mcc).toBe(5411);
-      expect(row.originalMcc).toBe(5499);
       expect(row.notes).toBe('Test comment');
-      expect(row.balanceAfter).toBe(100000);
-      expect(row.operationAmount).toBe(5000);
-      expect(row.operationCurrency).toBe('UAH');
       expect(row.counterparty).toBe('ATB Corp');
       expect(row.counterpartyIban).toBe('UA123456789');
-      expect(row.counterEdrpou).toBe('12345678');
       expect(row.hold).toBe(true);
       expect(row.cashback).toBe(50);
       expect(row.commission).toBe(10);
       expect(row.receiptId).toBe('receipt-123');
-      expect(row.invoiceId).toBe('invoice-456');
     });
 
     test('should set default categorization status to pending', () => {

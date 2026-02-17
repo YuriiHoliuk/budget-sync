@@ -5,6 +5,8 @@ import { useMutation, useQuery } from "@apollo/client/react";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
+  ArrowLeftRight,
+  RotateCcw,
   Calendar,
   CreditCard,
   Building2,
@@ -17,10 +19,11 @@ import {
   AlertCircle,
   Sparkles,
   Check,
-  Receipt,
-  Coins,
-  Percent,
   Loader2,
+  ChevronDown,
+  ChevronUp,
+  Database,
+  Link2,
 } from "lucide-react";
 import {
   Sheet,
@@ -52,6 +55,7 @@ import {
   CategorizationStatusEnum,
   AccountSource,
   type GetTransactionQuery,
+  type BankTransaction,
 } from "@/graphql/generated/graphql";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -63,7 +67,7 @@ interface TransactionDetailPanelProps {
   onClose: () => void;
 }
 
-const TYPE_CONFIG = {
+const TYPE_CONFIG: Record<string, { icon: typeof ArrowDownCircle; color: string; bgColor: string; label: string }> = {
   [TransactionTypeEnum.Credit]: {
     icon: ArrowDownCircle,
     color: "text-green-600 dark:text-green-400",
@@ -75,6 +79,18 @@ const TYPE_CONFIG = {
     color: "text-red-600 dark:text-red-400",
     bgColor: "bg-red-100 dark:bg-red-900/30",
     label: "Expense",
+  },
+  TRANSFER: {
+    icon: ArrowLeftRight,
+    color: "text-blue-600 dark:text-blue-400",
+    bgColor: "bg-blue-100 dark:bg-blue-900/30",
+    label: "Transfer",
+  },
+  RETURNING: {
+    icon: RotateCcw,
+    color: "text-amber-600 dark:text-amber-400",
+    bgColor: "bg-amber-100 dark:bg-amber-900/30",
+    label: "Returning",
   },
 };
 
@@ -186,7 +202,9 @@ function TransactionDetailContent({
 }: TransactionDetailContentProps) {
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const typeConfig = TYPE_CONFIG[transaction.type];
+  const [bankDataOpen, setBankDataOpen] = useState(false);
+
+  const typeConfig = TYPE_CONFIG[transaction.type] ?? TYPE_CONFIG[TransactionTypeEnum.Debit];
   const statusConfig = STATUS_CONFIG[transaction.categorizationStatus];
   const TypeIcon = typeConfig.icon;
   const StatusIcon = statusConfig.icon;
@@ -426,60 +444,53 @@ function TransactionDetailContent({
               />
             )}
 
-            {transaction.hold && (
-              <DetailRow
-                icon={Clock}
-                label="Status"
-                value="Hold (pending settlement)"
-                badge="Hold"
-              />
-            )}
           </div>
         </div>
 
-        {(transaction.cashbackAmount ||
-          transaction.commissionAmount ||
-          transaction.receiptId) && (
+        {transaction.adjustedTransactionId != null && (
           <>
             <Separator />
+            <div className="flex items-center gap-2">
+              <Link2 className="h-4 w-4 text-muted-foreground" />
+              <Badge variant="outline" className="gap-1 text-xs">
+                Adjusts transaction #{transaction.adjustedTransactionId}
+              </Badge>
+            </div>
+          </>
+        )}
 
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium text-muted-foreground">
-                Additional Info
-              </h3>
-
-              <div className="grid gap-3 text-sm">
-                {transaction.cashbackAmount !== null &&
-                  transaction.cashbackAmount !== undefined &&
-                  transaction.cashbackAmount > 0 && (
-                    <DetailRow
-                      icon={Coins}
-                      label="Cashback"
-                      value={`+${formatCurrency(transaction.cashbackAmount)} ${transaction.currency}`}
-                      highlight="green"
-                    />
-                  )}
-
-                {transaction.commissionAmount !== null &&
-                  transaction.commissionAmount !== undefined &&
-                  transaction.commissionAmount > 0 && (
-                    <DetailRow
-                      icon={Percent}
-                      label="Commission"
-                      value={`-${formatCurrency(transaction.commissionAmount)} ${transaction.currency}`}
-                      highlight="red"
-                    />
-                  )}
-
-                {transaction.receiptId && (
-                  <DetailRow
-                    icon={Receipt}
-                    label="Receipt ID"
-                    value={transaction.receiptId}
-                    mono
-                  />
+        {transaction.bankTransactionCount > 0 && (
+          <>
+            <Separator />
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => setBankDataOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  <span>
+                    {transaction.bankTransactionCount} bank transaction
+                    {transaction.bankTransactionCount !== 1 ? "s" : ""} linked
+                  </span>
+                </div>
+                {bankDataOpen ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
                 )}
-              </div>
+              </button>
+
+              {bankDataOpen && (
+                <div className="space-y-4">
+                  {transaction.bankTransactions.map(
+                    (bankTxn) => (
+                      <BankTransactionCard key={bankTxn.id} bankTransaction={bankTxn} />
+                    )
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -495,16 +506,80 @@ function TransactionDetailContent({
               <span>Internal ID</span>
               <span className="font-mono">{transaction.id}</span>
             </div>
-            <div className="flex justify-between">
-              <span>External ID</span>
-              <span className="truncate ml-4 font-mono">
-                {transaction.externalId}
-              </span>
-            </div>
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+interface BankTransactionCardProps {
+  bankTransaction: BankTransaction;
+}
+
+function BankTransactionCard({ bankTransaction }: BankTransactionCardProps) {
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-sm">
+      <div className="flex items-center justify-between">
+        <span className="font-mono text-xs text-muted-foreground truncate max-w-[200px]">
+          {bankTransaction.externalId}
+        </span>
+        {bankTransaction.hold && (
+          <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+            Hold
+          </Badge>
+        )}
+      </div>
+
+      <div className="grid gap-1.5 text-xs">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Date</span>
+          <span>{formatDate(bankTransaction.date)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Amount</span>
+          <span className="font-medium tabular-nums">
+            {formatCurrency(bankTransaction.amount)} {bankTransaction.currency}
+          </span>
+        </div>
+        {bankTransaction.bankDescription && (
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground shrink-0">Description</span>
+            <span className="text-right truncate">{bankTransaction.bankDescription}</span>
+          </div>
+        )}
+        {bankTransaction.balanceAfter != null && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Balance After</span>
+            <span className="font-mono tabular-nums">
+              {formatCurrency(bankTransaction.balanceAfter)} {bankTransaction.currency}
+            </span>
+          </div>
+        )}
+        {bankTransaction.cashback != null && bankTransaction.cashback > 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Cashback</span>
+            <span className="text-green-600 dark:text-green-400">
+              +{formatCurrency(bankTransaction.cashback)} {bankTransaction.currency}
+            </span>
+          </div>
+        )}
+        {bankTransaction.commission != null && bankTransaction.commission > 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Commission</span>
+            <span className="text-red-600 dark:text-red-400">
+              -{formatCurrency(bankTransaction.commission)} {bankTransaction.currency}
+            </span>
+          </div>
+        )}
+        {bankTransaction.receiptId && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Receipt ID</span>
+            <span className="font-mono truncate max-w-[180px]">{bankTransaction.receiptId}</span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

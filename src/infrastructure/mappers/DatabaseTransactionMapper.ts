@@ -60,19 +60,13 @@ export class DatabaseTransactionMapper {
     return {
       mcc: row.mcc ?? undefined,
       comment: row.notes ?? undefined,
-      balance: this.parseOptionalMoney(row.balanceAfter, currency),
-      operationAmount: this.parseOperationAmount(row),
       counterpartyName: row.counterparty ?? undefined,
       counterpartyIban: row.counterpartyIban ?? undefined,
       hold: row.hold ?? undefined,
       cashbackAmount: this.parseOptionalMoney(row.cashback, currency),
       commissionRate: this.parseOptionalMoney(row.commission, currency),
-      originalMcc: row.originalMcc ?? undefined,
       receiptId: row.receiptId ?? undefined,
-      invoiceId: row.invoiceId ?? undefined,
-      counterEdrpou: row.counterEdrpou ?? undefined,
       dbId: row.id,
-      excludeFromCalculations: row.excludeFromCalculations ?? false,
     };
   }
 
@@ -81,16 +75,6 @@ export class DatabaseTransactionMapper {
     currency: Currency,
   ): Money | undefined {
     return value != null ? Money.create(value, currency) : undefined;
-  }
-
-  private parseOperationAmount(row: TransactionRow): Money | undefined {
-    if (row.operationAmount != null && row.operationCurrency) {
-      return Money.create(
-        row.operationAmount,
-        Currency.fromCode(row.operationCurrency),
-      );
-    }
-    return undefined;
   }
 
   /**
@@ -138,20 +122,14 @@ export class DatabaseTransactionMapper {
   private buildInsertCounterpartyFields(transaction: Transaction) {
     return {
       mcc: transaction.mcc ?? null,
-      originalMcc: transaction.originalMcc ?? null,
-      bankCategory: null,
       bankDescription: transaction.description || null,
       counterparty: transaction.counterpartyName ?? null,
       counterpartyIban: transaction.counterpartyIban ?? null,
-      counterEdrpou: transaction.counterEdrpou ?? null,
     };
   }
 
   private buildInsertFinancialFields(transaction: Transaction) {
     return {
-      balanceAfter: transaction.balance?.amount ?? null,
-      operationAmount: transaction.operationAmount?.amount ?? null,
-      operationCurrency: transaction.operationAmount?.currency.code ?? null,
       cashback: transaction.cashbackAmount?.amount ?? 0,
       commission: transaction.commissionRate?.amount ?? 0,
     };
@@ -161,10 +139,8 @@ export class DatabaseTransactionMapper {
     return {
       hold: transaction.isHold,
       receiptId: transaction.receiptId ?? null,
-      invoiceId: transaction.invoiceId ?? null,
       tags: null,
       notes: transaction.comment ?? null,
-      excludeFromCalculations: transaction.excludeFromCalculations,
     };
   }
 }

@@ -13,6 +13,8 @@ import {
   Wallet,
   ArrowDownCircle,
   ArrowUpCircle,
+  ArrowLeftRight,
+  RotateCcw,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -72,7 +74,7 @@ type Transaction = GetTransactionsQuery["transactions"]["items"][number];
 
 const PAGE_SIZE = 50;
 
-const TYPE_CONFIG: Record<TransactionTypeEnum, { icon: typeof ArrowDownCircle; color: string; label: string }> = {
+const TYPE_CONFIG: Record<string, { icon: typeof ArrowDownCircle; color: string; label: string; badge?: { text: string; className: string } }> = {
   [TransactionTypeEnum.Credit]: {
     icon: ArrowDownCircle,
     color: "text-green-600 dark:text-green-400",
@@ -82,6 +84,24 @@ const TYPE_CONFIG: Record<TransactionTypeEnum, { icon: typeof ArrowDownCircle; c
     icon: ArrowUpCircle,
     color: "text-red-600 dark:text-red-400",
     label: "Expense",
+  },
+  TRANSFER: {
+    icon: ArrowLeftRight,
+    color: "text-blue-600 dark:text-blue-400",
+    label: "Transfer",
+    badge: {
+      text: "Transfer",
+      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    },
+  },
+  RETURNING: {
+    icon: RotateCcw,
+    color: "text-amber-600 dark:text-amber-400",
+    label: "Returning",
+    badge: {
+      text: "Returning",
+      className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+    },
   },
 };
 
@@ -482,7 +502,7 @@ function TransactionRow({
   onViewDetails,
 }: TransactionRowProps) {
   const [isUpdating, setIsUpdating] = useState(false);
-  const typeConfig = TYPE_CONFIG[transaction.type];
+  const typeConfig = TYPE_CONFIG[transaction.type] ?? TYPE_CONFIG[TransactionTypeEnum.Debit];
   const statusConfig = STATUS_CONFIG[transaction.categorizationStatus];
   const TypeIcon = typeConfig.icon;
   const StatusIcon = statusConfig.icon;
@@ -644,12 +664,23 @@ function TransactionRow({
           "text-right font-medium tabular-nums",
           transaction.type === TransactionTypeEnum.Debit
             ? "text-red-600 dark:text-red-400"
-            : "text-green-600 dark:text-green-400"
+            : transaction.type === TransactionTypeEnum.Credit
+              ? "text-green-600 dark:text-green-400"
+              : typeConfig.color
         )}
         data-qa={`transaction-amount-${transaction.id}`}
       >
-        {transaction.type === TransactionTypeEnum.Debit ? "-" : "+"}
-        {formatCurrency(transaction.amount)}
+        <div className="flex items-center justify-end gap-1.5">
+          {typeConfig.badge && (
+            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", typeConfig.badge.className)}>
+              {typeConfig.badge.text}
+            </Badge>
+          )}
+          <span>
+            {transaction.type === TransactionTypeEnum.Debit ? "-" : "+"}
+            {formatCurrency(transaction.amount)}
+          </span>
+        </div>
       </TableCell>
       <TableCell onClick={(event) => event.stopPropagation()}>
         {isEditing ? (

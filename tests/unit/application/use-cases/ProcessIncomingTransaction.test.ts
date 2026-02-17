@@ -3,14 +3,17 @@ import { beforeEach, describe, expect, type mock, test } from 'bun:test';
 import type { QueuedWebhookTransactionDTO } from '@application/dtos/QueuedWebhookTransactionDTO.ts';
 import type { CategorizeTransactionUseCase } from '@application/use-cases/CategorizeTransaction.ts';
 import { ProcessIncomingTransactionUseCase } from '@application/use-cases/ProcessIncomingTransaction.ts';
+import type { Transaction } from '@domain/entities/Transaction.ts';
 import { AccountNotFoundError } from '@domain/errors/DomainErrors.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
+import type { BankTransactionRepository } from '@domain/repositories/BankTransactionRepository.ts';
 import type { TransactionRepository } from '@domain/repositories/TransactionRepository.ts';
 import { CategorizationStatus } from '@domain/value-objects/index.ts';
 import { LLMRateLimitError } from '@modules/llm/index.ts';
 import type { Logger } from '@modules/logging';
 import {
   createMockAccountRepository,
+  createMockBankTransactionRepository,
   createMockCategorizeTransactionUseCase,
   createMockLogger,
   createMockTransactionRepository,
@@ -22,6 +25,7 @@ import {
 describe('ProcessIncomingTransactionUseCase', () => {
   let accountRepository: AccountRepository;
   let transactionRepository: TransactionRepository;
+  let bankTransactionRepository: BankTransactionRepository;
   let categorizeTransaction: CategorizeTransactionUseCase;
   let logger: Logger;
   let useCase: ProcessIncomingTransactionUseCase;
@@ -29,15 +33,28 @@ describe('ProcessIncomingTransactionUseCase', () => {
   beforeEach(() => {
     accountRepository = createMockAccountRepository();
     transactionRepository = createMockTransactionRepository();
+    bankTransactionRepository = createMockBankTransactionRepository();
     categorizeTransaction = createMockCategorizeTransactionUseCase();
     logger = createMockLogger();
     useCase = new ProcessIncomingTransactionUseCase(
       accountRepository,
       transactionRepository,
+      bankTransactionRepository,
       categorizeTransaction,
       logger,
     );
   });
+
+  /**
+   * Helper to set up saveAndReturn mock to return a transaction with dbId.
+   */
+  function mockSaveAndReturn(dbId = 42): void {
+    (
+      transactionRepository.saveAndReturn as ReturnType<typeof mock>
+    ).mockImplementation((transaction: Transaction) =>
+      Promise.resolve(transaction.withDbId(dbId)),
+    );
+  }
 
   describe('execute()', () => {
     test('should save new transaction and update balance', async () => {
@@ -53,12 +70,13 @@ describe('ProcessIncomingTransactionUseCase', () => {
       (
         transactionRepository.findByExternalId as ReturnType<typeof mock>
       ).mockResolvedValue(null);
+      mockSaveAndReturn();
 
       const result = await useCase.execute(input);
 
       expect(result.saved).toBe(true);
       expect(result.transactionExternalId).toBe('tx-new');
-      expect(transactionRepository.save).toHaveBeenCalledTimes(1);
+      expect(transactionRepository.saveAndReturn).toHaveBeenCalledTimes(1);
       expect(accountRepository.updateBalance).toHaveBeenCalledTimes(1);
     });
 
@@ -82,7 +100,7 @@ describe('ProcessIncomingTransactionUseCase', () => {
 
       expect(result.saved).toBe(false);
       expect(result.transactionExternalId).toBe('tx-existing');
-      expect(transactionRepository.save).not.toHaveBeenCalled();
+      expect(transactionRepository.saveAndReturn).not.toHaveBeenCalled();
       expect(accountRepository.updateBalance).not.toHaveBeenCalled();
     });
 
@@ -98,7 +116,7 @@ describe('ProcessIncomingTransactionUseCase', () => {
       await expect(useCase.execute(input)).rejects.toThrow(
         AccountNotFoundError,
       );
-      expect(transactionRepository.save).not.toHaveBeenCalled();
+      expect(transactionRepository.saveAndReturn).not.toHaveBeenCalled();
       expect(accountRepository.updateBalance).not.toHaveBeenCalled();
     });
 
@@ -115,6 +133,7 @@ describe('ProcessIncomingTransactionUseCase', () => {
       (
         transactionRepository.findByExternalId as ReturnType<typeof mock>
       ).mockResolvedValue(null);
+      mockSaveAndReturn();
 
       await useCase.execute(input);
 
@@ -141,10 +160,11 @@ describe('ProcessIncomingTransactionUseCase', () => {
       (
         transactionRepository.findByExternalId as ReturnType<typeof mock>
       ).mockResolvedValue(null);
+      mockSaveAndReturn();
 
       await useCase.execute(input);
 
-      expect(transactionRepository.save).toHaveBeenCalledWith(
+      expect(transactionRepository.saveAndReturn).toHaveBeenCalledWith(
         expect.objectContaining({
           externalId: 'tx-reconstructed',
           description: 'Grocery Store',
@@ -162,9 +182,9 @@ describe('ProcessIncomingTransactionUseCase', () => {
       (
         transactionRepository.findByExternalId as ReturnType<typeof mock>
       ).mockResolvedValue(null);
-      (transactionRepository.save as ReturnType<typeof mock>).mockRejectedValue(
-        new Error('Database write failed'),
-      );
+      (
+        transactionRepository.saveAndReturn as ReturnType<typeof mock>
+      ).mockRejectedValue(new Error('Database write failed'));
 
       await expect(useCase.execute(input)).rejects.toThrow(
         'Database write failed',
@@ -188,11 +208,12 @@ describe('ProcessIncomingTransactionUseCase', () => {
       (
         transactionRepository.findByExternalId as ReturnType<typeof mock>
       ).mockResolvedValue(null);
+      mockSaveAndReturn();
 
       const result = await useCase.execute(input);
 
       expect(result.saved).toBe(true);
-      expect(transactionRepository.save).toHaveBeenCalledTimes(1);
+      expect(transactionRepository.saveAndReturn).toHaveBeenCalledTimes(1);
     });
 
     test('should mark categorization as failed when LLM error occurs', async () => {
@@ -207,6 +228,7 @@ describe('ProcessIncomingTransactionUseCase', () => {
       (
         transactionRepository.findByExternalId as ReturnType<typeof mock>
       ).mockResolvedValue(null);
+      mockSaveAndReturn();
       (
         categorizeTransaction.execute as ReturnType<typeof mock>
       ).mockRejectedValue(new Error('LLM unavailable'));
@@ -215,7 +237,7 @@ describe('ProcessIncomingTransactionUseCase', () => {
 
       expect(result.saved).toBe(true);
       expect(transactionRepository.updateCategorization).toHaveBeenCalledWith(
-        'tx-fail',
+        expect.any(Number),
         {
           category: null,
           budget: null,
@@ -242,6 +264,7 @@ describe('ProcessIncomingTransactionUseCase', () => {
       (
         transactionRepository.findByExternalId as ReturnType<typeof mock>
       ).mockResolvedValue(null);
+      mockSaveAndReturn();
 
       // First call: rate limit, second call: success
       let callCount = 0;
@@ -282,6 +305,7 @@ describe('ProcessIncomingTransactionUseCase', () => {
       (
         transactionRepository.findByExternalId as ReturnType<typeof mock>
       ).mockResolvedValue(null);
+      mockSaveAndReturn();
       (
         categorizeTransaction.execute as ReturnType<typeof mock>
       ).mockRejectedValue(new LLMRateLimitError());
@@ -294,7 +318,7 @@ describe('ProcessIncomingTransactionUseCase', () => {
       expect(result.saved).toBe(true);
       expect(categorizeTransaction.execute).toHaveBeenCalledTimes(2);
       expect(transactionRepository.updateCategorization).toHaveBeenCalledWith(
-        'tx-double-rate-limit',
+        expect.any(Number),
         {
           category: null,
           budget: null,

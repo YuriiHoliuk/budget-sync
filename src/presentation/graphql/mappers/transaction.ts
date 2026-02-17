@@ -1,5 +1,5 @@
 import type { TransactionRecord } from '@domain/repositories/transaction-types.ts';
-import { toMajorUnits, toMajorUnitsOrNull } from './money.ts';
+import { toMajorUnits } from './money.ts';
 
 export const CATEGORIZATION_STATUS_TO_GQL: Record<string, string> = {
   pending: 'PENDING',
@@ -10,11 +10,12 @@ export const CATEGORIZATION_STATUS_TO_GQL: Record<string, string> = {
 export const TRANSACTION_TYPE_TO_GQL: Record<string, string> = {
   credit: 'CREDIT',
   debit: 'DEBIT',
+  transfer: 'TRANSFER',
+  returning: 'RETURNING',
 };
 
 export interface TransactionGql {
   id: number;
-  externalId: string;
   date: string;
   amount: number;
   currency: string;
@@ -26,15 +27,12 @@ export interface TransactionGql {
   mcc: number | null;
   counterpartyName: string | null;
   counterpartyIban: string | null;
-  hold: boolean;
-  cashbackAmount: number | null;
-  commissionAmount: number | null;
-  receiptId: string | null;
   notes: string | null;
   accountId: number | null;
   categoryId: number | null;
   budgetId: number | null;
-  excludeFromCalculations: boolean;
+  adjustedTransactionId: number | null;
+  bankTransactionCount: number;
 }
 
 export function mapTransactionRecordToGql(
@@ -42,7 +40,6 @@ export function mapTransactionRecordToGql(
 ): TransactionGql {
   return {
     id: record.id,
-    externalId: record.externalId ?? '',
     date: record.date.toISOString(),
     amount: toMajorUnits(Math.abs(record.amount)),
     currency: record.currency,
@@ -56,14 +53,11 @@ export function mapTransactionRecordToGql(
     mcc: record.mcc,
     counterpartyName: record.counterparty,
     counterpartyIban: record.counterpartyIban,
-    hold: record.hold ?? false,
-    cashbackAmount: toMajorUnitsOrNull(record.cashback),
-    commissionAmount: toMajorUnitsOrNull(record.commission),
-    receiptId: record.receiptId,
     notes: record.notes,
     accountId: record.accountId,
     categoryId: record.categoryId,
     budgetId: record.budgetId,
-    excludeFromCalculations: record.excludeFromCalculations ?? false,
+    adjustedTransactionId: record.adjustedTransactionId,
+    bankTransactionCount: record.bankTransactionCount,
   };
 }

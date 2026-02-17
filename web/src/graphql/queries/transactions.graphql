@@ -16,7 +16,6 @@ query GetTransactions(
       categorizationStatus
       categoryReason
       budgetReason
-      hold
       notes
       category {
         id
@@ -40,7 +39,6 @@ query GetTransactions(
 query GetTransaction($id: Int!) {
   transaction(id: $id) {
     id
-    externalId
     date
     amount
     currency
@@ -52,11 +50,9 @@ query GetTransaction($id: Int!) {
     categorizationStatus
     categoryReason
     budgetReason
-    hold
-    cashbackAmount
-    commissionAmount
-    receiptId
     notes
+    adjustedTransactionId
+    bankTransactionCount
     category {
       id
       name
@@ -70,6 +66,23 @@ query GetTransaction($id: Int!) {
       id
       name
       source
+    }
+    bankTransactions {
+      id
+      externalId
+      date
+      amount
+      currency
+      type
+      mcc
+      bankDescription
+      counterparty
+      counterpartyIban
+      balanceAfter
+      cashback
+      commission
+      hold
+      receiptId
     }
   }
 }

@@ -39,6 +39,7 @@ export abstract class TransactionRepository extends Repository<
   Transaction,
   string
 > {
+  abstract findByDbId(dbId: number): Promise<Transaction | null>;
   abstract findByExternalId(externalId: string): Promise<Transaction | null>;
   abstract findByExternalIds(
     externalIds: string[],
@@ -50,7 +51,7 @@ export abstract class TransactionRepository extends Repository<
   ): Promise<Transaction[]>;
   abstract updateMany(transactions: Transaction[]): Promise<void>;
   abstract updateCategorization(
-    externalId: string,
+    dbId: number,
     data: CategorizationUpdate,
   ): Promise<void>;
   abstract findByCategorizationStatus(
@@ -77,6 +78,21 @@ export abstract class TransactionRepository extends Repository<
     dbId: number,
     status: CategorizationStatus,
   ): Promise<TransactionRecord | null>;
+
+  // Type and relationship mutations
+  abstract updateRecordType(dbId: number, type: string): Promise<void>;
+  abstract setAdjustedTransactionId(
+    dbId: number,
+    adjustedTransactionId: number | null,
+  ): Promise<void>;
+  abstract createTransferPair(
+    outgoingId: number,
+    incomingId: number,
+  ): Promise<void>;
+  abstract deleteTransferPair(
+    outgoingId: number,
+    incomingId: number,
+  ): Promise<void>;
 
   // Summary methods for budget calculations
   abstract findTransactionSummaries(): Promise<TransactionSummary[]>;

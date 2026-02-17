@@ -1,8 +1,6 @@
+import { TransactionSyncService } from '@application/services/TransactionSyncService.ts';
 import type { Account } from '@domain/entities/Account.ts';
-import {
-  Transaction,
-  type TransactionProps,
-} from '@domain/entities/Transaction.ts';
+import type { Transaction } from '@domain/entities/Transaction.ts';
 import {
   BANK_GATEWAY_TOKEN,
   type BankGateway,
@@ -12,9 +10,14 @@ import {
   type AccountRepository,
 } from '@domain/repositories/AccountRepository.ts';
 import {
+  BANK_TRANSACTION_REPOSITORY_TOKEN,
+  type BankTransactionRepository,
+} from '@domain/repositories/BankTransactionRepository.ts';
+import {
   TRANSACTION_REPOSITORY_TOKEN,
   type TransactionRepository,
 } from '@domain/repositories/TransactionRepository.ts';
+import { TransactionProcessingService } from '@domain/services/TransactionProcessingService.ts';
 import { MonobankRateLimitError } from '@infrastructure/gateways/monobank/errors.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging';
 import { inject, injectable } from 'tsyringe';
@@ -58,15 +61,25 @@ export class SyncMonobankUseCase extends UseCase<
   SyncMonobankOptions,
   SyncMonobankResultDTO
 > {
+  private readonly transactionSyncService: TransactionSyncService;
+
   constructor(
     @inject(BANK_GATEWAY_TOKEN) private bankGateway: BankGateway,
     @inject(ACCOUNT_REPOSITORY_TOKEN)
     private accountRepository: AccountRepository,
     @inject(TRANSACTION_REPOSITORY_TOKEN)
-    private transactionRepository: TransactionRepository,
+    transactionRepository: TransactionRepository,
+    @inject(BANK_TRANSACTION_REPOSITORY_TOKEN)
+    bankTransactionRepository: BankTransactionRepository,
     @inject(LOGGER_TOKEN) private logger: Logger,
   ) {
     super();
+    this.transactionSyncService = new TransactionSyncService(
+      transactionRepository,
+      bankTransactionRepository,
+      new TransactionProcessingService(),
+      logger,
+    );
   }
 
   async execute(
@@ -342,6 +355,8 @@ export class SyncMonobankUseCase extends UseCase<
         syncTo: now.toISOString(),
       });
 
+      const accountDbId = account.dbId;
+
       const { newCount, updatedCount, skippedCount } =
         await this.syncAccountChunks(
           account.externalId,
@@ -349,6 +364,7 @@ export class SyncMonobankUseCase extends UseCase<
           now,
           config,
           isFirstRequest,
+          accountDbId,
         );
 
       await this.accountRepository.updateLastSyncTime(
@@ -395,6 +411,7 @@ export class SyncMonobankUseCase extends UseCase<
     syncTo: Date,
     config: ReturnType<typeof this.buildConfig>,
     isFirstRequest: boolean,
+    accountDbId: number | null,
   ): Promise<{ newCount: number; updatedCount: number; skippedCount: number }> {
     const chunks = chunkDateRange(syncFrom, syncTo, 31);
     let totalNewCount = 0;
@@ -435,7 +452,10 @@ export class SyncMonobankUseCase extends UseCase<
       );
 
       const { newCount, updatedCount, skippedCount } =
-        await this.processTransactions(transactions);
+        await this.transactionSyncService.processBatch(
+          transactions,
+          accountDbId,
+        );
 
       this.logger.debug('monobank', 'Chunk processed', {
         accountExternalId,
@@ -525,241 +545,5 @@ export class SyncMonobankUseCase extends UseCase<
     }
 
     throw lastError;
-  }
-
-  /**
-   * Process incoming transactions: save new ones, update existing ones with missing fields.
-   */
-  private async processTransactions(
-    transactions: Transaction[],
-  ): Promise<{ newCount: number; updatedCount: number; skippedCount: number }> {
-    if (transactions.length === 0) {
-      return { newCount: 0, updatedCount: 0, skippedCount: 0 };
-    }
-
-    const externalIds = transactions.map(
-      (transaction) => transaction.externalId,
-    );
-    const existingTransactions =
-      await this.transactionRepository.findByExternalIds(externalIds);
-
-    const { newTransactions, transactionsToUpdate, skippedCount } =
-      this.categorizeTransactions(transactions, existingTransactions);
-
-    await this.saveNewTransactions(newTransactions);
-    await this.updateExistingTransactions(transactionsToUpdate);
-
-    return {
-      newCount: newTransactions.length,
-      updatedCount: transactionsToUpdate.length,
-      skippedCount,
-    };
-  }
-
-  /**
-   * Categorize incoming transactions into new, to update, or skipped.
-   */
-  private categorizeTransactions(
-    incomingTransactions: Transaction[],
-    existingTransactions: Map<string, Transaction>,
-  ): {
-    newTransactions: Transaction[];
-    transactionsToUpdate: Transaction[];
-    skippedCount: number;
-  } {
-    const newTransactions: Transaction[] = [];
-    const transactionsToUpdate: Transaction[] = [];
-    let skippedCount = 0;
-
-    for (const incoming of incomingTransactions) {
-      const existing = existingTransactions.get(incoming.externalId);
-
-      if (!existing) {
-        newTransactions.push(incoming);
-        continue;
-      }
-
-      if (this.hasFieldsToUpdate(existing, incoming)) {
-        const merged = this.mergeTransactions(existing, incoming);
-        transactionsToUpdate.push(merged);
-      } else {
-        skippedCount++;
-      }
-    }
-
-    return { newTransactions, transactionsToUpdate, skippedCount };
-  }
-
-  /**
-   * Save new transactions to the repository.
-   */
-  private async saveNewTransactions(
-    transactions: Transaction[],
-  ): Promise<void> {
-    if (transactions.length === 0) {
-      return;
-    }
-
-    // Sort by date ascending (oldest first) so newest transactions are at the bottom
-    const sortedTransactions = [...transactions].sort(
-      (txA, txB) => txA.date.getTime() - txB.date.getTime(),
-    );
-
-    await this.transactionRepository.saveMany(sortedTransactions);
-  }
-
-  /**
-   * Update existing transactions with new bank data.
-   */
-  private async updateExistingTransactions(
-    transactions: Transaction[],
-  ): Promise<void> {
-    if (transactions.length === 0) {
-      return;
-    }
-
-    await this.transactionRepository.updateMany(transactions);
-  }
-
-  /**
-   * Check if incoming transaction has bank-provided fields that are missing in existing.
-   * Only checks fields that come from the bank (not user-entered fields).
-   */
-  private hasFieldsToUpdate(
-    existing: Transaction,
-    incoming: Transaction,
-  ): boolean {
-    return (
-      this.hasNewGroupAFields(existing, incoming) ||
-      this.hasNewGroupBFields(existing, incoming) ||
-      this.hasNewOtherBankFields(existing, incoming)
-    );
-  }
-
-  /**
-   * Check Group A fields (balance, operationAmount, counterpartyIban, hold).
-   */
-  private hasNewGroupAFields(
-    existing: Transaction,
-    incoming: Transaction,
-  ): boolean {
-    return (
-      (existing.balance === undefined && incoming.balance !== undefined) ||
-      (existing.operationAmount === undefined &&
-        incoming.operationAmount !== undefined) ||
-      (existing.counterpartyIban === undefined &&
-        incoming.counterpartyIban !== undefined) ||
-      (existing.isHold === false && incoming.isHold === true)
-    );
-  }
-
-  /**
-   * Check Group B fields (cashbackAmount, commissionRate, originalMcc, receiptId, invoiceId, counterEdrpou).
-   */
-  private hasNewGroupBFields(
-    existing: Transaction,
-    incoming: Transaction,
-  ): boolean {
-    return (
-      (existing.cashbackAmount === undefined &&
-        incoming.cashbackAmount !== undefined) ||
-      (existing.commissionRate === undefined &&
-        incoming.commissionRate !== undefined) ||
-      (existing.originalMcc === undefined &&
-        incoming.originalMcc !== undefined) ||
-      (existing.receiptId === undefined && incoming.receiptId !== undefined) ||
-      (existing.invoiceId === undefined && incoming.invoiceId !== undefined) ||
-      (existing.counterEdrpou === undefined &&
-        incoming.counterEdrpou !== undefined)
-    );
-  }
-
-  /**
-   * Check other bank fields (counterpartyName, mcc, comment).
-   */
-  private hasNewOtherBankFields(
-    existing: Transaction,
-    incoming: Transaction,
-  ): boolean {
-    return (
-      (existing.counterpartyName === undefined &&
-        incoming.counterpartyName !== undefined) ||
-      (existing.mcc === undefined && incoming.mcc !== undefined) ||
-      (existing.comment === undefined && incoming.comment !== undefined)
-    );
-  }
-
-  /**
-   * Merge transactions: keep user data from existing, update bank data from incoming.
-   * User-entered fields (category, budget, tags, notes) are preserved via the spreadsheet
-   * mapper - this method focuses on bank-provided fields.
-   */
-  private mergeTransactions(
-    existing: Transaction,
-    incoming: Transaction,
-  ): Transaction {
-    const mergedProps: TransactionProps = {
-      // Identity (from existing)
-      externalId: existing.externalId,
-      accountId: existing.accountId,
-      // Core bank data (from incoming - latest from API)
-      date: incoming.date,
-      amount: incoming.amount,
-      description: incoming.description,
-      type: incoming.type,
-      // Optional fields merged from both
-      ...this.mergeOptionalBankFields(existing, incoming),
-      // Comment: preserve existing if present, otherwise use incoming
-      comment: existing.comment ?? incoming.comment,
-    };
-
-    return Transaction.create(mergedProps, existing.id);
-  }
-
-  /**
-   * Merge optional bank fields: prefer incoming if present, fallback to existing.
-   */
-  private mergeOptionalBankFields(
-    existing: Transaction,
-    incoming: Transaction,
-  ): Partial<TransactionProps> {
-    return {
-      ...this.mergeGroupAFields(existing, incoming),
-      ...this.mergeGroupBAndOtherFields(existing, incoming),
-    };
-  }
-
-  /**
-   * Merge Group A fields (balance, operationAmount, counterpartyIban, hold).
-   */
-  private mergeGroupAFields(
-    existing: Transaction,
-    incoming: Transaction,
-  ): Partial<TransactionProps> {
-    return {
-      operationAmount: incoming.operationAmount ?? existing.operationAmount,
-      balance: incoming.balance ?? existing.balance,
-      counterpartyIban: incoming.counterpartyIban ?? existing.counterpartyIban,
-      hold: incoming.isHold || existing.isHold,
-      mcc: incoming.mcc ?? existing.mcc,
-      counterpartyName: incoming.counterpartyName ?? existing.counterpartyName,
-    };
-  }
-
-  /**
-   * Merge Group B and other optional fields.
-   */
-  private mergeGroupBAndOtherFields(
-    existing: Transaction,
-    incoming: Transaction,
-  ): Partial<TransactionProps> {
-    return {
-      cashbackAmount: incoming.cashbackAmount ?? existing.cashbackAmount,
-      commissionRate: incoming.commissionRate ?? existing.commissionRate,
-      originalMcc: incoming.originalMcc ?? existing.originalMcc,
-      receiptId: incoming.receiptId ?? existing.receiptId,
-      invoiceId: incoming.invoiceId ?? existing.invoiceId,
-      counterEdrpou: incoming.counterEdrpou ?? existing.counterEdrpou,
-    };
   }
 }

@@ -7,6 +7,10 @@ import {
   type AccountRepository,
 } from '@domain/repositories/AccountRepository.ts';
 import {
+  BANK_TRANSACTION_REPOSITORY_TOKEN,
+  type BankTransactionRepository,
+} from '@domain/repositories/BankTransactionRepository.ts';
+import {
   BUDGET_REPOSITORY_TOKEN,
   type BudgetRepository,
 } from '@domain/repositories/BudgetRepository.ts';
@@ -27,6 +31,8 @@ import {
   mapCategoryToGql,
   mapTransactionRecordToGql,
   type TransactionGql,
+  toMajorUnits,
+  toMajorUnitsOrNull,
 } from '../mappers/index.ts';
 import { Resolver, type ResolverMap } from '../Resolver.ts';
 
@@ -84,6 +90,8 @@ export class TransactionsResolver extends Resolver {
     private categoryRepository: CategoryRepository,
     @inject(BUDGET_REPOSITORY_TOKEN)
     private budgetRepository: BudgetRepository,
+    @inject(BANK_TRANSACTION_REPOSITORY_TOKEN)
+    private bankTransactionRepository: BankTransactionRepository,
     private createTransactionUseCase: CreateTransactionUseCase,
   ) {
     super();
@@ -114,6 +122,41 @@ export class TransactionsResolver extends Resolver {
         ) => this.updateTransactionBudget(args.input),
         verifyTransaction: (_parent: unknown, args: { id: number }) =>
           this.verifyTransaction(args.id),
+        markAsTransfer: (
+          _parent: unknown,
+          args: {
+            outgoingTransactionId: number;
+            incomingTransactionId: number;
+          },
+        ) =>
+          this.markAsTransfer(
+            args.outgoingTransactionId,
+            args.incomingTransactionId,
+          ),
+        unmarkTransfer: (
+          _parent: unknown,
+          args: {
+            outgoingTransactionId: number;
+            incomingTransactionId: number;
+          },
+        ) =>
+          this.unmarkTransfer(
+            args.outgoingTransactionId,
+            args.incomingTransactionId,
+          ),
+        markAsReturning: (
+          _parent: unknown,
+          args: {
+            returningTransactionId: number;
+            originalTransactionId: number;
+          },
+        ) =>
+          this.markAsReturning(
+            args.returningTransactionId,
+            args.originalTransactionId,
+          ),
+        unmarkReturning: (_parent: unknown, args: { transactionId: number }) =>
+          this.unmarkReturning(args.transactionId),
       },
       Transaction: {
         account: (parent: TransactionGql) =>
@@ -122,6 +165,8 @@ export class TransactionsResolver extends Resolver {
           this.getTransactionCategory(parent.categoryId),
         budget: (parent: TransactionGql) =>
           this.getTransactionBudget(parent.budgetId),
+        bankTransactions: (parent: TransactionGql) =>
+          this.getBankTransactions(parent.id),
       },
     };
   }
@@ -255,6 +300,94 @@ export class TransactionsResolver extends Resolver {
     }
     const budget = await this.budgetRepository.findById(budgetId);
     return budget ? mapBudgetToGql(budget) : null;
+  }
+
+  private async getBankTransactions(transactionId: number) {
+    const bankTxns =
+      await this.bankTransactionRepository.findByTransactionId(transactionId);
+    return bankTxns.map((bankTxn) => ({
+      id: bankTxn.id,
+      externalId: bankTxn.externalId,
+      date: bankTxn.date.toISOString(),
+      amount: toMajorUnits(bankTxn.amount.amount),
+      currency: bankTxn.amount.currency.code,
+      type: bankTxn.type,
+      mcc: bankTxn.mcc ?? null,
+      bankDescription: bankTxn.bankDescription ?? null,
+      counterparty: bankTxn.counterparty ?? null,
+      counterpartyIban: bankTxn.counterpartyIban ?? null,
+      balanceAfter: toMajorUnitsOrNull(bankTxn.balanceAfter?.amount ?? null),
+      cashback: toMajorUnitsOrNull(bankTxn.cashback?.amount ?? null),
+      commission: toMajorUnitsOrNull(bankTxn.commission?.amount ?? null),
+      hold: bankTxn.hold,
+      receiptId: bankTxn.receiptId ?? null,
+    }));
+  }
+
+  private async markAsTransfer(
+    outgoingTransactionId: number,
+    incomingTransactionId: number,
+  ) {
+    await Promise.all([
+      this.transactionRepository.updateRecordType(
+        outgoingTransactionId,
+        'transfer',
+      ),
+      this.transactionRepository.updateRecordType(
+        incomingTransactionId,
+        'transfer',
+      ),
+    ]);
+    await this.transactionRepository.createTransferPair(
+      outgoingTransactionId,
+      incomingTransactionId,
+    );
+    return true;
+  }
+
+  private async unmarkTransfer(
+    outgoingTransactionId: number,
+    incomingTransactionId: number,
+  ) {
+    await this.transactionRepository.deleteTransferPair(
+      outgoingTransactionId,
+      incomingTransactionId,
+    );
+    await Promise.all([
+      this.transactionRepository.updateRecordType(
+        outgoingTransactionId,
+        'debit',
+      ),
+      this.transactionRepository.updateRecordType(
+        incomingTransactionId,
+        'credit',
+      ),
+    ]);
+    return true;
+  }
+
+  private async markAsReturning(
+    returningTransactionId: number,
+    originalTransactionId: number,
+  ) {
+    await this.transactionRepository.updateRecordType(
+      returningTransactionId,
+      'returning',
+    );
+    await this.transactionRepository.setAdjustedTransactionId(
+      returningTransactionId,
+      originalTransactionId,
+    );
+    return true;
+  }
+
+  private async unmarkReturning(transactionId: number) {
+    await this.transactionRepository.updateRecordType(transactionId, 'credit');
+    await this.transactionRepository.setAdjustedTransactionId(
+      transactionId,
+      null,
+    );
+    return true;
   }
 
   private mapFilter(filter?: TransactionFilter): TransactionFilterParams {

@@ -116,6 +116,7 @@ describe('CategorizeTransactionUseCase', () => {
         amount: Money.create(-5000, Currency.UAH),
         mcc: 5411,
         counterpartyName: 'Silpo',
+        dbId: 42,
       });
 
       const category = createTestCategory({
@@ -139,7 +140,7 @@ describe('CategorizeTransactionUseCase', () => {
       };
 
       (
-        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
       ).mockResolvedValue(transaction);
       (
         categoryRepository.findActive as ReturnType<typeof bunMock>
@@ -154,7 +155,7 @@ describe('CategorizeTransactionUseCase', () => {
         budgetResult,
       );
 
-      const result = await useCase.execute({ transactionExternalId: 'tx-123' });
+      const result = await useCase.execute({ transactionDbId: 42 });
 
       expect(result).toEqual({
         success: true,
@@ -165,7 +166,7 @@ describe('CategorizeTransactionUseCase', () => {
 
       expect(categoryRepository.save).not.toHaveBeenCalled();
       expect(transactionRepository.updateCategorization).toHaveBeenCalledWith(
-        'tx-123',
+        42,
         {
           category: 'Продукти',
           budget: 'Щоденні витрати',
@@ -180,6 +181,7 @@ describe('CategorizeTransactionUseCase', () => {
       const transaction = createTestTransaction({
         externalId: 'tx-456',
         description: 'Some new type of merchant',
+        dbId: 43,
       });
 
       const categoryResult: CategoryAssignmentResult = {
@@ -194,7 +196,7 @@ describe('CategorizeTransactionUseCase', () => {
       };
 
       (
-        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
       ).mockResolvedValue(transaction);
       (
         categoryRepository.findActive as ReturnType<typeof bunMock>
@@ -209,7 +211,7 @@ describe('CategorizeTransactionUseCase', () => {
         budgetResult,
       );
 
-      const result = await useCase.execute({ transactionExternalId: 'tx-456' });
+      const result = await useCase.execute({ transactionDbId: 43 });
 
       expect(result).toEqual({
         success: true,
@@ -230,6 +232,7 @@ describe('CategorizeTransactionUseCase', () => {
       const transaction = createTestTransaction({
         externalId: 'tx-789',
         description: 'Unclear transaction',
+        dbId: 44,
       });
 
       const categoryResult: CategoryAssignmentResult = {
@@ -244,7 +247,7 @@ describe('CategorizeTransactionUseCase', () => {
       };
 
       (
-        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
       ).mockResolvedValue(transaction);
       (
         categoryRepository.findActive as ReturnType<typeof bunMock>
@@ -259,7 +262,7 @@ describe('CategorizeTransactionUseCase', () => {
         budgetResult,
       );
 
-      const result = await useCase.execute({ transactionExternalId: 'tx-789' });
+      const result = await useCase.execute({ transactionDbId: 44 });
 
       expect(result).toEqual({
         success: true,
@@ -270,7 +273,7 @@ describe('CategorizeTransactionUseCase', () => {
 
       expect(categoryRepository.save).not.toHaveBeenCalled();
       expect(transactionRepository.updateCategorization).toHaveBeenCalledWith(
-        'tx-789',
+        44,
         {
           category: null,
           budget: null,
@@ -285,6 +288,7 @@ describe('CategorizeTransactionUseCase', () => {
       const transaction = createTestTransaction({
         externalId: 'tx-001',
         description: 'Restaurant',
+        dbId: 45,
       });
 
       const category = createTestCategory({
@@ -304,7 +308,7 @@ describe('CategorizeTransactionUseCase', () => {
       };
 
       (
-        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
       ).mockResolvedValue(transaction);
       (
         categoryRepository.findActive as ReturnType<typeof bunMock>
@@ -319,7 +323,7 @@ describe('CategorizeTransactionUseCase', () => {
         budgetResult,
       );
 
-      const result = await useCase.execute({ transactionExternalId: 'tx-001' });
+      const result = await useCase.execute({ transactionDbId: 45 });
 
       expect(result).toEqual({
         success: true,
@@ -329,7 +333,7 @@ describe('CategorizeTransactionUseCase', () => {
       });
 
       expect(transactionRepository.updateCategorization).toHaveBeenCalledWith(
-        'tx-001',
+        45,
         {
           category: 'Ресторани',
           budget: null,
@@ -342,17 +346,15 @@ describe('CategorizeTransactionUseCase', () => {
 
     test('should throw TransactionNotFoundError when transaction not found', async () => {
       (
-        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
       ).mockResolvedValue(null);
 
-      await expect(
-        useCase.execute({ transactionExternalId: 'non-existent-tx' }),
-      ).rejects.toThrow(TransactionNotFoundError);
+      await expect(useCase.execute({ transactionDbId: 999 })).rejects.toThrow(
+        TransactionNotFoundError,
+      );
 
-      await expect(
-        useCase.execute({ transactionExternalId: 'non-existent-tx' }),
-      ).rejects.toThrow(
-        'Transaction not found with externalId: non-existent-tx',
+      await expect(useCase.execute({ transactionDbId: 999 })).rejects.toThrow(
+        'Transaction not found with dbId: 999',
       );
 
       expect(llmGateway.assignCategory).not.toHaveBeenCalled();
@@ -367,6 +369,7 @@ describe('CategorizeTransactionUseCase', () => {
         amount: Money.create(-15000, Currency.UAH),
         mcc: 5411,
         counterpartyName: 'Metro',
+        dbId: 46,
       });
 
       const parentCategory = createTestCategory({
@@ -398,7 +401,7 @@ describe('CategorizeTransactionUseCase', () => {
       };
 
       (
-        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
       ).mockResolvedValue(transaction);
       (
         categoryRepository.findActive as ReturnType<typeof bunMock>
@@ -413,7 +416,7 @@ describe('CategorizeTransactionUseCase', () => {
         budgetResult,
       );
 
-      await useCase.execute({ transactionExternalId: 'tx-hierarchy' });
+      await useCase.execute({ transactionDbId: 46 });
 
       expect(llmGateway.assignCategory).toHaveBeenCalledTimes(1);
 
@@ -453,6 +456,7 @@ describe('CategorizeTransactionUseCase', () => {
       const transaction = createTestTransaction({
         externalId: 'tx-date',
         date: transactionDate,
+        dbId: 47,
       });
 
       const categoryResult: CategoryAssignmentResult = {
@@ -467,7 +471,7 @@ describe('CategorizeTransactionUseCase', () => {
       };
 
       (
-        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
       ).mockResolvedValue(transaction);
       (
         categoryRepository.findActive as ReturnType<typeof bunMock>
@@ -482,7 +486,7 @@ describe('CategorizeTransactionUseCase', () => {
         budgetResult,
       );
 
-      await useCase.execute({ transactionExternalId: 'tx-date' });
+      await useCase.execute({ transactionDbId: 47 });
 
       expect(budgetRepository.findActive).toHaveBeenCalledWith(transactionDate);
     });
@@ -490,6 +494,7 @@ describe('CategorizeTransactionUseCase', () => {
     test('should not save new category when isNewCategory is true but category is null', async () => {
       const transaction = createTestTransaction({
         externalId: 'tx-edge-case',
+        dbId: 48,
       });
 
       const categoryResult: CategoryAssignmentResult = {
@@ -504,7 +509,7 @@ describe('CategorizeTransactionUseCase', () => {
       };
 
       (
-        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
       ).mockResolvedValue(transaction);
       (
         categoryRepository.findActive as ReturnType<typeof bunMock>
@@ -519,7 +524,7 @@ describe('CategorizeTransactionUseCase', () => {
         budgetResult,
       );
 
-      await useCase.execute({ transactionExternalId: 'tx-edge-case' });
+      await useCase.execute({ transactionDbId: 48 });
 
       expect(categoryRepository.save).not.toHaveBeenCalled();
     });
@@ -528,6 +533,7 @@ describe('CategorizeTransactionUseCase', () => {
       const transaction = createTestTransaction({
         externalId: 'tx-with-rules',
         description: 'ATB supermarket',
+        dbId: 49,
       });
 
       const customCategoryRules = [
@@ -546,7 +552,7 @@ describe('CategorizeTransactionUseCase', () => {
       };
 
       (
-        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
       ).mockResolvedValue(transaction);
       (
         categoryRepository.findActive as ReturnType<typeof bunMock>
@@ -564,7 +570,7 @@ describe('CategorizeTransactionUseCase', () => {
         budgetResult,
       );
 
-      await useCase.execute({ transactionExternalId: 'tx-with-rules' });
+      await useCase.execute({ transactionDbId: 49 });
 
       expect(llmGateway.assignCategory).toHaveBeenCalledTimes(1);
       const assignCategoryCall = (
@@ -578,6 +584,7 @@ describe('CategorizeTransactionUseCase', () => {
       const transaction = createTestTransaction({
         externalId: 'tx-with-budget-rules',
         description: 'ATB supermarket',
+        dbId: 50,
       });
 
       const customBudgetRules = [
@@ -596,7 +603,7 @@ describe('CategorizeTransactionUseCase', () => {
       };
 
       (
-        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
       ).mockResolvedValue(transaction);
       (
         categoryRepository.findActive as ReturnType<typeof bunMock>
@@ -614,7 +621,7 @@ describe('CategorizeTransactionUseCase', () => {
         budgetResult,
       );
 
-      await useCase.execute({ transactionExternalId: 'tx-with-budget-rules' });
+      await useCase.execute({ transactionDbId: 50 });
 
       expect(llmGateway.assignBudget).toHaveBeenCalledTimes(1);
       const assignBudgetCall = (
@@ -628,6 +635,7 @@ describe('CategorizeTransactionUseCase', () => {
       const transaction = createTestTransaction({
         externalId: 'tx-no-rules',
         description: 'Some merchant',
+        dbId: 51,
       });
 
       const categoryResult: CategoryAssignmentResult = {
@@ -642,7 +650,7 @@ describe('CategorizeTransactionUseCase', () => {
       };
 
       (
-        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
       ).mockResolvedValue(transaction);
       (
         categoryRepository.findActive as ReturnType<typeof bunMock>
@@ -663,7 +671,7 @@ describe('CategorizeTransactionUseCase', () => {
         budgetResult,
       );
 
-      await useCase.execute({ transactionExternalId: 'tx-no-rules' });
+      await useCase.execute({ transactionDbId: 51 });
 
       expect(llmGateway.assignCategory).toHaveBeenCalledTimes(1);
       const assignCategoryCall = (
@@ -683,6 +691,7 @@ describe('CategorizeTransactionUseCase', () => {
       const transaction = createTestTransaction({
         externalId: 'tx-category-context',
         description: 'Silpo grocery store',
+        dbId: 52,
       });
 
       const categoryResult: CategoryAssignmentResult = {
@@ -697,7 +706,7 @@ describe('CategorizeTransactionUseCase', () => {
       };
 
       (
-        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
       ).mockResolvedValue(transaction);
       (
         categoryRepository.findActive as ReturnType<typeof bunMock>
@@ -712,7 +721,7 @@ describe('CategorizeTransactionUseCase', () => {
         budgetResult,
       );
 
-      await useCase.execute({ transactionExternalId: 'tx-category-context' });
+      await useCase.execute({ transactionDbId: 52 });
 
       expect(llmGateway.assignBudget).toHaveBeenCalledTimes(1);
       const assignBudgetCall = (
@@ -727,6 +736,7 @@ describe('CategorizeTransactionUseCase', () => {
       const transaction = createTestTransaction({
         externalId: 'tx-null-category',
         description: 'Unknown merchant',
+        dbId: 53,
       });
 
       const categoryResult: CategoryAssignmentResult = {
@@ -741,7 +751,7 @@ describe('CategorizeTransactionUseCase', () => {
       };
 
       (
-        transactionRepository.findByExternalId as ReturnType<typeof bunMock>
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
       ).mockResolvedValue(transaction);
       (
         categoryRepository.findActive as ReturnType<typeof bunMock>
@@ -756,7 +766,7 @@ describe('CategorizeTransactionUseCase', () => {
         budgetResult,
       );
 
-      await useCase.execute({ transactionExternalId: 'tx-null-category' });
+      await useCase.execute({ transactionDbId: 53 });
 
       expect(llmGateway.assignBudget).toHaveBeenCalledTimes(1);
       const assignBudgetCall = (

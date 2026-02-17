@@ -185,6 +185,8 @@ export function TransactionFiltersSidebar({
               <SelectItem value="all">All types</SelectItem>
               <SelectItem value={TransactionTypeEnum.Debit}>Expense</SelectItem>
               <SelectItem value={TransactionTypeEnum.Credit}>Income</SelectItem>
+              <SelectItem value="TRANSFER">Transfer</SelectItem>
+              <SelectItem value="RETURNING">Returning</SelectItem>
             </SelectContent>
           </Select>
         </div>

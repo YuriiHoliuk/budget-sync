@@ -32,6 +32,29 @@ extend type Mutation {
   Mark a transaction as verified (user confirmed categorization).
   """
   verifyTransaction(id: Int!): Transaction!
+
+  """
+  Mark two transactions as a transfer pair. Sets both to type TRANSFER
+  and creates a transfer_pairs record.
+  """
+  markAsTransfer(outgoingTransactionId: Int!, incomingTransactionId: Int!): Boolean!
+
+  """
+  Unmark a transfer pair. Reverts both transactions to their original type
+  (based on amount sign) and removes the transfer_pairs record.
+  """
+  unmarkTransfer(outgoingTransactionId: Int!, incomingTransactionId: Int!): Boolean!
+
+  """
+  Mark a transaction as a returning of another transaction.
+  Sets the returning transaction type to RETURNING and links it to the original.
+  """
+  markAsReturning(returningTransactionId: Int!, originalTransactionId: Int!): Boolean!
+
+  """
+  Unmark a transaction as a returning. Reverts its type and clears the link.
+  """
+  unmarkReturning(transactionId: Int!): Boolean!
 }
 
 input TransactionFilter {
@@ -178,7 +201,6 @@ type TransactionConnection {
 
 type Transaction {
   id: Int!
-  externalId: String!
   date: String!
   """
   Amount in major units (always positive).
@@ -193,17 +215,22 @@ type Transaction {
   mcc: Int
   counterpartyName: String
   counterpartyIban: String
-  hold: Boolean!
-  """
-  Cashback in major units.
-  """
-  cashbackAmount: Float
-  """
-  Commission in major units.
-  """
-  commissionAmount: Float
-  receiptId: String
   notes: String
+
+  """
+  For returnings: the database ID of the original transaction being adjusted.
+  """
+  adjustedTransactionId: Int
+
+  """
+  How many bank_transactions are linked to this transaction via transaction_sources.
+  """
+  bankTransactionCount: Int!
+
+  """
+  The linked bank transactions (via transaction_sources join table).
+  """
+  bankTransactions: [BankTransaction!]!
 
   """
   Account this transaction belongs to.
@@ -219,17 +246,31 @@ type Transaction {
   Assigned budget (null if unbudgeted).
   """
   budget: Budget
-
-  """
-  If true, this transaction is excluded from balance and budget calculations.
-  Used for transfers between own accounts, corrections, etc.
-  """
-  excludeFromCalculations: Boolean!
 }
 
 enum TransactionTypeEnum {
   CREDIT
   DEBIT
+  TRANSFER
+  RETURNING
+}
+
+type BankTransaction {
+  id: Int!
+  externalId: String!
+  date: String!
+  amount: Float!
+  currency: String!
+  type: String!
+  mcc: Int
+  bankDescription: String
+  counterparty: String
+  counterpartyIban: String
+  balanceAfter: Float
+  cashback: Float
+  commission: Float
+  hold: Boolean
+  receiptId: String
 }
 
 enum CategorizationStatusEnum {

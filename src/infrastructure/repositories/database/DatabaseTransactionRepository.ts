@@ -15,9 +15,9 @@ import {
   accounts,
   budgets,
   categories,
-  transactionLinkMembers,
-  transactionLinks,
+  transactionSources,
   transactions,
+  transferPairs,
 } from '@modules/database/schema/index.ts';
 import type { TransactionRow } from '@modules/database/types.ts';
 import {
@@ -51,6 +51,16 @@ export class DatabaseTransactionRepository implements TransactionRepository {
 
   findById(id: string): Promise<Transaction | null> {
     return this.findByExternalId(id);
+  }
+
+  async findByDbId(dbId: number): Promise<Transaction | null> {
+    const rows = await this.db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.id, dbId))
+      .limit(1);
+    const row = rows[0];
+    return row ? this.mapper.toEntity(row) : null;
   }
 
   async findAll(): Promise<Transaction[]> {
@@ -185,7 +195,7 @@ export class DatabaseTransactionRepository implements TransactionRepository {
   }
 
   async updateCategorization(
-    externalId: string,
+    dbId: number,
     data: CategorizationUpdate,
   ): Promise<void> {
     const categoryDbId = await this.resolveCategoryId(data.category);
@@ -200,7 +210,7 @@ export class DatabaseTransactionRepository implements TransactionRepository {
         budgetReason: data.budgetReason,
         categorizationStatus: data.status,
       })
-      .where(eq(transactions.externalId, externalId));
+      .where(eq(transactions.id, dbId));
   }
 
   async findByCategorizationStatus(
@@ -236,11 +246,22 @@ export class DatabaseTransactionRepository implements TransactionRepository {
 
   async findRecordById(dbId: number): Promise<TransactionRecord | null> {
     const rows = await this.db
-      .select()
+      .select({
+        transaction: transactions,
+        bankTransactionCount: count(transactionSources.id),
+      })
       .from(transactions)
+      .leftJoin(
+        transactionSources,
+        eq(transactions.id, transactionSources.transactionId),
+      )
       .where(eq(transactions.id, dbId))
+      .groupBy(transactions.id)
       .limit(1);
-    return rows[0] ? this.rowToRecord(rows[0]) : null;
+    const row = rows[0];
+    return row
+      ? this.rowToRecord(row.transaction, row.bankTransactionCount)
+      : null;
   }
 
   async findRecordsFiltered(
@@ -250,24 +271,31 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     const conditions = this.buildFilterConditions(filter);
     const needsAccountJoin = filter.accountRole !== undefined;
 
-    const baseQuery = this.db.select().from(transactions);
+    const baseQuery = this.db
+      .select({
+        transaction: transactions,
+        bankTransactionCount: count(transactionSources.id),
+      })
+      .from(transactions)
+      .leftJoin(
+        transactionSources,
+        eq(transactions.id, transactionSources.transactionId),
+      );
+
     const queryWithJoin = needsAccountJoin
       ? baseQuery.innerJoin(accounts, eq(transactions.accountId, accounts.id))
       : baseQuery;
 
     const rows = await queryWithJoin
       .where(and(...conditions))
+      .groupBy(transactions.id)
       .orderBy(desc(transactions.date), desc(transactions.id))
       .limit(pagination.limit)
       .offset(pagination.offset);
 
-    return rows.map((row) => {
-      // With join, row has both tables; without join, row is just transactions
-      const txnRow = needsAccountJoin
-        ? (row as { transactions: TransactionRow }).transactions
-        : (row as TransactionRow);
-      return this.rowToRecord(txnRow);
-    });
+    return rows.map((row) =>
+      this.rowToRecord(row.transaction, row.bankTransactionCount),
+    );
   }
 
   async countFiltered(filter: TransactionFilterParams): Promise<number> {
@@ -297,7 +325,10 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       })
       .where(eq(transactions.id, dbId))
       .returning();
-    return rows[0] ? this.rowToRecord(rows[0]) : null;
+    if (!rows[0]) {
+      return null;
+    }
+    return this.findRecordById(dbId);
   }
 
   async updateRecordBudget(
@@ -314,7 +345,10 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       })
       .where(eq(transactions.id, dbId))
       .returning();
-    return rows[0] ? this.rowToRecord(rows[0]) : null;
+    if (!rows[0]) {
+      return null;
+    }
+    return this.findRecordById(dbId);
   }
 
   async updateRecordStatus(
@@ -326,57 +360,87 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       .set({ categorizationStatus: status, updatedAt: new Date() })
       .where(eq(transactions.id, dbId))
       .returning();
-    return rows[0] ? this.rowToRecord(rows[0]) : null;
+    if (!rows[0]) {
+      return null;
+    }
+    return this.findRecordById(dbId);
   }
 
   async findTransactionSummaries(): Promise<TransactionSummary[]> {
-    const [rows, transferTxIds] = await Promise.all([
-      this.db
-        .select({
-          id: transactions.id,
-          budgetId: transactions.budgetId,
-          amount: transactions.amount,
-          type: transactions.type,
-          date: transactions.date,
-          accountRole: accounts.role,
-        })
-        .from(transactions)
-        .leftJoin(accounts, eq(transactions.accountId, accounts.id)),
-      this.getTransferTransactionIds(),
-    ]);
+    const rows = await this.db
+      .select({
+        budgetId: transactions.budgetId,
+        amount: transactions.amount,
+        type: transactions.type,
+        date: transactions.date,
+        accountRole: accounts.role,
+      })
+      .from(transactions)
+      .leftJoin(accounts, eq(transactions.accountId, accounts.id));
 
     return rows.map((row) => ({
       budgetId: row.budgetId,
       amount: Math.abs(row.amount),
-      type: row.type as 'credit' | 'debit',
+      type: row.type as 'credit' | 'debit' | 'transfer' | 'returning',
       date: row.date,
       accountRole: (row.accountRole ?? 'operational') as
         | 'operational'
         | 'savings',
-      isTransfer: transferTxIds.has(row.id),
     }));
   }
 
-  private async getTransferTransactionIds(): Promise<Set<number>> {
-    const rows = await this.db
-      .select({ transactionId: transactionLinkMembers.transactionId })
-      .from(transactionLinkMembers)
-      .innerJoin(
-        transactionLinks,
-        eq(transactionLinkMembers.linkId, transactionLinks.id),
-      )
-      .where(eq(transactionLinks.linkType, 'transfer'));
-    return new Set(rows.map((row) => row.transactionId));
+  async updateRecordType(dbId: number, type: string): Promise<void> {
+    await this.db
+      .update(transactions)
+      .set({ type, updatedAt: new Date() })
+      .where(eq(transactions.id, dbId));
   }
 
-  private rowToRecord(row: TransactionRow): TransactionRecord {
+  async setAdjustedTransactionId(
+    dbId: number,
+    adjustedTransactionId: number | null,
+  ): Promise<void> {
+    await this.db
+      .update(transactions)
+      .set({ adjustedTransactionId, updatedAt: new Date() })
+      .where(eq(transactions.id, dbId));
+  }
+
+  async createTransferPair(
+    outgoingId: number,
+    incomingId: number,
+  ): Promise<void> {
+    await this.db.insert(transferPairs).values({
+      outgoingTransactionId: outgoingId,
+      incomingTransactionId: incomingId,
+    });
+  }
+
+  async deleteTransferPair(
+    outgoingId: number,
+    incomingId: number,
+  ): Promise<void> {
+    await this.db
+      .delete(transferPairs)
+      .where(
+        and(
+          eq(transferPairs.outgoingTransactionId, outgoingId),
+          eq(transferPairs.incomingTransactionId, incomingId),
+        ),
+      );
+  }
+
+  private rowToRecord(
+    row: TransactionRow,
+    bankTransactionCount = 0,
+  ): TransactionRecord {
     return {
       id: row.id,
       externalId: row.externalId,
       date: row.date,
       amount: row.amount,
       currency: row.currency,
-      type: row.type as 'credit' | 'debit',
+      type: row.type as 'credit' | 'debit' | 'transfer' | 'returning',
       accountId: row.accountId,
       accountExternalId: row.accountExternalId,
       categoryId: row.categoryId,
@@ -393,7 +457,8 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       commission: row.commission,
       receiptId: row.receiptId,
       notes: row.notes,
-      excludeFromCalculations: row.excludeFromCalculations ?? false,
+      adjustedTransactionId: row.adjustedTransactionId,
+      bankTransactionCount,
     };
   }
 

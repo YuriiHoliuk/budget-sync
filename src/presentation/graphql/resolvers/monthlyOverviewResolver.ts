@@ -208,16 +208,18 @@ export class MonthlyOverviewResolver extends Resolver {
       }),
     );
 
-    const transactionInputs: TransactionInput[] = transactionSummaries.map(
-      (summary) => ({
+    const transactionInputs: TransactionInput[] = transactionSummaries
+      .filter(
+        (summary) =>
+          summary.type !== 'transfer' && summary.type !== 'returning',
+      )
+      .map((summary) => ({
         budgetId: summary.budgetId,
         amount: summary.amount,
         type: summary.type,
         date: summary.date,
         accountRole: summary.accountRole,
-        isTransfer: summary.isTransfer,
-      }),
-    );
+      }));
 
     const mappedGroups = budgetGroups.map(mapBudgetGroupToGql);
 
