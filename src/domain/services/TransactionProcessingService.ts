@@ -104,7 +104,9 @@ export class TransactionProcessingService {
 
   private isCancellation(bankTransaction: BankTransactionData): boolean {
     return (
-      bankTransaction.bankDescription?.startsWith(CANCELLATION_PREFIX) ?? false
+      bankTransaction.type === 'credit' &&
+      (bankTransaction.bankDescription?.startsWith(CANCELLATION_PREFIX) ??
+        false)
     );
   }
 
@@ -240,7 +242,7 @@ export class TransactionProcessingService {
 
   private stripCancellationPrefix(description: string): string {
     if (description.startsWith(CANCELLATION_PREFIX)) {
-      return description.slice(CANCELLATION_PREFIX.length);
+      return description.slice(CANCELLATION_PREFIX.length).trim();
     }
     return description;
   }
