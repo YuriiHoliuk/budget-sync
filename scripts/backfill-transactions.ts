@@ -138,9 +138,8 @@ async function populateTransactionSources(
 
   if (existingCount > 0) {
     console.log(
-      `  Found ${existingCount} existing transaction_sources entries, skipping Phase 0.`,
+      `  Found ${existingCount} existing transaction_sources entries, inserting missing links...`,
     );
-    return;
   }
 
   // Match transactions to bank_transactions by external_id
@@ -263,7 +262,11 @@ async function processOneCancellation(
         not(eq(bankTransactions.id, cancellation.id)),
       ),
     )
-    .orderBy(sql`${bankTransactions.date} DESC`)
+    .orderBy(
+      // Prefer exact amount match (full refund), then most recent date
+      sql`CASE WHEN ABS(${bankTransactions.amount}) = ${Math.abs(cancellation.amount)} THEN 0 ELSE 1 END`,
+      sql`${bankTransactions.date} DESC`,
+    )
     .limit(1);
 
   if (matchingOriginals.length === 0) {
