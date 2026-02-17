@@ -3,6 +3,10 @@ export {
   AccountRepository,
 } from './AccountRepository.ts';
 export {
+  BANK_TRANSACTION_REPOSITORY_TOKEN,
+  BankTransactionRepository,
+} from './BankTransactionRepository.ts';
+export {
   BUDGET_REPOSITORY_TOKEN,
   BudgetRepository,
 } from './BudgetRepository.ts';

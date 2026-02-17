@@ -497,6 +497,16 @@
     "dependencies": []
   },
   {
+    "id": "REFACTOR-001",
+    "phase": "REFACTOR: Infrastructure Improvements",
+    "title": "Extract generic DatabaseRepository base class",
+    "status": "pending",
+    "plan": null,
+    "description": "Database repository implementations (DatabaseTransactionRepository, DatabaseBankTransactionRepository, DatabaseAccountRepository, etc.) duplicate the same boilerplate: insert → returning → map, findById, findMany patterns. Extract a generic DatabaseRepository<TEntity, TRow, TInsert> base class with shared methods (insertOne, findOneBy, findManyBy) so concrete repositories only define mapping and custom queries.",
+    "dependencies": []
+  },
+
+  {
     "id": "NOTES-002",
     "phase": "NOTES: Transaction Notes",
     "title": "Add editable notes textarea in transaction detail panel",

@@ -12,6 +12,7 @@ import { LLM_GATEWAY_TOKEN } from '@domain/gateways/LLMGateway.ts';
 import { MESSAGE_QUEUE_GATEWAY_TOKEN } from '@domain/gateways/MessageQueueGateway.ts';
 import { ACCOUNT_REPOSITORY_TOKEN } from '@domain/repositories/AccountRepository.ts';
 import { ALLOCATION_REPOSITORY_TOKEN } from '@domain/repositories/AllocationRepository.ts';
+import { BANK_TRANSACTION_REPOSITORY_TOKEN } from '@domain/repositories/BankTransactionRepository.ts';
 import { BUDGET_GROUP_REPOSITORY_TOKEN } from '@domain/repositories/BudgetGroupRepository.ts';
 import { BUDGETIZATION_RULE_REPOSITORY_TOKEN } from '@domain/repositories/BudgetizationRuleRepository.ts';
 import { BUDGET_REPOSITORY_TOKEN } from '@domain/repositories/BudgetRepository.ts';
@@ -35,6 +36,7 @@ import {
 } from '@infrastructure/gateways/pubsub/index.ts';
 import { DatabaseAccountRepository } from '@infrastructure/repositories/database/DatabaseAccountRepository.ts';
 import { DatabaseAllocationRepository } from '@infrastructure/repositories/database/DatabaseAllocationRepository.ts';
+import { DatabaseBankTransactionRepository } from '@infrastructure/repositories/database/DatabaseBankTransactionRepository.ts';
 import { DatabaseBudgetGroupRepository } from '@infrastructure/repositories/database/DatabaseBudgetGroupRepository.ts';
 import { DatabaseBudgetizationRuleRepository } from '@infrastructure/repositories/database/DatabaseBudgetizationRuleRepository.ts';
 import { DatabaseBudgetRepository } from '@infrastructure/repositories/database/DatabaseBudgetRepository.ts';
@@ -153,6 +155,9 @@ export function setupContainer(): typeof container {
   });
 
   // Register repositories (all direct Database implementations)
+  container.register(BANK_TRANSACTION_REPOSITORY_TOKEN, {
+    useClass: DatabaseBankTransactionRepository,
+  });
   container.register(ACCOUNT_REPOSITORY_TOKEN, {
     useClass: DatabaseAccountRepository,
   });

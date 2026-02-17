@@ -12,6 +12,10 @@ export {
   parseAccountType,
 } from './Account.ts';
 export {
+  BankTransaction,
+  type BankTransactionProps,
+} from './BankTransaction.ts';
+export {
   Budget,
   type BudgetProps,
   type CadenceUnit,
