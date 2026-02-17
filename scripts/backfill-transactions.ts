@@ -452,7 +452,6 @@ async function processTransfers(
       AND t1.account_id IN (${sql.join(ownAccountIds.map((id) => sql`${id}`), sql`, `)})
       AND t2.account_id IN (${sql.join(ownAccountIds.map((id) => sql`${id}`), sql`, `)})
       AND ABS(EXTRACT(EPOCH FROM (t1.date - t2.date))) <= ${TRANSFER_TIME_WINDOW_MS / 1000}
-      AND t1.id < t2.id
     LEFT JOIN transfer_pairs tp1
       ON tp1.outgoing_transaction_id = t1.id OR tp1.incoming_transaction_id = t1.id
     LEFT JOIN transfer_pairs tp2
