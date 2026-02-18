@@ -16,7 +16,7 @@ export interface TransactionRecord {
   date: Date;
   amount: number;
   currency: string;
-  type: 'credit' | 'debit' | 'transfer' | 'returning';
+  type: 'credit' | 'debit' | 'transfer';
   accountId: number | null;
   accountExternalId: string | null;
   categoryId: number | null;
@@ -33,7 +33,6 @@ export interface TransactionRecord {
   commission: number | null;
   receiptId: string | null;
   notes: string | null;
-  adjustedTransactionId: number | null;
   bankTransactionCount: number;
 }
 
@@ -70,7 +69,7 @@ export interface PaginationParams {
 export interface TransactionSummary {
   budgetId: number | null;
   amount: number;
-  type: 'credit' | 'debit' | 'transfer' | 'returning';
+  type: 'credit' | 'debit' | 'transfer';
   date: Date;
   accountRole: 'operational' | 'savings';
 }

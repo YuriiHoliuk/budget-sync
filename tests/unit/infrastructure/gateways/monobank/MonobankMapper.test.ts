@@ -222,7 +222,7 @@ describe('MonobankMapper', () => {
 
       expect(transaction.externalId).toBe('tx-123');
       expect(transaction.date.getTime()).toBe(1704067200000);
-      expect(transaction.amount.amount).toBe(-15000);
+      expect(transaction.amount.amount).toBe(15000);
       expect(transaction.amount.currency.code).toBe('UAH');
       expect(transaction.description).toBe('ATB Market');
       expect(transaction.type).toBe(TransactionType.DEBIT);

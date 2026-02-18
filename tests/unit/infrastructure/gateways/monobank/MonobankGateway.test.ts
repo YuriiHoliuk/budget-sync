@@ -153,7 +153,7 @@ describe('MonobankGateway', () => {
       expect(transactions[0]).toBeDefined();
       expect(transactions[0]?.externalId).toBe('tx-123');
       expect(transactions[0]?.description).toBe('ATB Market');
-      expect(transactions[0]?.amount.amount).toBe(-15000);
+      expect(transactions[0]?.amount.amount).toBe(15000);
       expect(transactions[0]?.accountId).toBe('account-123');
       expect(transactions[0]?.mcc).toBe(5411);
     });

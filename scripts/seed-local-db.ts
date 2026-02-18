@@ -560,8 +560,8 @@ async function seedTransactions(
       if (!category) continue;
       const budget = spendingBudgets[expenseIndex % spendingBudgets.length];
 
-      // Random amount between -5000 and -50000 kopecks (-50 to -500 UAH)
-      const amount = -(5000 + Math.floor(Math.random() * 45000));
+      // Random positive amount between 5000 and 50000 kopecks (50 to 500 UAH)
+      const amount = 5000 + Math.floor(Math.random() * 45000);
       const day = 1 + (expenseIndex % 28);
       const counterparty =
         counterparties[expenseIndex % counterparties.length] ?? 'Unknown';
@@ -620,11 +620,13 @@ async function seedBankTransactionsAndSources() {
 
   for (const tx of allTxRows) {
     if (!tx.externalId || !tx.accountId) continue;
+    // Bank_transactions use signed amounts (negative for debit, positive for credit)
+    const signedAmount = tx.type === 'debit' ? -tx.amount : tx.amount;
     bankTxRows.push({
       externalId: tx.externalId,
       accountId: tx.accountId,
       date: tx.date,
-      amount: tx.amount,
+      amount: signedAmount,
       currency: tx.currency,
       type: tx.type,
       bankDescription: tx.bankDescription,
@@ -701,7 +703,7 @@ async function seedTransferExamples(seedAccounts: SeedAccount[]) {
         .values({
           externalId: `seed-transfer-out-${transferCount}`,
           date,
-          amount: -amount,
+          amount, // Positive — type indicates direction
           currency: 'UAH',
           type: 'transfer',
           accountId: blackAccount.id,
@@ -738,16 +740,19 @@ async function seedTransferExamples(seedAccounts: SeedAccount[]) {
         });
 
         // Create bank_transactions and transaction_sources for transfers
+        // Bank_transactions use signed amounts (negative for debit, positive for credit)
         for (const tx of [outgoing, incoming]) {
+          const isOutgoing = tx.id === outgoing.id;
+          const bankAmount = isOutgoing ? -amount : amount;
           const [bankTx] = await db
             .insert(bankTransactions)
             .values({
               externalId: tx.externalId!,
               accountId: tx.accountId!,
               date: tx.date,
-              amount: tx.amount,
+              amount: bankAmount,
               currency: tx.currency,
-              type: tx.type,
+              type: isOutgoing ? 'debit' : 'credit',
               bankDescription: tx.bankDescription,
               counterparty: tx.counterparty,
               mcc: tx.mcc,
@@ -780,14 +785,15 @@ async function seedReturningExamples(
   const category = seedCategories.find((cat) => cat.parentId !== null);
   const budget = seedBudgets.find((bud) => !bud.cadenceUnit && !bud.targetDate);
 
-  // Example 1: Partial refund — original reduced, returning with adjustedTransactionId
+  // Example 1: Partial refund — ONE debit transaction (positive, reduced amount)
+  // linked to TWO bank_transactions (original debit + cancellation credit)
   const partialDate = new Date(2026, 0, 15, 10, 0, 0);
   const [partialOriginal] = await db
     .insert(transactions)
     .values({
       externalId: 'seed-partial-original',
       date: partialDate,
-      amount: -35000, // Was -50000, reduced by 15000 refund
+      amount: 35000, // Positive. Was 50000, reduced by 15000 refund
       currency: 'UAH',
       type: 'debit',
       accountId: account.id,
@@ -802,62 +808,56 @@ async function seedReturningExamples(
     .returning();
 
   if (partialOriginal) {
-    const partialCancelDate = new Date(2026, 0, 17, 12, 0, 0);
-    const [partialReturning] = await db
-      .insert(transactions)
+    // Original debit bank_transaction
+    const [originalBankTx] = await db
+      .insert(bankTransactions)
       .values({
-        externalId: 'seed-partial-returning',
-        date: partialCancelDate,
-        amount: 15000,
-        currency: 'UAH',
-        type: 'returning',
+        externalId: 'seed-partial-original',
         accountId: account.id,
-        accountExternalId: `mono-account-${account.id}`,
+        date: partialDate,
+        amount: -50000, // Signed: negative debit
+        currency: 'UAH',
+        type: 'debit',
         bankDescription: 'Glovo',
         counterparty: 'Glovo',
         mcc: 5812,
-        adjustedTransactionId: partialOriginal.id,
-        categoryId: category?.id ?? null,
-        budgetId: budget?.id ?? null,
-        categorizationStatus: 'verified',
       })
       .returning();
 
-    // Create bank_transactions for both
-    for (const tx of [partialOriginal, partialReturning].filter(Boolean)) {
-      if (!tx) continue;
-      const bankDesc =
-        tx.externalId === 'seed-partial-returning'
-          ? 'Скасування. Glovo'
-          : 'Glovo';
-      const bankAmount =
-        tx.externalId === 'seed-partial-returning' ? 15000 : -50000;
-      const [bankTx] = await db
-        .insert(bankTransactions)
-        .values({
-          externalId: tx.externalId!,
-          accountId: tx.accountId!,
-          date: tx.date,
-          amount: bankAmount,
-          currency: tx.currency,
-          type: bankAmount > 0 ? 'credit' : 'debit',
-          bankDescription: bankDesc,
-          counterparty: tx.counterparty,
-          mcc: tx.mcc,
-        })
-        .returning();
-      if (bankTx) {
-        await db.insert(transactionSources).values({
-          transactionId: tx.id,
-          bankTransactionId: bankTx.id,
-        });
-      }
+    // Cancellation credit bank_transaction
+    const partialCancelDate = new Date(2026, 0, 17, 12, 0, 0);
+    const [cancelBankTx] = await db
+      .insert(bankTransactions)
+      .values({
+        externalId: 'seed-partial-returning',
+        accountId: account.id,
+        date: partialCancelDate,
+        amount: 15000, // Signed: positive credit
+        currency: 'UAH',
+        type: 'credit',
+        bankDescription: 'Скасування. Glovo',
+        counterparty: 'Glovo',
+        mcc: 5812,
+      })
+      .returning();
+
+    // Link both bank_transactions to the single transaction
+    if (originalBankTx) {
+      await db.insert(transactionSources).values({
+        transactionId: partialOriginal.id,
+        bankTransactionId: originalBankTx.id,
+      });
+    }
+    if (cancelBankTx) {
+      await db.insert(transactionSources).values({
+        transactionId: partialOriginal.id,
+        bankTransactionId: cancelBankTx.id,
+      });
     }
   }
 
-  // Example 2: Full refund — original transaction deleted, bank_tx orphaned
+  // Example 2: Full refund — ZERO transactions, two orphaned bank_transactions
   const fullRefundDate = new Date(2026, 1, 5, 16, 0, 0);
-  // The original transaction was deleted, so only the bank_transaction remains (orphaned)
   await db.insert(bankTransactions).values({
     externalId: 'seed-full-refund-original',
     accountId: account.id,
@@ -869,7 +869,6 @@ async function seedReturningExamples(
     counterparty: 'Amazon',
     mcc: 5942,
   });
-  // The cancellation bank_transaction is also orphaned
   await db.insert(bankTransactions).values({
     externalId: 'seed-full-refund-cancel',
     accountId: account.id,
@@ -882,7 +881,7 @@ async function seedReturningExamples(
     mcc: 5942,
   });
 
-  console.log('  Inserted partial refund example + full refund orphaned bank_txs');
+  console.log('  Inserted partial refund example (1 tx, 2 bank_txs) + full refund (0 txs, 2 orphaned bank_txs)');
 }
 
 async function seedFeeSplitExamples(seedAccounts: SeedAccount[]) {
@@ -898,7 +897,7 @@ async function seedFeeSplitExamples(seedAccounts: SeedAccount[]) {
     .values({
       externalId: 'seed-fee-split-1',
       date: feeDate1,
-      amount: -47500, // Original was -50000, reduced by 2500 commission
+      amount: 47500, // Positive. Original was 50000, reduced by 2500 commission
       currency: 'UAH',
       type: 'debit',
       accountId: account.id,
@@ -915,7 +914,7 @@ async function seedFeeSplitExamples(seedAccounts: SeedAccount[]) {
     .values({
       externalId: 'seed-fee-split-1-fee',
       date: feeDate1,
-      amount: -2500,
+      amount: 2500, // Positive
       currency: 'UAH',
       type: 'debit',
       accountId: account.id,
@@ -926,7 +925,7 @@ async function seedFeeSplitExamples(seedAccounts: SeedAccount[]) {
     })
     .returning();
 
-  // Bank transaction for this fee split (original amount with commission)
+  // Bank transaction for this fee split (signed amount with commission)
   const [bankTx1] = await db
     .insert(bankTransactions)
     .values({
@@ -964,7 +963,7 @@ async function seedFeeSplitExamples(seedAccounts: SeedAccount[]) {
     .values({
       externalId: 'seed-fee-split-2',
       date: feeDate2,
-      amount: -98500, // Original was -100000, reduced by 1500 commission
+      amount: 98500, // Positive. Original was 100000, reduced by 1500 commission
       currency: 'UAH',
       type: 'debit',
       accountId: account.id,
@@ -981,7 +980,7 @@ async function seedFeeSplitExamples(seedAccounts: SeedAccount[]) {
     .values({
       externalId: 'seed-fee-split-2-fee',
       date: feeDate2,
-      amount: -1500,
+      amount: 1500, // Positive
       currency: 'UAH',
       type: 'debit',
       accountId: account.id,

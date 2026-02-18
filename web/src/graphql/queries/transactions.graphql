@@ -17,6 +17,7 @@ query GetTransactions(
       categoryReason
       budgetReason
       notes
+      bankTransactionCount
       category {
         id
         name
@@ -51,7 +52,6 @@ query GetTransaction($id: Int!) {
     categoryReason
     budgetReason
     notes
-    adjustedTransactionId
     bankTransactionCount
     category {
       id

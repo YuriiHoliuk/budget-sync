@@ -33,10 +33,10 @@ export class DatabaseTransactionMapper {
     transaction: Transaction,
     refs?: { accountDbId?: number; categoryDbId?: number; budgetDbId?: number },
   ): NewTransactionRow {
-    const signedAmount = this.calculateSignedAmount(transaction);
+    const amount = this.getAmount(transaction);
 
     return {
-      ...this.buildInsertBaseFields(transaction, signedAmount),
+      ...this.buildInsertBaseFields(transaction, amount),
       ...this.buildInsertRefFields(transaction, refs),
       ...this.buildInsertCategorizationFields(),
       ...this.buildInsertCounterpartyFields(transaction),
@@ -78,22 +78,18 @@ export class DatabaseTransactionMapper {
   }
 
   /**
-   * Get the signed amount for database storage.
-   * Monobank sends amounts already signed (negative for expenses, positive for income),
-   * so we pass through directly without modification.
+   * Get the amount for database storage.
+   * Amounts are always positive — the type column indicates direction.
    */
-  private calculateSignedAmount(transaction: Transaction): number {
+  private getAmount(transaction: Transaction): number {
     return transaction.amount.amount;
   }
 
-  private buildInsertBaseFields(
-    transaction: Transaction,
-    signedAmount: number,
-  ) {
+  private buildInsertBaseFields(transaction: Transaction, amount: number) {
     return {
       externalId: transaction.externalId || null,
       date: transaction.date,
-      amount: signedAmount,
+      amount,
       currency: transaction.amount.currency.code,
       type: transaction.isCredit ? ('credit' as const) : ('debit' as const),
     };

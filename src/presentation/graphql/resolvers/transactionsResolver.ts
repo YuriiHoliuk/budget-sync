@@ -144,19 +144,6 @@ export class TransactionsResolver extends Resolver {
             args.outgoingTransactionId,
             args.incomingTransactionId,
           ),
-        markAsReturning: (
-          _parent: unknown,
-          args: {
-            returningTransactionId: number;
-            originalTransactionId: number;
-          },
-        ) =>
-          this.markAsReturning(
-            args.returningTransactionId,
-            args.originalTransactionId,
-          ),
-        unmarkReturning: (_parent: unknown, args: { transactionId: number }) =>
-          this.unmarkReturning(args.transactionId),
       },
       Transaction: {
         account: (parent: TransactionGql) =>
@@ -363,30 +350,6 @@ export class TransactionsResolver extends Resolver {
         'credit',
       ),
     ]);
-    return true;
-  }
-
-  private async markAsReturning(
-    returningTransactionId: number,
-    originalTransactionId: number,
-  ) {
-    await this.transactionRepository.updateRecordType(
-      returningTransactionId,
-      'returning',
-    );
-    await this.transactionRepository.setAdjustedTransactionId(
-      returningTransactionId,
-      originalTransactionId,
-    );
-    return true;
-  }
-
-  private async unmarkReturning(transactionId: number) {
-    await this.transactionRepository.updateRecordType(transactionId, 'credit');
-    await this.transactionRepository.setAdjustedTransactionId(
-      transactionId,
-      null,
-    );
     return true;
   }
 

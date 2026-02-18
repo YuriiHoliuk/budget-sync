@@ -328,6 +328,10 @@ Spreadsheet:  amount = "950"   → 950.00 UAH (needs × 100 = 95000 kopecks)
 
 **Verification tip:** Compare `balance_after` changes with `amount` values. If the ratio is ~100, amounts are in wrong units.
 
+**Amount sign conventions by table:**
+- `bank_transactions.amount`: **Signed** (negative for debits, positive for credits) — raw Monobank data
+- `transactions.amount`: **Always positive**, `type` column indicates direction (credit/debit)
+
 ---
 
 ## Key Principles

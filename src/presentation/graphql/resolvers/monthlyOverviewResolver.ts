@@ -209,10 +209,7 @@ export class MonthlyOverviewResolver extends Resolver {
     );
 
     const transactionInputs: TransactionInput[] = transactionSummaries
-      .filter(
-        (summary) =>
-          summary.type !== 'transfer' && summary.type !== 'returning',
-      )
+      .filter((summary) => summary.type !== 'transfer')
       .map((summary) => ({
         budgetId: summary.budgetId,
         amount: summary.amount,

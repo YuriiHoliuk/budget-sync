@@ -34,7 +34,7 @@ export interface AllocationInput {
 export interface TransactionInput {
   budgetId: number | null;
   amount: number; // absolute value in minor units
-  type: 'credit' | 'debit' | 'transfer' | 'returning';
+  type: 'credit' | 'debit' | 'transfer';
   date: Date;
   accountRole: 'operational' | 'savings';
 }

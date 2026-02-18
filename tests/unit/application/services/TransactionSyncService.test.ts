@@ -684,7 +684,7 @@ describe('TransactionSyncService', () => {
         >
       ).mockResolvedValue({
         id: 10,
-        amount: -5000,
+        amount: 5000,
         categoryId: 3,
         budgetId: 5,
         categorizationStatus: 'categorized',
@@ -692,27 +692,32 @@ describe('TransactionSyncService', () => {
         budgetReason: 'budget reason',
       });
 
+      const cancellationBankTx = { id: 500, externalId: 'tx-cancel-1' };
+      (
+        bankTransactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(cancellationBankTx);
+
       const result = await service.detectReturnings([cancellation], 1);
 
-      expect(result.size).toBe(0);
+      // Partial refund: reduce original amount (5000 - 1500 = 3500)
       expect(
         transactionRepository.updateTransactionAmount,
-      ).toHaveBeenCalledWith(10, -3500); // -5000 + 1500 = -3500
-      expect(transactionRepository.updateRecordType).toHaveBeenCalledWith(
-        20,
-        'returning',
+      ).toHaveBeenCalledWith(10, 3500);
+
+      // Link cancellation bank_tx to original transaction
+      expect(bankTransactionRepository.findByExternalId).toHaveBeenCalledWith(
+        'tx-cancel-1',
       );
       expect(
-        transactionRepository.setAdjustedTransactionId,
-      ).toHaveBeenCalledWith(20, 10);
-      expect(transactionRepository.updateRecordCategory).toHaveBeenCalledWith(
-        20,
-        3,
-      );
-      expect(transactionRepository.updateRecordBudget).toHaveBeenCalledWith(
-        20,
-        5,
-      );
+        bankTransactionRepository.linkTransactionSource,
+      ).toHaveBeenCalledWith(10, 500);
+
+      // Delete cancellation transaction
+      expect(transactionRepository.delete).toHaveBeenCalledWith('tx-cancel-1');
+
+      // Cancellation ID is in the deleted set
+      expect(result.size).toBe(1);
+      expect(result.has(20)).toBe(true);
     });
 
     test('should handle full refund by deleting both transactions', async () => {
@@ -731,7 +736,7 @@ describe('TransactionSyncService', () => {
         >
       ).mockResolvedValue({
         id: 25,
-        amount: -5000,
+        amount: 5000,
         categoryId: null,
         budgetId: null,
         categorizationStatus: null,
@@ -746,8 +751,9 @@ describe('TransactionSyncService', () => {
 
       const result = await service.detectReturnings([cancellation], 1);
 
-      expect(result.size).toBe(1);
+      expect(result.size).toBe(2);
       expect(result.has(30)).toBe(true);
+      expect(result.has(25)).toBe(true);
       expect(transactionRepository.delete).toHaveBeenCalledWith(
         'tx-cancel-full',
       );
@@ -799,7 +805,7 @@ describe('TransactionSyncService', () => {
         >
       ).mockResolvedValue({
         id: 45,
-        amount: -3000,
+        amount: 3000,
         categoryId: null,
         budgetId: null,
         categorizationStatus: null,
@@ -843,7 +849,7 @@ describe('TransactionSyncService', () => {
       const transaction = createTestTransaction({
         externalId: 'tx-with-fee',
         description: 'International purchase',
-        amount: Money.create(-50000, Currency.UAH),
+        amount: Money.create(50000, Currency.UAH),
         type: TransactionType.DEBIT,
         dbId: 60,
         commissionRate: Money.create(2500, Currency.UAH),
@@ -864,17 +870,17 @@ describe('TransactionSyncService', () => {
 
       await service.detectFeeSplits([transaction], 1);
 
-      // Main transaction reduced: -50000 + 2500 = -47500
+      // Main transaction reduced: 50000 - 2500 = 47500 (amounts are positive)
       expect(
         transactionRepository.updateTransactionAmount,
-      ).toHaveBeenCalledWith(60, -47500);
+      ).toHaveBeenCalledWith(60, 47500);
 
       // Fee transaction created
       expect(transactionRepository.saveAndReturn).toHaveBeenCalledTimes(1);
       const savedCall = (
         transactionRepository.saveAndReturn as ReturnType<typeof mock>
       ).mock.calls[0]?.[0] as Transaction;
-      expect(savedCall.amount.amount).toBe(-2500);
+      expect(savedCall.amount.amount).toBe(2500);
       expect(savedCall.description).toBe('Bank commission');
 
       // Fee transaction linked to same bank transaction

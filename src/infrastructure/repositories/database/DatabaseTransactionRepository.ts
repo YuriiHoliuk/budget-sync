@@ -383,7 +383,7 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     return rows.map((row) => ({
       budgetId: row.budgetId,
       amount: Math.abs(row.amount),
-      type: row.type as 'credit' | 'debit' | 'transfer' | 'returning',
+      type: row.type as 'credit' | 'debit' | 'transfer',
       date: row.date,
       accountRole: (row.accountRole ?? 'operational') as
         | 'operational'
@@ -395,16 +395,6 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     await this.db
       .update(transactions)
       .set({ type, updatedAt: new Date() })
-      .where(eq(transactions.id, dbId));
-  }
-
-  async setAdjustedTransactionId(
-    dbId: number,
-    adjustedTransactionId: number | null,
-  ): Promise<void> {
-    await this.db
-      .update(transactions)
-      .set({ adjustedTransactionId, updatedAt: new Date() })
       .where(eq(transactions.id, dbId));
   }
 
@@ -555,7 +545,7 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       date: row.date,
       amount: row.amount,
       currency: row.currency,
-      type: row.type as 'credit' | 'debit' | 'transfer' | 'returning',
+      type: row.type as 'credit' | 'debit' | 'transfer',
       accountId: row.accountId,
       accountExternalId: row.accountExternalId,
       categoryId: row.categoryId,
@@ -572,7 +562,6 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       commission: row.commission,
       receiptId: row.receiptId,
       notes: row.notes,
-      adjustedTransactionId: row.adjustedTransactionId,
       bankTransactionCount,
     };
   }

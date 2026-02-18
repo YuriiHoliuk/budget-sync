@@ -25,13 +25,13 @@ test.describe('Budget Groups', () => {
     // Click the "New Group" button
     await budgetPage.clickNewGroup();
 
-    // Wait for the new group to appear
-    await authenticatedPage.waitForLoadState('networkidle');
-
-    // Verify a new group was created (default name "New Group")
-    const groups = await getBudgetGroups();
-    const newGroup = groups.find((group) => group.name === 'New Group');
-    expect(newGroup).toBeTruthy();
+    // Wait for the mutation to complete and verify a new group was created
+    let newGroup: { id: number; name: string } | undefined;
+    await expect(async () => {
+      const groups = await getBudgetGroups();
+      newGroup = groups.find((group) => group.name === 'New Group');
+      expect(newGroup).toBeTruthy();
+    }).toPass({ timeout: 5000 });
 
     // Verify the group header is visible
     if (newGroup) {

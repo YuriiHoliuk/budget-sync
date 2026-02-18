@@ -11,7 +11,6 @@ export const TRANSACTION_TYPE_TO_GQL: Record<string, string> = {
   credit: 'CREDIT',
   debit: 'DEBIT',
   transfer: 'TRANSFER',
-  returning: 'RETURNING',
 };
 
 export interface TransactionGql {
@@ -31,7 +30,6 @@ export interface TransactionGql {
   accountId: number | null;
   categoryId: number | null;
   budgetId: number | null;
-  adjustedTransactionId: number | null;
   bankTransactionCount: number;
 }
 
@@ -41,7 +39,7 @@ export function mapTransactionRecordToGql(
   return {
     id: record.id,
     date: record.date.toISOString(),
-    amount: toMajorUnits(Math.abs(record.amount)),
+    amount: toMajorUnits(record.amount),
     currency: record.currency,
     type: TRANSACTION_TYPE_TO_GQL[record.type] ?? 'DEBIT',
     description: record.bankDescription ?? '',
@@ -57,7 +55,6 @@ export function mapTransactionRecordToGql(
     accountId: record.accountId,
     categoryId: record.categoryId,
     budgetId: record.budgetId,
-    adjustedTransactionId: record.adjustedTransactionId,
     bankTransactionCount: record.bankTransactionCount,
   };
 }

@@ -434,15 +434,6 @@ export class SpreadsheetTransactionRepository
     );
   }
 
-  setAdjustedTransactionId(
-    _dbId: number,
-    _adjustedTransactionId: number | null,
-  ): Promise<void> {
-    throw new Error(
-      'setAdjustedTransactionId is not supported by SpreadsheetTransactionRepository',
-    );
-  }
-
   createTransferPair(_outgoingId: number, _incomingId: number): Promise<void> {
     throw new Error(
       'createTransferPair is not supported by SpreadsheetTransactionRepository',

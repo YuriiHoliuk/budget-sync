@@ -81,10 +81,6 @@ export abstract class TransactionRepository extends Repository<
 
   // Type and relationship mutations
   abstract updateRecordType(dbId: number, type: string): Promise<void>;
-  abstract setAdjustedTransactionId(
-    dbId: number,
-    adjustedTransactionId: number | null,
-  ): Promise<void>;
   abstract createTransferPair(
     outgoingId: number,
     incomingId: number,

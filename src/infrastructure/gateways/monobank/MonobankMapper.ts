@@ -41,7 +41,7 @@ export class MonobankMapper {
 
   toTransaction(raw: MonobankStatementItem, accountId: string): Transaction {
     const currency = Currency.fromNumericCode(raw.currencyCode);
-    const amount = Money.create(raw.amount, currency);
+    const amount = Money.create(Math.abs(raw.amount), currency);
     const balance = Money.create(raw.balance, currency);
     const operationAmount = Money.create(raw.operationAmount, currency);
     const transactionType =
