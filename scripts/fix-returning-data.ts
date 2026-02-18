@@ -30,6 +30,7 @@ const client = postgres(DATABASE_URL);
 const db = drizzle(client);
 
 interface CancellationBankTx {
+  [key: string]: unknown;
   id: number;
   account_id: number;
   bank_description: string;
@@ -38,22 +39,26 @@ interface CancellationBankTx {
 }
 
 interface OriginalBankTx {
+  [key: string]: unknown;
   id: number;
   amount: number;
   date: Date;
 }
 
 interface TransactionSource {
+  [key: string]: unknown;
   transaction_id: number;
   bank_transaction_id: number;
 }
 
 interface TransactionRow {
+  [key: string]: unknown;
   id: number;
   amount: number;
 }
 
 interface CountResult {
+  [key: string]: unknown;
   count: number;
 }
 
@@ -143,8 +148,27 @@ async function phase2ProcessCancellations() {
     );
 
     if (originalLinks.length === 0) {
-      console.log(`    WARNING: No transaction linked to original bank_tx #${originalBankTx.id}. Skipping.`);
-      skipped++;
+      // Original bank_tx is already orphaned (e.g., authorization hold).
+      // Still need to clean up any standalone cancellation transaction.
+      const cancellationLinks = await db.execute<TransactionSource>(
+        sql`SELECT transaction_id, bank_transaction_id
+            FROM transaction_sources
+            WHERE bank_transaction_id = ${cancellation.id}`,
+      );
+      const cancellationTxId = cancellationLinks[0]?.transaction_id ?? null;
+
+      if (cancellationTxId) {
+        console.log(`    Original already orphaned. Deleting standalone cancellation transaction #${cancellationTxId}`);
+        if (!isDryRun) {
+          await db.execute(sql`DELETE FROM transactions WHERE id = ${cancellationTxId}`);
+        } else {
+          console.log(`    [DRY RUN] Would delete standalone cancellation transaction #${cancellationTxId}`);
+        }
+        fullRefunds++;
+      } else {
+        console.log(`    Both sides already orphaned — nothing to do.`);
+        skipped++;
+      }
       continue;
     }
 
