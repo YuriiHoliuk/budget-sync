@@ -82,7 +82,7 @@ export class DatabaseTransactionMapper {
    * Amounts are always positive — the type column indicates direction.
    */
   private getAmount(transaction: Transaction): number {
-    return transaction.amount.amount;
+    return Math.abs(transaction.amount.amount);
   }
 
   private buildInsertBaseFields(transaction: Transaction, amount: number) {

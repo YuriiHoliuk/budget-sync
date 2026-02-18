@@ -221,9 +221,8 @@ describe('DatabaseTransactionMapper', () => {
   });
 
   describe('toInsert', () => {
-    test('should convert Transaction to insert row with signed amounts (negative for debit)', () => {
+    test('should convert Transaction to insert row with positive amount even when entity has negative', () => {
       const currency = Currency.UAH;
-      // Monobank sends negative amounts for debits, so Transaction is created with negative amount
       const transaction = Transaction.create({
         externalId: 'ext-123',
         date: new Date('2024-01-15T10:30:00Z'),
@@ -239,7 +238,7 @@ describe('DatabaseTransactionMapper', () => {
 
       expect(row.externalId).toBe('ext-123');
       expect(row.date).toEqual(new Date('2024-01-15T10:30:00Z'));
-      expect(row.amount).toBe(-5000);
+      expect(row.amount).toBe(5000);
       expect(row.currency).toBe('UAH');
       expect(row.type).toBe('debit');
       expect(row.accountId).toBe(10);

@@ -186,6 +186,11 @@ async function phase2ProcessCancellations() {
     }
 
     const originalAmount = Math.abs(originalTx.amount);
+    const originalBankAmount = Math.abs(originalBankTx.amount);
+
+    // Detect if old code already reduced the amount
+    const alreadyReduced = originalAmount < originalBankAmount;
+    const expectedAmount = originalBankAmount - refundAmount;
 
     // Find any standalone cancellation transaction linked to this cancellation bank_tx
     const cancellationLinks = await db.execute<TransactionSource>(
@@ -195,9 +200,12 @@ async function phase2ProcessCancellations() {
     );
     const cancellationTransactionId = cancellationLinks[0]?.transaction_id ?? null;
 
-    if (refundAmount < originalAmount) {
-      // Partial refund
-      const newAmount = originalAmount - refundAmount;
+    if (refundAmount < originalBankAmount) {
+      // Partial refund — use the bank_tx amount as the true original
+      if (alreadyReduced) {
+        console.log(`    Already reduced by old code (bank: ${originalBankAmount}, tx: ${originalAmount}). Skipping amount update.`);
+      }
+      const newAmount = alreadyReduced ? originalAmount : expectedAmount;
       console.log(`    Partial refund: original amount ${originalAmount} - refund ${refundAmount} = ${newAmount}`);
 
       if (isDryRun) {

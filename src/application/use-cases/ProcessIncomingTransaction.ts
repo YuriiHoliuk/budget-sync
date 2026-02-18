@@ -156,7 +156,7 @@ export class ProcessIncomingTransactionUseCase extends UseCase<
     const { transaction: txData, accountExternalId } = input;
 
     const currency = Currency.fromNumericCode(txData.currencyCode);
-    const amount = Money.create(txData.amount, currency);
+    const amount = Money.create(Math.abs(txData.amount), currency);
 
     const operationCurrency = Currency.fromNumericCode(
       txData.operationCurrencyCode,
