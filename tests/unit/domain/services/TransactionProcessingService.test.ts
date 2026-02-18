@@ -136,7 +136,7 @@ describe('TransactionProcessingService', () => {
       expect(result.returningOriginalDescription).toBe('Glovo');
     });
 
-    test('returning transaction has type "returning"', () => {
+    test('cancellation transaction has null transaction', () => {
       const bankTx = makeBankTransaction({
         amount: 26812,
         type: 'credit',
@@ -145,10 +145,10 @@ describe('TransactionProcessingService', () => {
 
       const result = service.process(bankTx, defaultContext);
 
-      expect(result.transaction?.type).toBe('returning');
+      expect(result.transaction).toBeNull();
     });
 
-    test('returning amount is absolute value of bank transaction amount', () => {
+    test('cancellation returns null transaction regardless of amount', () => {
       const bankTx = makeBankTransaction({
         amount: 100,
         type: 'credit',
@@ -157,7 +157,7 @@ describe('TransactionProcessingService', () => {
 
       const result = service.process(bankTx, defaultContext);
 
-      expect(result.transaction?.amount).toBe(100);
+      expect(result.transaction).toBeNull();
     });
 
     test('strips cancellation prefix to get original description', () => {
@@ -169,7 +169,7 @@ describe('TransactionProcessingService', () => {
 
       const result = service.process(bankTx, defaultContext);
 
-      expect(result.transaction?.description).toBe('Some Merchant Name');
+      expect(result.transaction).toBeNull();
       expect(result.returningOriginalDescription).toBe('Some Merchant Name');
     });
 
@@ -187,7 +187,7 @@ describe('TransactionProcessingService', () => {
       expect(result.hasFee).toBe(false);
     });
 
-    test('preserves counterparty info on returning transaction', () => {
+    test('cancellation returns null transaction even with counterparty info', () => {
       const bankTx = makeBankTransaction({
         amount: 1000,
         type: 'credit',
@@ -199,11 +199,9 @@ describe('TransactionProcessingService', () => {
 
       const result = service.process(bankTx, defaultContext);
 
-      expect(result.transaction?.counterparty).toBe('Restaurant LLC');
-      expect(result.transaction?.counterpartyIban).toBe(
-        'UA111111111111111111111111111',
-      );
-      expect(result.transaction?.mcc).toBe(5812);
+      expect(result.transaction).toBeNull();
+      expect(result.isReturning).toBe(true);
+      expect(result.returningOriginalDescription).toBe('Restaurant');
     });
 
     test('does not detect as cancellation when prefix is only partial', () => {
@@ -303,7 +301,7 @@ describe('TransactionProcessingService', () => {
       // Cancellation wins
       expect(result.isReturning).toBe(true);
       expect(result.hasFee).toBe(false);
-      expect(result.transaction?.type).toBe('returning');
+      expect(result.transaction).toBeNull();
     });
 
     test('fee > normal (no cancellation)', () => {
@@ -335,8 +333,7 @@ describe('TransactionProcessingService', () => {
       const result = service.process(bankTx, defaultContext);
 
       expect(result.isReturning).toBe(true);
-      expect(result.transaction?.type).toBe('returning');
-      expect(result.transaction?.amount).toBe(100);
+      expect(result.transaction).toBeNull();
       expect(result.returningOriginalDescription).toBe('Львівавтодор');
     });
 
@@ -353,7 +350,7 @@ describe('TransactionProcessingService', () => {
       const result = service.process(bankTx, defaultContext);
 
       expect(result.isReturning).toBe(true);
-      expect(result.transaction?.amount).toBe(40059);
+      expect(result.transaction).toBeNull();
       expect(result.returningOriginalDescription).toBe('Glovo');
     });
 
@@ -370,7 +367,7 @@ describe('TransactionProcessingService', () => {
       const result = service.process(bankTx, defaultContext);
 
       expect(result.isReturning).toBe(true);
-      expect(result.transaction?.amount).toBe(26812);
+      expect(result.transaction).toBeNull();
       expect(result.returningOriginalDescription).toBe('ОККО');
     });
 

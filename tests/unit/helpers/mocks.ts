@@ -147,7 +147,6 @@ function getDefaultTransactionRepositoryMocks() {
     findCancellationCandidate: mock(() => Promise.resolve(null)),
     updateTransactionAmount: mock(() => Promise.resolve()),
     updateRecordType: mock(() => Promise.resolve()),
-    setAdjustedTransactionId: mock(() => Promise.resolve()),
     createTransferPair: mock(() => Promise.resolve()),
     deleteTransferPair: mock(() => Promise.resolve()),
   };

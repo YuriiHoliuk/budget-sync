@@ -14,7 +14,6 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   ArrowLeftRight,
-  RotateCcw,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -92,15 +91,6 @@ const TYPE_CONFIG: Record<string, { icon: typeof ArrowDownCircle; color: string;
     badge: {
       text: "Transfer",
       className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-    },
-  },
-  RETURNING: {
-    icon: RotateCcw,
-    color: "text-amber-600 dark:text-amber-400",
-    label: "Returning",
-    badge: {
-      text: "Returning",
-      className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
     },
   },
 };
@@ -674,6 +664,11 @@ function TransactionRow({
           {typeConfig.badge && (
             <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", typeConfig.badge.className)}>
               {typeConfig.badge.text}
+            </Badge>
+          )}
+          {transaction.type === "DEBIT" && transaction.bankTransactionCount > 1 && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+              Partial return
             </Badge>
           )}
           <span>

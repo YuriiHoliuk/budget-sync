@@ -36,7 +36,7 @@ export interface ProcessedTransaction {
   /** Always positive, minor units */
   amount: number;
   currency: string;
-  type: 'credit' | 'debit' | 'transfer' | 'returning';
+  type: 'credit' | 'debit' | 'transfer';
   accountId: number;
   description: string;
   counterparty?: string;
@@ -111,26 +111,14 @@ export class TransactionProcessingService {
 
   private processCancellation(
     bankTransaction: BankTransactionData,
-    context: ProcessingContext,
+    _context: ProcessingContext,
   ): ProcessingResult {
     const originalDescription = this.stripCancellationPrefix(
       bankTransaction.bankDescription ?? '',
     );
 
-    const transaction: ProcessedTransaction = {
-      date: bankTransaction.date,
-      amount: Math.abs(bankTransaction.amount),
-      currency: bankTransaction.currency,
-      type: 'returning',
-      accountId: context.accountId,
-      description: originalDescription,
-      counterparty: bankTransaction.counterparty,
-      counterpartyIban: bankTransaction.counterpartyIban,
-      mcc: bankTransaction.mcc,
-    };
-
     return {
-      transaction,
+      transaction: null,
       isReturning: true,
       returningOriginalDescription: originalDescription,
       hasFee: false,

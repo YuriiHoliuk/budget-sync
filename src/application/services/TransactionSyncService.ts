@@ -214,9 +214,9 @@ export class TransactionSyncService {
    * Detect returnings/cancellations among newly saved transactions.
    * For each cancellation credit, find the original debit and either:
    * - Full refund: delete both original and cancellation transactions
-   * - Partial refund: reduce original amount, mark cancellation as returning
+   * - Partial refund: reduce original amount, link cancellation bank_tx to original, delete cancellation tx
    *
-   * Returns the set of transaction IDs that were deleted (full refund),
+   * Returns the set of transaction IDs that were deleted,
    * so callers can skip further processing on them.
    */
   async detectReturnings(
@@ -230,8 +230,8 @@ export class TransactionSyncService {
         transaction,
         accountDbId,
       );
-      if (deleted) {
-        deletedIds.add(deleted);
+      for (const id of deleted) {
+        deletedIds.add(id);
       }
     }
 
@@ -241,17 +241,17 @@ export class TransactionSyncService {
   private async detectReturningForTransaction(
     transaction: Transaction,
     accountDbId: number,
-  ): Promise<number | null> {
+  ): Promise<number[]> {
     const dbId = transaction.dbId;
     if (dbId === null) {
-      return null;
+      return [];
     }
 
     const context: ProcessingContext = { accountId: accountDbId };
     const result = this.classifyTransaction(transaction, context);
 
     if (!result.isReturning || !result.returningOriginalDescription) {
-      return null;
+      return [];
     }
 
     const refundAmount = Math.abs(transaction.amount.amount);
@@ -275,16 +275,14 @@ export class TransactionSyncService {
         description: result.returningOriginalDescription,
         refundAmount,
       });
-      return null;
+      return [];
     }
 
-    const originalAbsAmount = Math.abs(candidate.amount);
+    const originalAmount = candidate.amount;
 
-    if (refundAmount >= originalAbsAmount) {
-      // Full refund: delete cancellation and original
-      // Delete cancellation (current transaction)
+    if (refundAmount >= originalAmount) {
+      // Full refund: delete both cancellation and original transactions
       await this.transactionRepository.delete(transaction.externalId);
-      // Delete original (look up by dbId to get externalId)
       const originalTx = await this.transactionRepository.findByDbId(
         candidate.id,
       );
@@ -294,46 +292,45 @@ export class TransactionSyncService {
       this.logger.info('Full refund: deleted original and cancellation', {
         originalId: candidate.id,
         cancellationId: dbId,
-        amount: originalAbsAmount,
+        amount: originalAmount,
       });
-      return dbId;
+      return [dbId, candidate.id];
     }
 
-    // Partial refund: reduce original amount, mark cancellation as returning
-    const newOriginalAmount = candidate.amount + refundAmount;
+    // Partial refund: reduce original amount, link cancellation bank_tx to original, delete cancellation tx
+    const newOriginalAmount = originalAmount - refundAmount;
     await this.transactionRepository.updateTransactionAmount(
       candidate.id,
       newOriginalAmount,
     );
-    await this.transactionRepository.updateRecordType(dbId, 'returning');
-    await this.transactionRepository.setAdjustedTransactionId(
-      dbId,
-      candidate.id,
+
+    // Link cancellation's bank_transaction to the original transaction
+    const cancellationBankTx =
+      await this.bankTransactionRepository.findByExternalId(
+        transaction.externalId,
+      );
+    if (cancellationBankTx) {
+      await this.bankTransactionRepository.linkTransactionSource(
+        candidate.id,
+        cancellationBankTx.id,
+      );
+    }
+
+    // Delete the cancellation transaction (bank_tx stays linked to original)
+    await this.transactionRepository.delete(transaction.externalId);
+
+    this.logger.info(
+      'Partial refund: reduced original, linked bank_tx, deleted cancellation',
+      {
+        originalId: candidate.id,
+        cancellationId: dbId,
+        originalAmount,
+        newAmount: newOriginalAmount,
+        refundAmount,
+      },
     );
 
-    // Copy category/budget from original to returning
-    if (candidate.categoryId !== null) {
-      await this.transactionRepository.updateRecordCategory(
-        dbId,
-        candidate.categoryId,
-      );
-    }
-    if (candidate.budgetId !== null) {
-      await this.transactionRepository.updateRecordBudget(
-        dbId,
-        candidate.budgetId,
-      );
-    }
-
-    this.logger.info('Partial refund: reduced original, marked returning', {
-      originalId: candidate.id,
-      cancellationId: dbId,
-      originalAmount: candidate.amount,
-      newAmount: newOriginalAmount,
-      refundAmount,
-    });
-
-    return null;
+    return [dbId];
   }
 
   /**
@@ -367,15 +364,15 @@ export class TransactionSyncService {
     }
 
     const feeAmount = result.feeAmount;
-    // Reduce main transaction amount: e.g. -50000 + 2500 = -47500
-    const newAmount = transaction.amount.amount + feeAmount;
+    // Reduce main transaction amount: e.g. 50000 - 2500 = 47500
+    const newAmount = transaction.amount.amount - feeAmount;
     await this.transactionRepository.updateTransactionAmount(dbId, newAmount);
 
     // Create fee transaction
     const feeTransaction = Transaction.create({
       externalId: `${transaction.externalId}-fee`,
       date: transaction.date,
-      amount: Money.create(-feeAmount, transaction.amount.currency),
+      amount: Money.create(feeAmount, transaction.amount.currency),
       description: 'Bank commission',
       type: TransactionType.DEBIT,
       accountId: transaction.accountId,

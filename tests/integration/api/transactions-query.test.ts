@@ -127,7 +127,7 @@ describe('Query: transactions', () => {
     await createTestTransaction(harness.getDb(), {
       accountId: account.id,
       accountExternalId: account.externalId,
-      amount: -35000, // 350 UAH expense
+      amount: 35000, // 350 UAH expense (positive, type=debit determines direction)
       type: 'debit',
       currency: 'UAH',
       counterparty: 'Silpo',

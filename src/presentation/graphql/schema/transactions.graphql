@@ -45,16 +45,6 @@ extend type Mutation {
   """
   unmarkTransfer(outgoingTransactionId: Int!, incomingTransactionId: Int!): Boolean!
 
-  """
-  Mark a transaction as a returning of another transaction.
-  Sets the returning transaction type to RETURNING and links it to the original.
-  """
-  markAsReturning(returningTransactionId: Int!, originalTransactionId: Int!): Boolean!
-
-  """
-  Unmark a transaction as a returning. Reverts its type and clears the link.
-  """
-  unmarkReturning(transactionId: Int!): Boolean!
 }
 
 input TransactionFilter {
@@ -218,11 +208,6 @@ type Transaction {
   notes: String
 
   """
-  For returnings: the database ID of the original transaction being adjusted.
-  """
-  adjustedTransactionId: Int
-
-  """
   How many bank_transactions are linked to this transaction via transaction_sources.
   """
   bankTransactionCount: Int!
@@ -252,7 +237,6 @@ enum TransactionTypeEnum {
   CREDIT
   DEBIT
   TRANSFER
-  RETURNING
 }
 
 type BankTransaction {

@@ -6,7 +6,6 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   ArrowLeftRight,
-  RotateCcw,
   Calendar,
   CreditCard,
   Building2,
@@ -23,7 +22,6 @@ import {
   ChevronDown,
   ChevronUp,
   Database,
-  Link2,
 } from "lucide-react";
 import {
   Sheet,
@@ -85,12 +83,6 @@ const TYPE_CONFIG: Record<string, { icon: typeof ArrowDownCircle; color: string;
     color: "text-blue-600 dark:text-blue-400",
     bgColor: "bg-blue-100 dark:bg-blue-900/30",
     label: "Transfer",
-  },
-  RETURNING: {
-    icon: RotateCcw,
-    color: "text-amber-600 dark:text-amber-400",
-    bgColor: "bg-amber-100 dark:bg-amber-900/30",
-    label: "Returning",
   },
 };
 
@@ -446,18 +438,6 @@ function TransactionDetailContent({
 
           </div>
         </div>
-
-        {transaction.adjustedTransactionId != null && (
-          <>
-            <Separator />
-            <div className="flex items-center gap-2">
-              <Link2 className="h-4 w-4 text-muted-foreground" />
-              <Badge variant="outline" className="gap-1 text-xs">
-                Adjusts transaction #{transaction.adjustedTransactionId}
-              </Badge>
-            </div>
-          </>
-        )}
 
         {transaction.bankTransactionCount > 0 && (
           <>
