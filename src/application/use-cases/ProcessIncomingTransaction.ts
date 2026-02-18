@@ -95,6 +95,29 @@ export class ProcessIncomingTransactionUseCase extends UseCase<
     }
 
     if (account.dbId !== null) {
+      const deletedIds = await this.transactionSyncService.detectReturnings(
+        [savedTransaction],
+        account.dbId,
+      );
+
+      // If full refund deleted the transaction, skip all further processing
+      if (
+        savedTransaction.dbId !== null &&
+        deletedIds.has(savedTransaction.dbId)
+      ) {
+        const newBalance = this.reconstructBalance(input);
+        await this.accountRepository.updateBalance(
+          account.externalId,
+          newBalance,
+        );
+        return this.createSavedResult(transactionExternalId);
+      }
+
+      await this.transactionSyncService.detectFeeSplits(
+        [savedTransaction],
+        account.dbId,
+      );
+
       const allActiveAccounts = await this.accountRepository.findActive();
       const ownAccountIds = allActiveAccounts
         .map((activeAccount) => activeAccount.dbId)

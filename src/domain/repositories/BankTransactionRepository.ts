@@ -31,4 +31,11 @@ export abstract class BankTransactionRepository {
   abstract findByTransactionId(
     transactionId: number,
   ): Promise<BankTransaction[]>;
+  abstract linkTransactionSource(
+    transactionId: number,
+    bankTransactionId: number,
+  ): Promise<void>;
+  abstract linkTransactionSources(
+    links: Array<{ transactionId: number; bankTransactionId: number }>,
+  ): Promise<void>;
 }

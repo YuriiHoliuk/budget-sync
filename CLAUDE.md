@@ -156,6 +156,10 @@ just codegen         # Generate GraphQL types (first time or after schema change
 just dev-web         # Start frontend (port 3000)
 ```
 
+## Roadmap
+
+Project roadmap lives in `ROADMAP.md` in the repo root. Check it for current priorities and planned work.
+
 ## Resources
 
 - Spreadsheet: https://docs.google.com/spreadsheets/d/135dmcPNwvPA8tEuND4-UlUwMmPqpiNZBINoQJH1qJCw/edit

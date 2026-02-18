@@ -9,6 +9,7 @@ import type {
   ProcessingResult,
   TransactionProcessingService,
 } from '@domain/services/TransactionProcessingService.ts';
+import { Money, TransactionType } from '@domain/value-objects/index.ts';
 import type { Logger } from '@modules/logging/index.ts';
 import { transactionToBankTransaction } from './BankTransactionMapper.ts';
 
@@ -25,6 +26,9 @@ export interface TransactionSyncResult {
 
 /** Time window for matching transfer candidates (5 minutes). */
 const TRANSFER_TIME_WINDOW_MS = 5 * 60 * 1000;
+
+/** Time window for matching cancellation/returning candidates (30 days). */
+const RETURNING_TIME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Shared application service that encapsulates the common sync logic for
@@ -207,6 +211,199 @@ export class TransactionSyncService {
   }
 
   /**
+   * Detect returnings/cancellations among newly saved transactions.
+   * For each cancellation credit, find the original debit and either:
+   * - Full refund: delete both original and cancellation transactions
+   * - Partial refund: reduce original amount, mark cancellation as returning
+   *
+   * Returns the set of transaction IDs that were deleted (full refund),
+   * so callers can skip further processing on them.
+   */
+  async detectReturnings(
+    savedTransactions: Transaction[],
+    accountDbId: number,
+  ): Promise<Set<number>> {
+    const deletedIds = new Set<number>();
+
+    for (const transaction of savedTransactions) {
+      const deleted = await this.detectReturningForTransaction(
+        transaction,
+        accountDbId,
+      );
+      if (deleted) {
+        deletedIds.add(deleted);
+      }
+    }
+
+    return deletedIds;
+  }
+
+  private async detectReturningForTransaction(
+    transaction: Transaction,
+    accountDbId: number,
+  ): Promise<number | null> {
+    const dbId = transaction.dbId;
+    if (dbId === null) {
+      return null;
+    }
+
+    const context: ProcessingContext = { accountId: accountDbId };
+    const result = this.classifyTransaction(transaction, context);
+
+    if (!result.isReturning || !result.returningOriginalDescription) {
+      return null;
+    }
+
+    const refundAmount = Math.abs(transaction.amount.amount);
+    const dateFrom = new Date(
+      transaction.date.getTime() - RETURNING_TIME_WINDOW_MS,
+    );
+    const dateTo = transaction.date;
+
+    const candidate =
+      await this.transactionRepository.findCancellationCandidate({
+        accountId: accountDbId,
+        bankDescription: result.returningOriginalDescription,
+        refundAmount,
+        dateFrom,
+        dateTo,
+      });
+
+    if (!candidate) {
+      this.logger.warn('Returning transaction has no matching original', {
+        transactionId: dbId,
+        description: result.returningOriginalDescription,
+        refundAmount,
+      });
+      return null;
+    }
+
+    const originalAbsAmount = Math.abs(candidate.amount);
+
+    if (refundAmount >= originalAbsAmount) {
+      // Full refund: delete cancellation and original
+      // Delete cancellation (current transaction)
+      await this.transactionRepository.delete(transaction.externalId);
+      // Delete original (look up by dbId to get externalId)
+      const originalTx = await this.transactionRepository.findByDbId(
+        candidate.id,
+      );
+      if (originalTx) {
+        await this.transactionRepository.delete(originalTx.externalId);
+      }
+      this.logger.info('Full refund: deleted original and cancellation', {
+        originalId: candidate.id,
+        cancellationId: dbId,
+        amount: originalAbsAmount,
+      });
+      return dbId;
+    }
+
+    // Partial refund: reduce original amount, mark cancellation as returning
+    const newOriginalAmount = candidate.amount + refundAmount;
+    await this.transactionRepository.updateTransactionAmount(
+      candidate.id,
+      newOriginalAmount,
+    );
+    await this.transactionRepository.updateRecordType(dbId, 'returning');
+    await this.transactionRepository.setAdjustedTransactionId(
+      dbId,
+      candidate.id,
+    );
+
+    // Copy category/budget from original to returning
+    if (candidate.categoryId !== null) {
+      await this.transactionRepository.updateRecordCategory(
+        dbId,
+        candidate.categoryId,
+      );
+    }
+    if (candidate.budgetId !== null) {
+      await this.transactionRepository.updateRecordBudget(
+        dbId,
+        candidate.budgetId,
+      );
+    }
+
+    this.logger.info('Partial refund: reduced original, marked returning', {
+      originalId: candidate.id,
+      cancellationId: dbId,
+      originalAmount: candidate.amount,
+      newAmount: newOriginalAmount,
+      refundAmount,
+    });
+
+    return null;
+  }
+
+  /**
+   * Detect fee splits among newly saved transactions.
+   * For transactions with commission > 0, reduce main amount
+   * and create a separate fee transaction.
+   */
+  async detectFeeSplits(
+    savedTransactions: Transaction[],
+    accountDbId: number,
+  ): Promise<void> {
+    for (const transaction of savedTransactions) {
+      await this.detectFeeSplitForTransaction(transaction, accountDbId);
+    }
+  }
+
+  private async detectFeeSplitForTransaction(
+    transaction: Transaction,
+    accountDbId: number,
+  ): Promise<void> {
+    const dbId = transaction.dbId;
+    if (dbId === null) {
+      return;
+    }
+
+    const context: ProcessingContext = { accountId: accountDbId };
+    const result = this.classifyTransaction(transaction, context);
+
+    if (!result.hasFee || !result.feeAmount) {
+      return;
+    }
+
+    const feeAmount = result.feeAmount;
+    // Reduce main transaction amount: e.g. -50000 + 2500 = -47500
+    const newAmount = transaction.amount.amount + feeAmount;
+    await this.transactionRepository.updateTransactionAmount(dbId, newAmount);
+
+    // Create fee transaction
+    const feeTransaction = Transaction.create({
+      externalId: `${transaction.externalId}-fee`,
+      date: transaction.date,
+      amount: Money.create(-feeAmount, transaction.amount.currency),
+      description: 'Bank commission',
+      type: TransactionType.DEBIT,
+      accountId: transaction.accountId,
+    });
+
+    const savedFee =
+      await this.transactionRepository.saveAndReturn(feeTransaction);
+
+    // Link fee transaction to the same bank_transaction
+    const bankTx = await this.bankTransactionRepository.findByExternalId(
+      transaction.externalId,
+    );
+    if (bankTx && savedFee.dbId !== null) {
+      await this.bankTransactionRepository.linkTransactionSource(
+        savedFee.dbId,
+        bankTx.id,
+      );
+    }
+
+    this.logger.info('Fee split: reduced amount, created fee transaction', {
+      originalId: dbId,
+      feeTransactionId: savedFee.dbId,
+      feeAmount,
+      newAmount,
+    });
+  }
+
+  /**
    * Categorize incoming transactions into new, to update, or skipped.
    */
   private categorizeTransactions(
@@ -272,7 +469,8 @@ export class TransactionSyncService {
   }
 
   /**
-   * Save bank transaction records for a batch (best-effort, deduplicates).
+   * Save bank transaction records for a batch (best-effort, deduplicates)
+   * and create transaction_sources links.
    */
   private async saveBankTransactions(
     transactions: Transaction[],
@@ -298,9 +496,18 @@ export class TransactionSyncService {
           transactionToBankTransaction(transaction, accountDbId),
         );
 
+      let savedBankTransactions: import('@domain/entities/BankTransaction.ts').BankTransaction[] =
+        [];
       if (newBankTransactions.length > 0) {
-        await this.bankTransactionRepository.saveMany(newBankTransactions);
+        savedBankTransactions =
+          await this.bankTransactionRepository.saveMany(newBankTransactions);
       }
+
+      await this.buildAndLinkTransactionSources(
+        transactions,
+        savedBankTransactions,
+        existingBankTransactions,
+      );
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
@@ -311,7 +518,44 @@ export class TransactionSyncService {
   }
 
   /**
-   * Save a single bank transaction record (best-effort, deduplicates).
+   * Build and persist transaction_sources links from saved + existing bank transactions.
+   */
+  private async buildAndLinkTransactionSources(
+    transactions: Transaction[],
+    savedBankTransactions: import('@domain/entities/BankTransaction.ts').BankTransaction[],
+    existingBankTransactions: Map<
+      string,
+      import('@domain/entities/BankTransaction.ts').BankTransaction
+    >,
+  ): Promise<void> {
+    const externalIdToBankTxId = new Map<string, number>();
+    for (const bankTx of savedBankTransactions) {
+      externalIdToBankTxId.set(bankTx.externalId, bankTx.id);
+    }
+    for (const [extId, bankTx] of existingBankTransactions) {
+      externalIdToBankTxId.set(extId, bankTx.id);
+    }
+
+    const links: Array<{
+      transactionId: number;
+      bankTransactionId: number;
+    }> = [];
+    for (const transaction of transactions) {
+      const txDbId = transaction.dbId;
+      const bankTxId = externalIdToBankTxId.get(transaction.externalId);
+      if (txDbId !== null && bankTxId !== undefined) {
+        links.push({ transactionId: txDbId, bankTransactionId: bankTxId });
+      }
+    }
+
+    if (links.length > 0) {
+      await this.bankTransactionRepository.linkTransactionSources(links);
+    }
+  }
+
+  /**
+   * Save a single bank transaction record (best-effort, deduplicates)
+   * and create transaction_sources link.
    */
   private async saveSingleBankTransaction(
     transaction: Transaction,
@@ -322,18 +566,30 @@ export class TransactionSyncService {
     }
 
     try {
+      let bankTxId: number | undefined;
+
       const existing = await this.bankTransactionRepository.findByExternalId(
         transaction.externalId,
       );
       if (existing) {
-        return;
+        bankTxId = existing.id;
+      } else {
+        const bankTransaction = transactionToBankTransaction(
+          transaction,
+          accountDbId,
+        );
+        const saved =
+          await this.bankTransactionRepository.save(bankTransaction);
+        bankTxId = saved.id;
       }
 
-      const bankTransaction = transactionToBankTransaction(
-        transaction,
-        accountDbId,
-      );
-      await this.bankTransactionRepository.save(bankTransaction);
+      const txDbId = transaction.dbId;
+      if (txDbId !== null && bankTxId !== undefined) {
+        await this.bankTransactionRepository.linkTransactionSource(
+          txDbId,
+          bankTxId,
+        );
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';

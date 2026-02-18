@@ -467,4 +467,30 @@ export class SpreadsheetTransactionRepository
       'findTransferCandidate is not supported by SpreadsheetTransactionRepository',
     );
   }
+
+  findCancellationCandidate(_params: {
+    accountId: number;
+    bankDescription: string;
+    refundAmount: number;
+    dateFrom: Date;
+    dateTo: Date;
+  }): Promise<{
+    id: number;
+    amount: number;
+    categoryId: number | null;
+    budgetId: number | null;
+    categorizationStatus: string | null;
+    categoryReason: string | null;
+    budgetReason: string | null;
+  } | null> {
+    throw new Error(
+      'findCancellationCandidate is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  updateTransactionAmount(_dbId: number, _amount: number): Promise<void> {
+    throw new Error(
+      'updateTransactionAmount is not supported by SpreadsheetTransactionRepository',
+    );
+  }
 }
