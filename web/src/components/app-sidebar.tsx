@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -79,11 +80,15 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href={`/budgets/${month}`}>
-                <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg text-sm font-bold">
-                  B
-                </div>
+                <Image
+                  src="/logo.svg"
+                  alt="Netto"
+                  width={32}
+                  height={32}
+                  className="size-8 rounded-lg"
+                />
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Budget Sync</span>
+                  <span className="truncate font-semibold">Netto</span>
                   <span className="truncate text-xs text-muted-foreground">
                     Personal Finance
                   </span>

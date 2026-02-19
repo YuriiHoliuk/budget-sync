@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 
-const AUTH_STORAGE_KEY = "budget-sync-auth-email";
+const AUTH_STORAGE_KEY = "netto-auth-email";
 const ALLOWED_EMAIL = process.env.NEXT_PUBLIC_ALLOWED_EMAIL || "";
 const ALLOWED_PASSWORD = process.env.NEXT_PUBLIC_ALLOWED_PASSWORD || "";
 

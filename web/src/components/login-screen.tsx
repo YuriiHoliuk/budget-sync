@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Wallet } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import Image from "next/image";
 
 export function LoginScreen() {
   const { login } = useAuth();
@@ -39,10 +40,14 @@ export function LoginScreen() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Wallet className="h-6 w-6 text-primary" />
-          </div>
-          <CardTitle className="text-2xl">Budget Sync</CardTitle>
+          <Image
+            src="/logo.svg"
+            alt="Netto"
+            width={48}
+            height={48}
+            className="mx-auto mb-4"
+          />
+          <CardTitle className="text-2xl">Netto</CardTitle>
           <CardDescription>
             Personal finance management with envelope budgeting
           </CardDescription>

@@ -10,8 +10,16 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Budget Sync",
+  title: "Netto",
   description: "Personal finance management with envelope budgeting",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/logo.svg", type: "image/svg+xml" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({
