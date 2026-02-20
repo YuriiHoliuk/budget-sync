@@ -28,25 +28,40 @@ export class TransactionsPage extends BasePage {
     return this.byQa('btn-clear-filters');
   }
 
+  get applyFiltersButton(): Locator {
+    return this.byQa('btn-apply-filters');
+  }
+
+  get resetFiltersButton(): Locator {
+    return this.byQa('btn-reset-filters');
+  }
+
   get activeFiltersBadge(): Locator {
     return this.byQa('badge-active-filters');
   }
 
   /**
-   * Search for transactions by description
+   * Search for transactions by description and apply
    */
   async search(query: string): Promise<void> {
     await this.searchInput.fill(query);
-    await this.searchInput.press('Enter');
+    // Wait for debounce (300ms) to update draft filters
+    await this.page.waitForTimeout(400);
+    await this.applyFilters();
   }
 
   /**
-   * Clear all filters
+   * Apply draft filters
+   */
+  async applyFilters(): Promise<void> {
+    await this.applyFiltersButton.click();
+  }
+
+  /**
+   * Reset all filters
    */
   async clearFilters(): Promise<void> {
-    if (await this.clearFiltersButton.isVisible()) {
-      await this.clearFiltersButton.click();
-    }
+    await this.resetFiltersButton.click();
   }
 
   /**
@@ -61,43 +76,48 @@ export class TransactionsPage extends BasePage {
   }
 
   /**
-   * Filter by account (sidebar is always visible on desktop)
+   * Filter by account and apply
    */
   async filterByAccount(accountName: string): Promise<void> {
     await this.byQa('select-account-filter').click();
     await this.page.getByRole('option', { name: accountName }).click();
+    await this.applyFilters();
   }
 
   /**
-   * Filter by category
+   * Filter by category and apply
    */
   async filterByCategory(categoryName: string): Promise<void> {
     await this.byQa('select-category-filter').click();
     await this.page.getByRole('option', { name: categoryName }).click();
+    await this.applyFilters();
   }
 
   /**
-   * Filter by budget
+   * Filter by budget and apply
    */
   async filterByBudget(budgetName: string): Promise<void> {
     await this.byQa('select-budget-filter').click();
     await this.page.getByRole('option', { name: budgetName }).click();
+    await this.applyFilters();
   }
 
   /**
-   * Filter by transaction type
+   * Filter by transaction type and apply
    */
   async filterByType(type: 'Income' | 'Expense'): Promise<void> {
     await this.byQa('select-type-filter').click();
     await this.page.getByRole('option', { name: type }).click();
+    await this.applyFilters();
   }
 
   /**
-   * Filter by status
+   * Filter by status and apply
    */
   async filterByStatus(status: 'Pending' | 'Categorized' | 'Verified'): Promise<void> {
     await this.byQa('select-status-filter').click();
     await this.page.getByRole('option', { name: status }).click();
+    await this.applyFilters();
   }
 
   // ========== TABLE ==========

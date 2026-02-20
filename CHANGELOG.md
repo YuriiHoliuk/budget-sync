@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-02-20
+
+### Added
+- Draft/applied filter pattern for transaction sidebar — filter changes no longer trigger immediate GraphQL refetch (APPLY-002)
+- Apply and Reset buttons at bottom of transaction filter sidebar with visual indication of unapplied changes (APPLY-003)
+- `useDebouncedValue` hook with 300ms debounce on search input to prevent excessive keystroke-driven updates (APPLY-001)
+- Updated E2E page object: `applyFilters()` method, all `filterBy*` methods now include Apply step (APPLY-004)
+
 ## 2026-02-15
 
 ### Fixed

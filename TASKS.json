@@ -105,7 +105,7 @@
     "id": "APPLY-001",
     "phase": "APPLY: Sidebar Filter Apply Button",
     "title": "Add debounced search input for transaction sidebar filters",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/transaction-filter-apply-button.md",
     "description": "Implement a useDebouncedValue hook in web/src/hooks/use-debounced-value.ts and apply a 300ms debounce to the search input in TransactionFiltersSidebar. This prevents a GraphQL refetch on every keystroke. The search input continues to update the local input value immediately for responsive UX, but the debounced value drives the actual filter state.",
     "dependencies": []
@@ -114,7 +114,7 @@
     "id": "APPLY-002",
     "phase": "APPLY: Sidebar Filter Apply Button",
     "title": "Split sidebar filter state into draft and applied",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/transaction-filter-apply-button.md",
     "description": "In TransactionsTable, replace the single `filters` state with `draftFilters` and `appliedFilters`. Wire useQuery to appliedFilters only (so draft changes in the sidebar do not trigger refetch). Wire TransactionFiltersSidebar to read/write draftFilters. Update the Clear button to reset both states. URL sync should use appliedFilters.",
     "dependencies": []
@@ -123,7 +123,7 @@
     "id": "APPLY-003",
     "phase": "APPLY: Sidebar Filter Apply Button",
     "title": "Add Apply and Reset buttons to filter sidebar",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/transaction-filter-apply-button.md",
     "description": "Add Apply and Reset buttons at the bottom of TransactionFiltersSidebar. Apply copies draftFilters to appliedFilters, resets page to 0. Reset clears draftFilters to emptyFilters. Apply button is primary when there are unapplied changes, disabled/secondary otherwise. For mobile Sheet, add same buttons. Add data-qa attributes: btn-apply-filters, btn-reset-filters.",
     "dependencies": ["APPLY-002"]
@@ -132,7 +132,7 @@
     "id": "APPLY-004",
     "phase": "APPLY: Sidebar Filter Apply Button",
     "title": "Update E2E page object and tests for sidebar Apply button",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/transaction-filter-apply-button.md",
     "description": "Update TransactionsPage.ts page object: add applyFilters() method that clicks the Apply button in the sidebar. Update filterByAccount(), filterByCategory(), filterByBudget(), filterByType(), filterByStatus() to set the filter value and then call applyFilters(). Update verify-transaction.spec.ts and other E2E tests to work with the new flow. Add data-qa selectors for new buttons.",
     "dependencies": ["APPLY-003"]

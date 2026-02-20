@@ -179,7 +179,7 @@ export function TransactionsTable() {
   const pathname = usePathname();
   const isInitialMount = useRef(true);
 
-  const [filters, setFilters] = useState<TransactionFilters>(() => {
+  const initialFilters = useState<TransactionFilters>(() => {
     const parsed = parseTransactionFiltersFromParams(searchParams);
     return {
       search: parsed.search ?? "",
@@ -191,7 +191,10 @@ export function TransactionsTable() {
       dateFrom: parsed.dateFrom ?? "",
       dateTo: parsed.dateTo ?? "",
     };
-  });
+  })[0];
+
+  const [appliedFilters, setAppliedFilters] = useState<TransactionFilters>(initialFilters);
+  const [draftFilters, setDraftFilters] = useState<TransactionFilters>(initialFilters);
   const [page, setPage] = useState(() => {
     const pageParam = searchParams.get("page");
     if (!pageParam) return 0;
@@ -203,18 +206,18 @@ export function TransactionsTable() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
 
-  // Sync state changes back to URL
+  // Sync applied filters back to URL
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-    const params = filtersToUrlParams(filters, page);
+    const params = filtersToUrlParams(appliedFilters, page);
     const query = params.toString();
     router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
-  }, [filters, page, router, pathname]);
+  }, [appliedFilters, page, router, pathname]);
 
-  const gqlFilter = useMemo(() => filtersToGraphQL(filters), [filters]);
+  const gqlFilter = useMemo(() => filtersToGraphQL(appliedFilters), [appliedFilters]);
 
   const { data, loading, error, refetch } = useQuery(GetTransactionsDocument, {
     variables: {
@@ -259,18 +262,26 @@ export function TransactionsTable() {
     [budgetsData]
   );
 
-  const handleFilterChange = useCallback(
+  const handleDraftFilterChange = useCallback(
     (key: keyof TransactionFilters, value: string | number | null) => {
-      setFilters((prev) => ({ ...prev, [key]: value }));
-      setPage(0);
+      setDraftFilters((prev) => ({ ...prev, [key]: value }));
     },
     []
   );
 
-  const handleClearFilters = useCallback(() => {
-    setFilters(emptyFilters);
+  const handleApplyFilters = useCallback(() => {
+    setAppliedFilters(draftFilters);
+    setPage(0);
+    setMobileFiltersOpen(false);
+  }, [draftFilters]);
+
+  const handleResetFilters = useCallback(() => {
+    setDraftFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
     setPage(0);
   }, []);
+
+  const handleClearFilters = handleResetFilters;
 
   const handleCategoryChange = async (transactionId: number, categoryId: number | null) => {
     await updateCategory({
@@ -292,7 +303,7 @@ export function TransactionsTable() {
     });
   };
 
-  const activeFilterCount = countActiveFilters(filters);
+  const activeFilterCount = countActiveFilters(appliedFilters);
 
   if (loading && transactions.length === 0) {
     return <TransactionsTableSkeleton />;
@@ -309,13 +320,15 @@ export function TransactionsTable() {
   }
 
   const sidebarProps = {
-    filters,
+    filters: draftFilters,
+    appliedFilters,
     accounts,
     categories,
     budgets,
     activeFilterCount,
-    onFilterChange: handleFilterChange,
-    onClearFilters: handleClearFilters,
+    onFilterChange: handleDraftFilterChange,
+    onApply: handleApplyFilters,
+    onReset: handleResetFilters,
   };
 
   return (
