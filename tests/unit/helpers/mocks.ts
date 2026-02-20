@@ -11,6 +11,7 @@ import type { Budget } from '@domain/entities/Budget.ts';
 import type { BudgetGroup } from '@domain/entities/BudgetGroup.ts';
 import type { BudgetTarget } from '@domain/entities/BudgetTarget.ts';
 import type { Category } from '@domain/entities/Category.ts';
+import type { Rule } from '@domain/entities/Rule.ts';
 import type { Transaction } from '@domain/entities/Transaction.ts';
 import type { BankGateway } from '@domain/gateways/BankGateway.ts';
 import type {
@@ -396,10 +397,20 @@ export function createMockLLMGateway(
 export function createMockCategorizationRuleRepository(
   overrides: Partial<{
     findAll: () => Promise<string[]>;
+    findAllRules: () => Promise<Rule[]>;
+    findById: (id: number) => Promise<Rule | null>;
+    save: (rule: Rule) => Promise<Rule>;
+    update: (rule: Rule) => Promise<Rule>;
+    delete: (id: number) => Promise<void>;
   }> = {},
 ): CategorizationRuleRepository {
   return {
     findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
+    findAllRules: overrides.findAllRules ?? mock(() => Promise.resolve([])),
+    findById: overrides.findById ?? mock(() => Promise.resolve(null)),
+    save: overrides.save ?? mock((rule: Rule) => Promise.resolve(rule)),
+    update: overrides.update ?? mock((rule: Rule) => Promise.resolve(rule)),
+    delete: overrides.delete ?? mock(() => Promise.resolve()),
   } as unknown as CategorizationRuleRepository;
 }
 
@@ -446,10 +457,20 @@ export function createMockAllocationRepository(
 export function createMockBudgetizationRuleRepository(
   overrides: Partial<{
     findAll: () => Promise<string[]>;
+    findAllRules: () => Promise<Rule[]>;
+    findById: (id: number) => Promise<Rule | null>;
+    save: (rule: Rule) => Promise<Rule>;
+    update: (rule: Rule) => Promise<Rule>;
+    delete: (id: number) => Promise<void>;
   }> = {},
 ): BudgetizationRuleRepository {
   return {
     findAll: overrides.findAll ?? mock(() => Promise.resolve([])),
+    findAllRules: overrides.findAllRules ?? mock(() => Promise.resolve([])),
+    findById: overrides.findById ?? mock(() => Promise.resolve(null)),
+    save: overrides.save ?? mock((rule: Rule) => Promise.resolve(rule)),
+    update: overrides.update ?? mock((rule: Rule) => Promise.resolve(rule)),
+    delete: overrides.delete ?? mock(() => Promise.resolve()),
   } as unknown as BudgetizationRuleRepository;
 }
 

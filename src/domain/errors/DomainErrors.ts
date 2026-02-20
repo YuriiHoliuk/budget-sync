@@ -168,3 +168,12 @@ export class BudgetGroupNameEmptyError extends DomainError {
     super('Budget group name cannot be empty');
   }
 }
+
+/**
+ * Thrown when a rule cannot be found by its identifier.
+ */
+export class RuleNotFoundError extends DomainError {
+  constructor(public readonly ruleId: number) {
+    super(`Rule not found with id: ${ruleId}`);
+  }
+}

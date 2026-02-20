@@ -40,6 +40,11 @@ export {
 } from './money.ts';
 
 export {
+  mapRuleToGql,
+  type RuleGql,
+} from './rule.ts';
+
+export {
   CATEGORIZATION_STATUS_TO_GQL,
   mapTransactionRecordToGql,
   TRANSACTION_TYPE_TO_GQL,

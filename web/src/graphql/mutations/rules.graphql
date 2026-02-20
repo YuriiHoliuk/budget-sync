@@ -1,0 +1,47 @@
+mutation CreateCategorizationRule($input: CreateRuleInput!) {
+  createCategorizationRule(input: $input) {
+    id
+    rule
+    priority
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateCategorizationRule($input: UpdateRuleInput!) {
+  updateCategorizationRule(input: $input) {
+    id
+    rule
+    priority
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteCategorizationRule($id: Int!) {
+  deleteCategorizationRule(id: $id)
+}
+
+mutation CreateBudgetizationRule($input: CreateRuleInput!) {
+  createBudgetizationRule(input: $input) {
+    id
+    rule
+    priority
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateBudgetizationRule($input: UpdateRuleInput!) {
+  updateBudgetizationRule(input: $input) {
+    id
+    rule
+    priority
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteBudgetizationRule($id: Int!) {
+  deleteBudgetizationRule(id: $id)
+}

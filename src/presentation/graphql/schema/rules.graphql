@@ -1,0 +1,66 @@
+extend type Query {
+  """
+  Get all categorization rules (LLM instructions for category assignment).
+  """
+  categorizationRules: [Rule!]!
+
+  """
+  Get all budgetization rules (LLM instructions for budget assignment).
+  """
+  budgetizationRules: [Rule!]!
+}
+
+extend type Mutation {
+  """
+  Create a new categorization rule.
+  """
+  createCategorizationRule(input: CreateRuleInput!): Rule!
+
+  """
+  Update an existing categorization rule.
+  """
+  updateCategorizationRule(input: UpdateRuleInput!): Rule!
+
+  """
+  Delete a categorization rule.
+  """
+  deleteCategorizationRule(id: Int!): Boolean!
+
+  """
+  Create a new budgetization rule.
+  """
+  createBudgetizationRule(input: CreateRuleInput!): Rule!
+
+  """
+  Update an existing budgetization rule.
+  """
+  updateBudgetizationRule(input: UpdateRuleInput!): Rule!
+
+  """
+  Delete a budgetization rule.
+  """
+  deleteBudgetizationRule(id: Int!): Boolean!
+}
+
+"""
+A free-form text rule that guides LLM transaction categorization or budgetization.
+Rules are applied in priority order (highest first).
+"""
+type Rule {
+  id: Int!
+  rule: String!
+  priority: Int!
+  createdAt: String!
+  updatedAt: String!
+}
+
+input CreateRuleInput {
+  rule: String!
+  priority: Int
+}
+
+input UpdateRuleInput {
+  id: Int!
+  rule: String
+  priority: Int
+}

@@ -19,7 +19,7 @@ web/src/app/
   transactions/page.tsx     # Transaction list with filters
   accounts/page.tsx         # Account management
   categories/page.tsx       # Category management
-  settings/page.tsx         # Settings (placeholder)
+  settings/page.tsx         # Settings: AI rules management (categorization + budgetization)
 ```
 
 ### Routing Decisions
@@ -138,6 +138,10 @@ web/src/components/
     create-category-dialog.tsx
     edit-category-dialog.tsx
     archive-category-dialog.tsx
+  rules/
+    rules-section.tsx             # Reusable section: title, description, table, CRUD dialogs
+    rule-form-sheet.tsx           # Sheet for creating/editing a rule (shared create+edit)
+    delete-rule-dialog.tsx        # Delete confirmation dialog
 ```
 
 ### Shared App Components

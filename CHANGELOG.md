@@ -3,6 +3,20 @@
 ## 2026-02-20
 
 ### Added
+- Full CRUD for categorization and budgetization rules (RULES-001 through RULES-009)
+  - `Rule` domain entity with validation, priority, timestamps
+  - Expanded `CategorizationRuleRepository` and `BudgetizationRuleRepository` with `findAllRules`, `findById`, `save`, `update`, `delete`
+  - `CreateRuleUseCase`, `UpdateRuleUseCase`, `DeleteRuleUseCase` (generic, parameterized by repository)
+  - GraphQL schema (`rules.graphql`), resolver (`RulesResolver`), and mapper (`mapRuleToGql`)
+  - `RuleNotFoundError` domain error
+  - Settings page (`/settings`) rewritten with two rule sections (categorization + budgetization)
+  - `RulesSection`, `RuleFormSheet`, `DeleteRuleDialog` frontend components with `data-qa` attributes
+  - Frontend GraphQL queries/mutations for rules with codegen
+  - 20 unit tests (Rule entity + 3 use cases), 8 API integration test files
+  - Seed data: 4 categorization rules + 3 budgetization rules for local dev
+  - Test helpers: `createTestRule` fixture, updated mock repositories with CRUD methods, `createTestCategorizationRule`/`createTestBudgetizationRule` API test factories
+
+### Added
 - Searchable dropdown (combobox) components for budget and category selection (SRCH-001 through SRCH-010)
   - Installed `cmdk` library and created ShadCN `Command` UI component
   - Created generic `SearchableSelect` wrapper (Popover + Command pattern)

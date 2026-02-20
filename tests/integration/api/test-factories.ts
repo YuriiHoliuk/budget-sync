@@ -15,9 +15,11 @@ import {
   accounts,
   allocations,
   bankTransactions,
+  budgetizationRules,
   budgets,
   budgetTargets,
   categories,
+  categorizationRules,
   transactionSources,
   transactions,
   transferPairs,
@@ -343,8 +345,54 @@ export async function createTestTransferPair(
 
 export async function clearAllTestData(db: Db): Promise<void> {
   await db.execute(
-    sql`TRUNCATE TABLE transfer_pairs, transaction_sources, bank_transactions, allocations, transactions, budget_targets, budgets, budget_groups, categories, accounts RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE transfer_pairs, transaction_sources, bank_transactions, allocations, transactions, budget_targets, budgets, budget_groups, categories, accounts, categorization_rules, budgetization_rules RESTART IDENTITY CASCADE`,
   );
+}
+
+/**
+ * Rule factories - creates test categorization/budgetization rules
+ */
+interface TestRuleData {
+  rule?: string;
+  priority?: number;
+}
+
+export async function createTestCategorizationRule(
+  db: Db,
+  overrides: TestRuleData = {},
+) {
+  const values = {
+    rule: overrides.rule ?? `Test categorization rule ${Date.now()}`,
+    priority: overrides.priority ?? 0,
+  };
+
+  const [result] = await db
+    .insert(categorizationRules)
+    .values(values)
+    .returning();
+  if (!result) {
+    throw new Error('Failed to create test categorization rule');
+  }
+  return result;
+}
+
+export async function createTestBudgetizationRule(
+  db: Db,
+  overrides: TestRuleData = {},
+) {
+  const values = {
+    rule: overrides.rule ?? `Test budgetization rule ${Date.now()}`,
+    priority: overrides.priority ?? 0,
+  };
+
+  const [result] = await db
+    .insert(budgetizationRules)
+    .values(values)
+    .returning();
+  if (!result) {
+    throw new Error('Failed to create test budgetization rule');
+  }
+  return result;
 }
 
 /**

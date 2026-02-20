@@ -6,6 +6,7 @@
  * when assigning budgets to transactions.
  */
 
+import type { Rule } from '@domain/entities/Rule.ts';
 import type { BudgetizationRuleRepository } from '@domain/repositories/BudgetizationRuleRepository.ts';
 import type { SpreadsheetsClient } from '@modules/spreadsheet/SpreadsheetsClient.ts';
 import { SpreadsheetTable } from '@modules/spreadsheet/SpreadsheetTable.ts';
@@ -63,5 +64,25 @@ export class SpreadsheetBudgetizationRuleRepository
       .filter((rule): rule is string => typeof rule === 'string')
       .map((rule) => rule.trim())
       .filter((rule) => Boolean(rule));
+  }
+
+  findAllRules(): Promise<Rule[]> {
+    throw new Error('findAllRules not supported in spreadsheet repository');
+  }
+
+  findById(_id: number): Promise<Rule | null> {
+    throw new Error('findById not supported in spreadsheet repository');
+  }
+
+  save(_rule: Rule): Promise<Rule> {
+    throw new Error('save not supported in spreadsheet repository');
+  }
+
+  update(_rule: Rule): Promise<Rule> {
+    throw new Error('update not supported in spreadsheet repository');
+  }
+
+  delete(_id: number): Promise<void> {
+    throw new Error('delete not supported in spreadsheet repository');
   }
 }

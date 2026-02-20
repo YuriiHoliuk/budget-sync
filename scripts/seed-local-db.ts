@@ -20,7 +20,9 @@ import {
   budgetGroups,
   budgetTargets,
   budgets,
+  budgetizationRules,
   categories,
+  categorizationRules,
   transactionSources,
   transactions,
   transferPairs,
@@ -66,7 +68,7 @@ const db = drizzle(client);
 
 async function clearDatabase() {
   console.log('Clearing existing data...');
-  await db.execute(sql`TRUNCATE TABLE transfer_pairs, transaction_sources, bank_transactions, budget_targets, allocations, transactions, budgets, budget_groups, categories, accounts RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE transfer_pairs, transaction_sources, bank_transactions, budget_targets, allocations, transactions, budgets, budget_groups, categories, accounts, categorization_rules, budgetization_rules RESTART IDENTITY CASCADE`);
 }
 
 async function seedAccounts() {
@@ -1023,6 +1025,53 @@ async function seedFeeSplitExamples(seedAccounts: SeedAccount[]) {
   console.log('  Inserted 2 fee split examples (4 transactions, 2 bank_transactions)');
 }
 
+async function seedRules() {
+  console.log('Seeding rules...');
+
+  const catRules = await db
+    .insert(categorizationRules)
+    .values([
+      {
+        rule: "Assign all 'Bolt' and 'Uber' transactions to category 'Транспорт > Таксі'",
+        priority: 10,
+      },
+      {
+        rule: "Transactions with MCC 5411 (grocery stores) should be assigned to 'Їжа > Супермаркет'",
+        priority: 5,
+      },
+      {
+        rule: "Assign 'Netflix', 'Spotify', and 'YouTube Premium' transactions to 'Підписки'",
+        priority: 5,
+      },
+      {
+        rule: "Transactions from 'Сільпо', 'АТБ', 'Новус' are 'Їжа > Супермаркет'",
+        priority: 3,
+      },
+    ])
+    .returning();
+
+  const budRules = await db
+    .insert(budgetizationRules)
+    .values([
+      {
+        rule: "Assign all 'Транспорт' category transactions to budget 'Транспорт'",
+        priority: 10,
+      },
+      {
+        rule: "Assign all 'Їжа' category transactions to budget 'Продукти'",
+        priority: 10,
+      },
+      {
+        rule: "Assign 'Підписки' category transactions to budget 'Підписки'",
+        priority: 5,
+      },
+    ])
+    .returning();
+
+  console.log(`  Inserted ${catRules.length} categorization rules`);
+  console.log(`  Inserted ${budRules.length} budgetization rules`);
+}
+
 async function main() {
   console.log('Seeding local database...');
   console.log(`Database: ${DATABASE_URL}\n`);
@@ -1041,6 +1090,7 @@ async function main() {
     await seedTransferExamples(seededAccounts);
     await seedReturningExamples(seededAccounts, seededCategories, seededBudgets);
     await seedFeeSplitExamples(seededAccounts);
+    await seedRules();
 
     console.log('\nSeed complete!');
     console.log(`  Accounts: ${seededAccounts.length}`);

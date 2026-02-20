@@ -1,0 +1,19 @@
+query GetCategorizationRules {
+  categorizationRules {
+    id
+    rule
+    priority
+    createdAt
+    updatedAt
+  }
+}
+
+query GetBudgetizationRules {
+  budgetizationRules {
+    id
+    rule
+    priority
+    createdAt
+    updatedAt
+  }
+}

@@ -13,6 +13,7 @@ import {
   type BudgetTargetProps,
 } from '@domain/entities/BudgetTarget.ts';
 import { Category, type CategoryProps } from '@domain/entities/Category.ts';
+import { Rule, type RuleProps } from '@domain/entities/Rule.ts';
 import { Transaction } from '@domain/entities/Transaction.ts';
 import { CategoryStatus } from '@domain/value-objects/CategoryStatus.ts';
 import { Currency } from '@domain/value-objects/Currency.ts';
@@ -362,6 +363,28 @@ export function createTestBudgetGroup(
 ): BudgetGroup {
   return BudgetGroup.create({
     ...DEFAULT_BUDGET_GROUP_PROPS,
+    ...overrides,
+  });
+}
+
+/**
+ * Default values for test Rule entities.
+ */
+const DEFAULT_RULE_PROPS: RuleProps = {
+  rule: 'Test rule text',
+  priority: 0,
+  createdAt: new Date('2026-01-01'),
+  updatedAt: new Date('2026-01-01'),
+  dbId: 1,
+};
+
+/**
+ * Creates a test Rule entity with sensible defaults.
+ * Override any property as needed for specific test scenarios.
+ */
+export function createTestRule(overrides: Partial<RuleProps> = {}): Rule {
+  return Rule.create({
+    ...DEFAULT_RULE_PROPS,
     ...overrides,
   });
 }
