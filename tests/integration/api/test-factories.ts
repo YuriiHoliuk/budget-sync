@@ -211,6 +211,7 @@ interface TestTransactionData {
   counterparty?: string;
   bankDescription?: string;
   mcc?: number;
+  notes?: string | null;
 }
 
 function getDefaultTransactionValues(accountId: number) {

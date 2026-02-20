@@ -64,6 +64,11 @@ interface UpdateBudgetInput {
   budgetId?: number | null;
 }
 
+interface UpdateNotesInput {
+  id: number;
+  notes?: string | null;
+}
+
 interface CreateTransactionInput {
   accountId: number;
   date: string;
@@ -120,6 +125,10 @@ export class TransactionsResolver extends Resolver {
           _parent: unknown,
           args: { input: UpdateBudgetInput },
         ) => this.updateTransactionBudget(args.input),
+        updateTransactionNotes: (
+          _parent: unknown,
+          args: { input: UpdateNotesInput },
+        ) => this.updateTransactionNotes(args.input),
         verifyTransaction: (_parent: unknown, args: { id: number }) =>
           this.verifyTransaction(args.id),
         markAsTransfer: (
@@ -246,6 +255,19 @@ export class TransactionsResolver extends Resolver {
     const record = await this.transactionRepository.updateRecordBudget(
       input.id,
       budgetId,
+    );
+    if (!record) {
+      throw new Error(`Transaction not found with id: ${input.id}`);
+    }
+    return mapTransactionRecordToGql(record);
+  }
+
+  private async updateTransactionNotes(input: UpdateNotesInput) {
+    const notes = input.notes ?? null;
+
+    const record = await this.transactionRepository.updateRecordNotes(
+      input.id,
+      notes,
     );
     if (!record) {
       throw new Error(`Transaction not found with id: ${input.id}`);

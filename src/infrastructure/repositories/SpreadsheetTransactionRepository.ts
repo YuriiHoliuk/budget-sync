@@ -422,6 +422,15 @@ export class SpreadsheetTransactionRepository
     );
   }
 
+  updateRecordNotes(
+    _dbId: number,
+    _notes: string | null,
+  ): Promise<DomainTransactionRecord | null> {
+    throw new Error(
+      'updateRecordNotes is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
   findTransactionSummaries(): Promise<TransactionSummary[]> {
     throw new Error(
       'findTransactionSummaries is not supported by SpreadsheetTransactionRepository',

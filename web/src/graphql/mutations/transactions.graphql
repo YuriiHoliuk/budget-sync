@@ -20,6 +20,13 @@ mutation UpdateTransactionBudget($input: UpdateTransactionBudgetInput!) {
   }
 }
 
+mutation UpdateTransactionNotes($input: UpdateTransactionNotesInput!) {
+  updateTransactionNotes(input: $input) {
+    id
+    notes
+  }
+}
+
 mutation VerifyTransaction($id: Int!) {
   verifyTransaction(id: $id) {
     id

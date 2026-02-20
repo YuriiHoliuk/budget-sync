@@ -368,6 +368,21 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     return this.findRecordById(dbId);
   }
 
+  async updateRecordNotes(
+    dbId: number,
+    notes: string | null,
+  ): Promise<TransactionRecord | null> {
+    const rows = await this.db
+      .update(transactions)
+      .set({ notes, updatedAt: new Date() })
+      .where(eq(transactions.id, dbId))
+      .returning();
+    if (!rows[0]) {
+      return null;
+    }
+    return this.findRecordById(dbId);
+  }
+
   async findTransactionSummaries(): Promise<TransactionSummary[]> {
     const rows = await this.db
       .select({

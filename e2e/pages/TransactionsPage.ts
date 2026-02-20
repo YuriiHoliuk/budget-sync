@@ -241,6 +241,17 @@ export class TransactionsPage extends BasePage {
   }
 
   /**
+   * Navigate directly to a specific page via URL
+   */
+  async gotoPage(pageNumber: number): Promise<void> {
+    const url = pageNumber <= 1
+      ? '/transactions'
+      : `/transactions?page=${pageNumber}`;
+    await this.page.goto(url);
+    await this.waitForLoad();
+  }
+
+  /**
    * Go to next page
    */
   async nextPage(): Promise<void> {

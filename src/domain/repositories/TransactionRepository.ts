@@ -78,6 +78,10 @@ export abstract class TransactionRepository extends Repository<
     dbId: number,
     status: CategorizationStatus,
   ): Promise<TransactionRecord | null>;
+  abstract updateRecordNotes(
+    dbId: number,
+    notes: string | null,
+  ): Promise<TransactionRecord | null>;
 
   // Type and relationship mutations
   abstract updateRecordType(dbId: number, type: string): Promise<void>;

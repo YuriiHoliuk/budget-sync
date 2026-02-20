@@ -29,6 +29,11 @@ extend type Mutation {
   updateTransactionBudget(input: UpdateTransactionBudgetInput!): Transaction!
 
   """
+  Update the notes of a transaction.
+  """
+  updateTransactionNotes(input: UpdateTransactionNotesInput!): Transaction!
+
+  """
   Mark a transaction as verified (user confirmed categorization).
   """
   verifyTransaction(id: Int!): Transaction!
@@ -134,6 +139,18 @@ input UpdateTransactionBudgetInput {
   Budget database ID. Pass null to remove budget.
   """
   budgetId: Int
+}
+
+input UpdateTransactionNotesInput {
+  """
+  Transaction database ID.
+  """
+  id: Int!
+
+  """
+  Notes text. Pass null to clear notes.
+  """
+  notes: String
 }
 
 input CreateTransactionInput {

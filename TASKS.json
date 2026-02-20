@@ -160,7 +160,7 @@
     "id": "PAG-003",
     "phase": "PAG: Transaction Pagination Improvements",
     "title": "Update E2E page object and tests for pagination URL changes",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/transaction-pagination-url.md",
     "description": "Add gotoPage(n) helper to TransactionsPage E2E page object that navigates to /transactions?page=N. Update verify-transaction.spec.ts if page size change affects test behavior. Consider adding an E2E test that verifies pagination state is preserved on page refresh.",
     "dependencies": ["PAG-002"]
@@ -491,7 +491,7 @@
     "id": "NOTES-001",
     "phase": "NOTES: Transaction Notes",
     "title": "Add updateTransactionNotes mutation and use case",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/transaction-notes.md",
     "description": "Add updateTransactionNotes(id: Int!, notes: String): Transaction! mutation to GraphQL schema. Create UpdateTransactionNotes use case (load transaction, update notes, save). Add resolver handler following existing updateTransactionCategory pattern. Register in container. Add unit test and API integration test.",
     "dependencies": []
@@ -510,7 +510,7 @@
     "id": "NOTES-002",
     "phase": "NOTES: Transaction Notes",
     "title": "Add editable notes textarea in transaction detail panel",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/transaction-notes.md",
     "description": "In transaction-detail-panel.tsx, replace the read-only notes DetailRow with an always-visible Textarea (ShadCN) with placeholder 'Add notes...'. Auto-save on blur using the UpdateTransactionNotes mutation. Show subtle save indicator. Add frontend GraphQL mutation in web/src/graphql/mutations/transactions.graphql and run codegen.",
     "dependencies": ["NOTES-001"]

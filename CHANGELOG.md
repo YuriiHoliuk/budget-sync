@@ -3,6 +3,13 @@
 ## 2026-02-20
 
 ### Added
+- `updateTransactionNotes` GraphQL mutation for updating transaction notes (NOTES-001)
+- Editable notes textarea in transaction detail panel with auto-save on blur and "Saved" indicator (NOTES-002)
+- ShadCN Textarea UI component (`web/src/components/ui/textarea.tsx`)
+- API integration tests for updateTransactionNotes mutation (NOTES-001)
+- `gotoPage(n)` helper to TransactionsPage E2E page object for direct URL-based page navigation (PAG-003)
+
+### Added
 - Draft/applied filter pattern for transaction sidebar — filter changes no longer trigger immediate GraphQL refetch (APPLY-002)
 - Apply and Reset buttons at bottom of transaction filter sidebar with visual indication of unapplied changes (APPLY-003)
 - `useDebouncedValue` hook with 300ms debounce on search input to prevent excessive keystroke-driven updates (APPLY-001)

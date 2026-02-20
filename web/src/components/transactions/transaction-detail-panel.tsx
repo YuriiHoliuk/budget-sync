@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useMutation, useQuery } from "@apollo/client/react";
 import {
   ArrowDownCircle,
@@ -41,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   GetTransactionDocument,
   GetCategoriesDocument,
@@ -48,6 +49,7 @@ import {
   GetTransactionsDocument,
   UpdateTransactionCategoryDocument,
   UpdateTransactionBudgetDocument,
+  UpdateTransactionNotesDocument,
   VerifyTransactionDocument,
   TransactionTypeEnum,
   CategorizationStatusEnum,
@@ -167,6 +169,7 @@ export function TransactionDetailPanel({
           <TransactionDetailSkeleton />
         ) : data?.transaction ? (
           <TransactionDetailContent
+            key={data.transaction.id}
             transaction={data.transaction}
             categories={categories}
             budgets={budgets}
@@ -215,9 +218,33 @@ function TransactionDetailContent({
     refetchQueries: [{ query: GetTransactionsDocument }],
   });
 
+  const [updateNotes] = useMutation(UpdateTransactionNotesDocument);
+
   const [verifyTransaction] = useMutation(VerifyTransactionDocument, {
     refetchQueries: [{ query: GetTransactionsDocument }],
   });
+
+  const [notesValue, setNotesValue] = useState(transaction.notes ?? "");
+  const [notesSaved, setNotesSaved] = useState(false);
+  const notesSavedTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const handleNotesSave = async () => {
+    const trimmed = notesValue.trim();
+    const newNotes = trimmed === "" ? null : trimmed;
+    if (newNotes === (transaction.notes ?? null)) return;
+
+    setIsUpdating(true);
+    try {
+      await updateNotes({
+        variables: { input: { id: transaction.id, notes: newNotes } },
+      });
+      setNotesSaved(true);
+      clearTimeout(notesSavedTimerRef.current);
+      notesSavedTimerRef.current = setTimeout(() => setNotesSaved(false), 2000);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleCategoryChange = async (value: string) => {
     setIsUpdating(true);
@@ -389,6 +416,31 @@ function TransactionDetailContent({
 
         <Separator />
 
+        <div className="space-y-2">
+          <Label htmlFor="notes" className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <FileText className="h-4 w-4" />
+            Notes
+            {notesSaved && (
+              <span className="ml-auto text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                <Check className="h-3 w-3" />
+                Saved
+              </span>
+            )}
+          </Label>
+          <Textarea
+            id="notes"
+            placeholder="Add notes..."
+            value={notesValue}
+            onChange={(event) => setNotesValue(event.target.value)}
+            onBlur={handleNotesSave}
+            disabled={isUpdating}
+            rows={3}
+            className="resize-none"
+          />
+        </div>
+
+        <Separator />
+
         <div className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground">
             Transaction Details
@@ -425,14 +477,6 @@ function TransactionDetailContent({
                 label="MCC"
                 value={formatMcc(transaction.mcc)}
                 mono
-              />
-            )}
-
-            {transaction.notes && (
-              <DetailRow
-                icon={FileText}
-                label="Notes"
-                value={transaction.notes}
               />
             )}
 
