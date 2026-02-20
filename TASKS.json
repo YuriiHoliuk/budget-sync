@@ -543,5 +543,15 @@
     "plan": null,
     "description": "When assigning a budget to a transaction (in the detail panel or inline edit), the budget dropdown currently shows all non-archived budgets. Instead, filter budgets to only those whose date range (startDate–endDate) covers the transaction's date. This way, editing an old transaction shows only budgets that were active at that time (not newer ones), and editing a recent transaction doesn't show expired budgets. Applies to budget selects in transaction-detail-panel.tsx and inline budget edit in transactions-table.tsx. May require passing the transaction date to the budget query or filtering client-side using budget startDate/endDate fields.",
     "dependencies": []
+  },
+
+  {
+    "id": "CI-001",
+    "phase": "CI: Optimize CI/CD Pipeline with Change Detection",
+    "title": "Move change detection to the first CI step and skip unnecessary jobs",
+    "status": "pending",
+    "plan": null,
+    "description": "Currently the CI/CD workflow runs all static checks and tests before detecting what changed. Restructure the GitHub Actions workflow to detect changed files as the very first step (e.g., using dorny/paths-filter or git diff against the base branch), then conditionally skip jobs that aren't affected by the changes. Target mapping (needs exploration during implementation to find the right balance between reliability and optimization): (1) Unit tests — run if src/ or tests/unit/ changed. (2) API integration tests — run only if backend code changed (src/, tests/integration/, drizzle/). Skip if only frontend or scripts changed. (3) E2E tests — run if backend (src/), frontend (web/), E2E tests (e2e/), or Docker config changed. (4) Static checks (typecheck, lint) — run if any source code changed (src/, web/, tests/). (5) Build/deploy — existing change detection logic. (6) Changes to scripts/, docs/, or other non-production files should not trigger test runs. During implementation, explore: how to handle shared config files (package.json, tsconfig, etc.) that affect multiple categories; whether to use path filters per job or a single detection job with output variables; how to ensure reliability so that skipping doesn't accidentally miss regressions (e.g., always run everything on main branch merges as a safety net).",
+    "dependencies": []
   }
 ]
