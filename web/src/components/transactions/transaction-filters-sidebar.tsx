@@ -19,6 +19,8 @@ import {
   CategorizationStatusEnum,
 } from "@/graphql/generated/graphql";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { CategoryCombobox } from "@/components/categories/category-combobox";
+import { BudgetCombobox } from "@/components/budget/budget-combobox";
 
 export interface TransactionFilters {
   search: string;
@@ -163,46 +165,26 @@ export function TransactionFiltersSidebar({
 
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Category</Label>
-          <Select
-            value={filters.categoryId?.toString() ?? "all"}
-            onValueChange={(value) =>
-              onFilterChange("categoryId", value === "all" ? null : parseInt(value, 10))
-            }
-          >
-            <SelectTrigger className="h-8 text-sm" data-qa="select-category-filter">
-              <SelectValue placeholder="All categories" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
-              {categories.map((category) => (
-                <SelectItem key={category.id} value={category.id.toString()}>
-                  {category.fullPath}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CategoryCombobox
+            categories={categories}
+            value={filters.categoryId}
+            onValueChange={(categoryId) => onFilterChange("categoryId", categoryId)}
+            allowAll
+            triggerClassName="h-8 w-full text-sm"
+            data-qa="select-category-filter"
+          />
         </div>
 
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Budget</Label>
-          <Select
-            value={filters.budgetId?.toString() ?? "all"}
-            onValueChange={(value) =>
-              onFilterChange("budgetId", value === "all" ? null : parseInt(value, 10))
-            }
-          >
-            <SelectTrigger className="h-8 text-sm" data-qa="select-budget-filter">
-              <SelectValue placeholder="All budgets" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All budgets</SelectItem>
-              {budgets.map((budget) => (
-                <SelectItem key={budget.id} value={budget.id.toString()}>
-                  {budget.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <BudgetCombobox
+            budgets={budgets}
+            value={filters.budgetId}
+            onValueChange={(budgetId) => onFilterChange("budgetId", budgetId)}
+            allowAll
+            triggerClassName="h-8 w-full text-sm"
+            data-qa="select-budget-filter"
+          />
         </div>
 
         <div className="space-y-1.5">

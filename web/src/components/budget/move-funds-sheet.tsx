@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation } from "@apollo/client/react";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,13 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { BudgetCombobox } from "@/components/budget/budget-combobox";
 import {
   MoveFundsDocument,
   type BudgetSummary,
@@ -28,7 +22,6 @@ import {
 import { useMonth } from "@/hooks/use-month";
 import { updateMonthlyOverviewCacheForMoveFunds } from "@/lib/cache-utils";
 import { formatCurrency } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 interface MoveFundsSheetProps {
   open: boolean;
@@ -44,45 +37,52 @@ export function MoveFundsSheet({
   initialSourceBudgetId,
 }: MoveFundsSheetProps) {
   const { month } = useMonth();
-  const [sourceBudgetId, setSourceBudgetId] = useState<string>(
-    initialSourceBudgetId?.toString() ?? "",
+  const [sourceBudgetId, setSourceBudgetId] = useState<number | null>(
+    initialSourceBudgetId ?? null,
   );
-  const [destBudgetId, setDestBudgetId] = useState<string>("");
+  const [destBudgetId, setDestBudgetId] = useState<number | null>(null);
   const [amount, setAmount] = useState<string>("");
   const [error, setError] = useState<string>("");
 
   const [moveFunds, { loading }] = useMutation(MoveFundsDocument);
 
+  const budgets = useMemo(
+    () => budgetSummaries.map((summary) => ({ id: summary.budgetId, name: summary.name })),
+    [budgetSummaries],
+  );
+
+  const balanceMap = useMemo(
+    () => new Map(budgetSummaries.map((summary) => [summary.budgetId, summary.available])),
+    [budgetSummaries],
+  );
+
   const sourceBudget = budgetSummaries.find(
-    (budget) => budget.budgetId.toString() === sourceBudgetId,
+    (budget) => budget.budgetId === sourceBudgetId,
   );
   const destBudget = budgetSummaries.find(
-    (budget) => budget.budgetId.toString() === destBudgetId,
+    (budget) => budget.budgetId === destBudgetId,
   );
 
   const parsedAmount = Number.parseFloat(amount);
   const isValidAmount = !Number.isNaN(parsedAmount) && parsedAmount > 0;
   const canSubmit =
-    sourceBudgetId !== "" &&
-    destBudgetId !== "" &&
+    sourceBudgetId !== null &&
+    destBudgetId !== null &&
     sourceBudgetId !== destBudgetId &&
     isValidAmount &&
     !loading;
 
   const handleSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || sourceBudgetId === null || destBudgetId === null) return;
 
     setError("");
-
-    const srcId = Number.parseInt(sourceBudgetId, 10);
-    const dstId = Number.parseInt(destBudgetId, 10);
 
     try {
       await moveFunds({
         variables: {
           input: {
-            sourceBudgetId: srcId,
-            destBudgetId: dstId,
+            sourceBudgetId,
+            destBudgetId,
             amount: parsedAmount,
             currency: "UAH",
             period: month,
@@ -92,8 +92,8 @@ export function MoveFundsSheet({
           updateMonthlyOverviewCacheForMoveFunds(
             cache,
             month,
-            srcId,
-            dstId,
+            sourceBudgetId,
+            destBudgetId,
             parsedAmount,
           );
         },
@@ -109,8 +109,8 @@ export function MoveFundsSheet({
   };
 
   const handleClose = () => {
-    setSourceBudgetId(initialSourceBudgetId?.toString() ?? "");
-    setDestBudgetId("");
+    setSourceBudgetId(initialSourceBudgetId ?? null);
+    setDestBudgetId(null);
     setAmount("");
     setError("");
     onOpenChange(false);
@@ -139,34 +139,16 @@ export function MoveFundsSheet({
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="source-budget">From</Label>
-              <Select value={sourceBudgetId} onValueChange={setSourceBudgetId}>
-                <SelectTrigger id="source-budget" data-qa="select-source-budget">
-                  <SelectValue placeholder="Select source budget" />
-                </SelectTrigger>
-                <SelectContent>
-                  {budgetSummaries.map((budget) => (
-                    <SelectItem
-                      key={budget.budgetId}
-                      value={budget.budgetId.toString()}
-                      disabled={budget.budgetId.toString() === destBudgetId}
-                    >
-                      <span className="flex items-center justify-between gap-4">
-                        <span>{budget.name}</span>
-                        <span
-                          className={cn(
-                            "text-xs tabular-nums",
-                            budget.available < 0
-                              ? "text-red-500"
-                              : "text-muted-foreground",
-                          )}
-                        >
-                          {formatCurrency(budget.available)}
-                        </span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <BudgetCombobox
+                budgets={budgets}
+                value={sourceBudgetId}
+                onValueChange={setSourceBudgetId}
+                disabledIds={destBudgetId !== null ? [destBudgetId] : undefined}
+                placeholder="Select source budget"
+                showBalance
+                balanceMap={balanceMap}
+                data-qa="select-source-budget"
+              />
               {sourceBudget && (
                 <p className="text-xs text-muted-foreground" data-qa="text-available-balance">
                   Available: {formatCurrency(sourceBudget.available)}
@@ -180,34 +162,16 @@ export function MoveFundsSheet({
 
             <div className="grid gap-2">
               <Label htmlFor="dest-budget">To</Label>
-              <Select value={destBudgetId} onValueChange={setDestBudgetId}>
-                <SelectTrigger id="dest-budget" data-qa="select-dest-budget">
-                  <SelectValue placeholder="Select destination budget" />
-                </SelectTrigger>
-                <SelectContent>
-                  {budgetSummaries.map((budget) => (
-                    <SelectItem
-                      key={budget.budgetId}
-                      value={budget.budgetId.toString()}
-                      disabled={budget.budgetId.toString() === sourceBudgetId}
-                    >
-                      <span className="flex items-center justify-between gap-4">
-                        <span>{budget.name}</span>
-                        <span
-                          className={cn(
-                            "text-xs tabular-nums",
-                            budget.available < 0
-                              ? "text-red-500"
-                              : "text-muted-foreground",
-                          )}
-                        >
-                          {formatCurrency(budget.available)}
-                        </span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <BudgetCombobox
+                budgets={budgets}
+                value={destBudgetId}
+                onValueChange={setDestBudgetId}
+                disabledIds={sourceBudgetId !== null ? [sourceBudgetId] : undefined}
+                placeholder="Select destination budget"
+                showBalance
+                balanceMap={balanceMap}
+                data-qa="select-dest-budget"
+              />
               {destBudget && (
                 <p className="text-xs text-muted-foreground">
                   Available: {formatCurrency(destBudget.available)}

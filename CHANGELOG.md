@@ -3,6 +3,15 @@
 ## 2026-02-20
 
 ### Added
+- Searchable dropdown (combobox) components for budget and category selection (SRCH-001 through SRCH-010)
+  - Installed `cmdk` library and created ShadCN `Command` UI component
+  - Created generic `SearchableSelect` wrapper (Popover + Command pattern)
+  - Created `CategoryCombobox` with hierarchical grouping, rootOnly mode, excludeIds, allowNone/allowAll
+  - Created `BudgetCombobox` with showBalance mode, disabledIds, allowNone/allowAll
+  - Replaced all budget/category Select dropdowns across the app with searchable comboboxes
+  - Updated E2E page objects with `searchAndSelectOption()` method for combobox interactions
+
+### Added
 - `updateTransactionNotes` GraphQL mutation for updating transaction notes (NOTES-001)
 - Editable notes textarea in transaction detail panel with auto-save on blur and "Saved" indicator (NOTES-002)
 - ShadCN Textarea UI component (`web/src/components/ui/textarea.tsx`)

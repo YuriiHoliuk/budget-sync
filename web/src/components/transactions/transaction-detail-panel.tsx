@@ -34,14 +34,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CategoryCombobox } from "@/components/categories/category-combobox";
+import { BudgetCombobox } from "@/components/budget/budget-combobox";
 import {
   GetTransactionDocument,
   GetCategoriesDocument,
@@ -246,14 +241,14 @@ function TransactionDetailContent({
     }
   };
 
-  const handleCategoryChange = async (value: string) => {
+  const handleCategoryChange = async (categoryId: number | null) => {
     setIsUpdating(true);
     try {
       await updateCategory({
         variables: {
           input: {
             id: transaction.id,
-            categoryId: value === "none" ? null : parseInt(value, 10),
+            categoryId,
           },
         },
       });
@@ -262,14 +257,14 @@ function TransactionDetailContent({
     }
   };
 
-  const handleBudgetChange = async (value: string) => {
+  const handleBudgetChange = async (budgetId: number | null) => {
     setIsUpdating(true);
     try {
       await updateBudget({
         variables: {
           input: {
             id: transaction.id,
-            budgetId: value === "none" ? null : parseInt(value, 10),
+            budgetId,
           },
         },
       });
@@ -341,26 +336,15 @@ function TransactionDetailContent({
                 <Tag className="h-4 w-4" />
                 Category
               </Label>
-              <Select
-                value={transaction.category?.id.toString() ?? "none"}
+              <CategoryCombobox
+                categories={categories}
+                value={transaction.category?.id ?? null}
                 onValueChange={handleCategoryChange}
+                allowNone
                 disabled={isUpdating}
-              >
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No category</SelectItem>
-                  {categories.map((category) => (
-                    <SelectItem
-                      key={category.id}
-                      value={category.id.toString()}
-                    >
-                      {category.fullPath}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                triggerClassName="w-full"
+                data-qa="select-category"
+              />
               {transaction.categoryReason && (
                 <AIReasoningNote reason={transaction.categoryReason} />
               )}
@@ -371,23 +355,15 @@ function TransactionDetailContent({
                 <Wallet className="h-4 w-4" />
                 Budget
               </Label>
-              <Select
-                value={transaction.budget?.id.toString() ?? "none"}
+              <BudgetCombobox
+                budgets={budgets}
+                value={transaction.budget?.id ?? null}
                 onValueChange={handleBudgetChange}
+                allowNone
                 disabled={isUpdating}
-              >
-                <SelectTrigger id="budget">
-                  <SelectValue placeholder="Select budget" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No budget</SelectItem>
-                  {budgets.map((budget) => (
-                    <SelectItem key={budget.id} value={budget.id.toString()}>
-                      {budget.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                triggerClassName="w-full"
+                data-qa="select-budget"
+              />
               {transaction.budgetReason && (
                 <AIReasoningNote reason={transaction.budgetReason} />
               )}

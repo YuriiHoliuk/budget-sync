@@ -247,6 +247,6 @@ class CreateCategoryDialog extends Dialog {
   }
 
   async selectParent(parentName: string): Promise<void> {
-    await this.selectOption('select-parent-category', parentName);
+    await this.searchAndSelectOption('select-parent-category', parentName, parentName);
   }
 }

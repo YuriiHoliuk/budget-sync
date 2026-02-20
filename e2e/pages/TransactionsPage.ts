@@ -85,20 +85,24 @@ export class TransactionsPage extends BasePage {
   }
 
   /**
-   * Filter by category and apply
+   * Filter by category and apply (uses searchable combobox)
    */
   async filterByCategory(categoryName: string): Promise<void> {
     await this.byQa('select-category-filter').click();
-    await this.page.getByRole('option', { name: categoryName }).click();
+    const searchInput = this.page.locator('[cmdk-input]');
+    await searchInput.fill(categoryName);
+    await this.page.locator('[cmdk-item]').filter({ hasText: categoryName }).first().click();
     await this.applyFilters();
   }
 
   /**
-   * Filter by budget and apply
+   * Filter by budget and apply (uses searchable combobox)
    */
   async filterByBudget(budgetName: string): Promise<void> {
     await this.byQa('select-budget-filter').click();
-    await this.page.getByRole('option', { name: budgetName }).click();
+    const searchInput = this.page.locator('[cmdk-input]');
+    await searchInput.fill(budgetName);
+    await this.page.locator('[cmdk-item]').filter({ hasText: budgetName }).first().click();
     await this.applyFilters();
   }
 

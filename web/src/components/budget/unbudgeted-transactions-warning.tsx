@@ -13,13 +13,7 @@ import {
 import { useMonth } from "@/hooks/use-month";
 import { formatCurrency } from "@/lib/format";
 import { getDateRangeFromMonth } from "@/lib/url-utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { BudgetCombobox } from "@/components/budget/budget-combobox";
 import {
   Table,
   TableBody,
@@ -166,9 +160,8 @@ function UnbudgetedTransactionRow({
 }: UnbudgetedTransactionRowProps) {
   const [isAssigning, setIsAssigning] = useState(false);
 
-  const handleSelect = async (value: string) => {
-    const budgetId = parseInt(value, 10);
-    if (Number.isNaN(budgetId)) return;
+  const handleSelect = async (budgetId: number | null) => {
+    if (budgetId === null) return;
 
     setIsAssigning(true);
     try {
@@ -203,18 +196,14 @@ function UnbudgetedTransactionRow({
         -{formatCurrency(transaction.amount)}
       </TableCell>
       <TableCell>
-        <Select onValueChange={handleSelect} disabled={isAssigning}>
-          <SelectTrigger className="h-8 w-full">
-            <SelectValue placeholder="Select budget..." />
-          </SelectTrigger>
-          <SelectContent>
-            {budgets.map((budget) => (
-              <SelectItem key={budget.id} value={String(budget.id)}>
-                {budget.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <BudgetCombobox
+          budgets={budgets}
+          value={null}
+          onValueChange={handleSelect}
+          disabled={isAssigning}
+          placeholder="Select budget..."
+          triggerClassName="h-8 w-full"
+        />
       </TableCell>
     </TableRow>
   );

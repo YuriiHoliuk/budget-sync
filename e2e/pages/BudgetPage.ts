@@ -538,11 +538,11 @@ class MoveFundsDialog extends Dialog {
   }
 
   async selectSourceBudget(budgetName: string): Promise<void> {
-    await this.selectOption('select-source-budget', budgetName);
+    await this.searchAndSelectOption('select-source-budget', budgetName, budgetName);
   }
 
   async selectDestinationBudget(budgetName: string): Promise<void> {
-    await this.selectOption('select-dest-budget', budgetName);
+    await this.searchAndSelectOption('select-dest-budget', budgetName, budgetName);
   }
 
   async fillAmount(amount: string): Promise<void> {

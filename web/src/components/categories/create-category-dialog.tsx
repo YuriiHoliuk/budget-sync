@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CategoryCombobox } from "@/components/categories/category-combobox";
 import {
   CreateCategoryDocument,
   GetCategoriesDocument,
@@ -49,11 +50,11 @@ export function CreateCategoryDialog({
   onOpenChange,
 }: CreateCategoryDialogProps) {
   const [name, setName] = useState("");
-  const [parentName, setParentName] = useState<string | null>(null);
+  const [parentId, setParentId] = useState<number | null>(null);
   const [status, setStatus] = useState<CategoryStatus>(CategoryStatus.Active);
   const [error, setError] = useState("");
 
-  // Fetch root categories to use as potential parents
+  // Fetch categories for the parent selector
   const { data: categoriesData } = useQuery(GetCategoriesDocument, {
     variables: { activeOnly: true },
   });
@@ -65,10 +66,7 @@ export function CreateCategoryDialog({
     ],
   });
 
-  // Get only root categories (no parent) for the parent selector
-  const rootCategories = (categoriesData?.categories ?? []).filter(
-    (category) => !category.parentName,
-  );
+  const categories = categoriesData?.categories ?? [];
 
   const canSubmit = name.trim() !== "" && !loading;
 
@@ -76,6 +74,10 @@ export function CreateCategoryDialog({
     if (!canSubmit) return;
 
     setError("");
+
+    const parentName = parentId
+      ? categories.find((category) => category.id === parentId)?.name
+      : undefined;
 
     try {
       await createCategory({
@@ -99,7 +101,7 @@ export function CreateCategoryDialog({
 
   const handleClose = () => {
     setName("");
-    setParentName(null);
+    setParentId(null);
     setStatus(CategoryStatus.Active);
     setError("");
     onOpenChange(false);
@@ -142,25 +144,16 @@ export function CreateCategoryDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="category-parent">Parent Category (Optional)</Label>
-            <Select
-              value={parentName ?? "none"}
-              onValueChange={(value) =>
-                setParentName(value === "none" ? null : value)
-              }
-            >
-              <SelectTrigger id="category-parent" className="w-full" data-qa="select-parent-category">
-                <SelectValue placeholder="No parent (root category)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No parent (root category)</SelectItem>
-                {rootCategories.map((category) => (
-                  <SelectItem key={category.id} value={category.name}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Parent Category (Optional)</Label>
+            <CategoryCombobox
+              categories={categories}
+              value={parentId}
+              onValueChange={setParentId}
+              allowNone
+              rootOnly
+              placeholder="No parent (root category)"
+              data-qa="select-parent-category"
+            />
             <p className="text-xs text-muted-foreground">
               Select a parent to create a subcategory.
             </p>

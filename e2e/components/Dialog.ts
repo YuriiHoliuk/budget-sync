@@ -75,6 +75,20 @@ export class Dialog {
   }
 
   /**
+   * Search and select an option from a combobox (Popover + Command/cmdk)
+   * Used for searchable dropdowns (CategoryCombobox, BudgetCombobox)
+   */
+  async searchAndSelectOption(qaAttribute: string, searchText: string, optionText: string): Promise<void> {
+    const trigger = this.getSelect(qaAttribute);
+    await trigger.click();
+    // Fill the cmdk search input inside the popover
+    const searchInput = this.page.locator('[cmdk-input]');
+    await searchInput.fill(searchText);
+    // Click the matching cmdk item
+    await this.page.locator('[cmdk-item]').filter({ hasText: optionText }).first().click();
+  }
+
+  /**
    * Click a button within the dialog by data-qa
    */
   async clickButton(qaAttribute: string): Promise<void> {

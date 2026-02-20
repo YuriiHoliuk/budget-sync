@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CategoryCombobox } from "@/components/categories/category-combobox";
 import {
   UpdateCategoryDocument,
   GetCategoriesDocument,
@@ -50,13 +51,10 @@ function EditCategorySheetContent({
   onOpenChange: (open: boolean) => void;
 }) {
   const [name, setName] = useState(category.name);
-  const [parentName, setParentName] = useState<string | null>(
-    category.parentName ?? null,
-  );
   const [status, setStatus] = useState<CategoryStatus>(category.status);
   const [error, setError] = useState("");
 
-  // Fetch root categories to use as potential parents
+  // Fetch categories for the parent selector
   const { data: categoriesData } = useQuery(GetCategoriesDocument, {
     variables: { activeOnly: false },
   });
@@ -68,13 +66,17 @@ function EditCategorySheetContent({
     ],
   });
 
-  // Get only root categories (no parent) that are not this category or its children
-  const rootCategories = (categoriesData?.categories ?? []).filter(
-    (cat) =>
-      !cat.parentName && // Must be a root category
-      cat.id !== category.id && // Can't be itself
-      cat.name !== category.name, // Double check
-  );
+  const categories = categoriesData?.categories ?? [];
+
+  // Derive initial parentId from category's parentName
+  const initialParentId = category.parentName
+    ? (categories.find((cat) => cat.name === category.parentName)?.id ?? null)
+    : null;
+
+  const [parentId, setParentId] = useState<number | null>(initialParentId);
+
+  // Update parentId when categories load and initial value becomes available
+  const parentIdResolved = parentId ?? initialParentId;
 
   const canSubmit = name.trim() !== "" && !loading;
 
@@ -82,6 +84,10 @@ function EditCategorySheetContent({
     if (!canSubmit) return;
 
     setError("");
+
+    const parentName = parentIdResolved
+      ? categories.find((cat) => cat.id === parentIdResolved)?.name
+      : undefined;
 
     try {
       await updateCategory({
@@ -134,26 +140,17 @@ function EditCategorySheetContent({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="edit-category-parent">Parent Category</Label>
-            <Select
-              value={parentName ?? "none"}
-              onValueChange={(value) =>
-                setParentName(value === "none" ? null : value)
-              }
+            <Label>Parent Category</Label>
+            <CategoryCombobox
+              categories={categories}
+              value={parentIdResolved}
+              onValueChange={setParentId}
+              allowNone
+              rootOnly
+              excludeIds={[category.id]}
+              placeholder="No parent (root category)"
               disabled={hasChildren}
-            >
-              <SelectTrigger id="edit-category-parent" className="w-full">
-                <SelectValue placeholder="No parent (root category)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No parent (root category)</SelectItem>
-                {rootCategories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.name}>
-                    {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
             {hasChildren && (
               <p className="text-xs text-muted-foreground">
                 Cannot change parent for categories with children.

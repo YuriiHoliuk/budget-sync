@@ -27,12 +27,9 @@ test('should move funds between budgets via dialog', async ({ authenticatedPage 
   // Open move funds dialog
   const dialog = await budgetPage.openMoveFundsDialog();
 
-  // Fill in the form - use partial text match since options include balance amount
-  await authenticatedPage.locator('[data-qa="select-source-budget"]').click();
-  await authenticatedPage.getByRole('option').filter({ hasText: 'Продукти' }).click();
-
-  await authenticatedPage.locator('[data-qa="select-dest-budget"]').click();
-  await authenticatedPage.getByRole('option').filter({ hasText: 'Транспорт' }).click();
+  // Fill in the form - use searchable combobox pattern
+  await dialog.selectSourceBudget('Продукти');
+  await dialog.selectDestinationBudget('Транспорт');
 
   await dialog.fillAmount('100');
 

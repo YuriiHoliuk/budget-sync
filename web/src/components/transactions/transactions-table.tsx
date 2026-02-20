@@ -24,13 +24,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { CategoryCombobox } from "@/components/categories/category-combobox";
+import { BudgetCombobox } from "@/components/budget/budget-combobox";
 import {
   Table,
   TableBody,
@@ -514,19 +509,19 @@ function TransactionRow({
   const isVerified = transaction.categorizationStatus === CategorizationStatusEnum.Verified;
   const isCategorized = transaction.categorizationStatus === CategorizationStatusEnum.Categorized;
 
-  const handleCategorySelect = async (value: string) => {
+  const handleCategorySelect = async (categoryId: number | null) => {
     setIsUpdating(true);
     try {
-      await onCategoryChange(transaction.id, value === "none" ? null : parseInt(value, 10));
+      await onCategoryChange(transaction.id, categoryId);
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const handleBudgetSelect = async (value: string) => {
+  const handleBudgetSelect = async (budgetId: number | null) => {
     setIsUpdating(true);
     try {
-      await onBudgetChange(transaction.id, value === "none" ? null : parseInt(value, 10));
+      await onBudgetChange(transaction.id, budgetId);
     } finally {
       setIsUpdating(false);
     }
@@ -566,23 +561,14 @@ function TransactionRow({
       </TableCell>
       <TableCell onClick={(event) => isEditing && event.stopPropagation()} data-qa={`transaction-category-${transaction.id}`}>
         {isEditing ? (
-          <Select
-            value={transaction.category?.id.toString() ?? "none"}
+          <CategoryCombobox
+            categories={categories}
+            value={transaction.category?.id ?? null}
             onValueChange={handleCategorySelect}
+            allowNone
             disabled={isUpdating}
-          >
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue placeholder="Select..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              {categories.map((category) => (
-                <SelectItem key={category.id} value={category.id.toString()}>
-                  {category.fullPath}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            triggerClassName="h-8 w-full"
+          />
         ) : transaction.category ? (
           <button
             type="button"
@@ -610,23 +596,14 @@ function TransactionRow({
       </TableCell>
       <TableCell onClick={(event) => isEditing && event.stopPropagation()} data-qa={`transaction-budget-${transaction.id}`}>
         {isEditing ? (
-          <Select
-            value={transaction.budget?.id.toString() ?? "none"}
+          <BudgetCombobox
+            budgets={budgets}
+            value={transaction.budget?.id ?? null}
             onValueChange={handleBudgetSelect}
+            allowNone
             disabled={isUpdating}
-          >
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue placeholder="Select..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              {budgets.map((budget) => (
-                <SelectItem key={budget.id} value={budget.id.toString()}>
-                  {budget.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            triggerClassName="h-8 w-full"
+          />
         ) : transaction.budget ? (
           <button
             type="button"
