@@ -514,5 +514,34 @@
     "plan": "claude_plans/transaction-notes.md",
     "description": "In transaction-detail-panel.tsx, replace the read-only notes DetailRow with an always-visible Textarea (ShadCN) with placeholder 'Add notes...'. Auto-save on blur using the UpdateTransactionNotes mutation. Show subtle save indicator. Add frontend GraphQL mutation in web/src/graphql/mutations/transactions.graphql and run codegen.",
     "dependencies": ["NOTES-001"]
+  },
+
+  {
+    "id": "URL-001",
+    "phase": "URL: Persist Selected Entity ID in URL",
+    "title": "Persist selected transaction ID in URL",
+    "status": "pending",
+    "plan": null,
+    "description": "When a transaction is selected (detail panel open) in the transactions table, reflect its ID in the URL as a search param (e.g., /transactions?transactionId=123). On page load, if transactionId is present, auto-select and open the detail panel for that transaction. This enables sharing direct links to a specific transaction and easy ID copying from the browser address bar.",
+    "dependencies": []
+  },
+  {
+    "id": "URL-002",
+    "phase": "URL: Persist Selected Entity ID in URL",
+    "title": "Persist selected budget ID in URL when editing",
+    "status": "pending",
+    "plan": null,
+    "description": "When a budget row is selected for editing on the budgets page, reflect its ID in the URL as a search param (e.g., /budgets/2026-02?budgetId=45). On page load, if budgetId is present, auto-select and open the edit state for that budget. This enables sharing direct links to a specific budget and easy ID copying from the browser address bar.",
+    "dependencies": []
+  },
+
+  {
+    "id": "UI-010",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Filter budget dropdown by transaction date when editing a transaction",
+    "status": "pending",
+    "plan": null,
+    "description": "When assigning a budget to a transaction (in the detail panel or inline edit), the budget dropdown currently shows all non-archived budgets. Instead, filter budgets to only those whose date range (startDate–endDate) covers the transaction's date. This way, editing an old transaction shows only budgets that were active at that time (not newer ones), and editing a recent transaction doesn't show expired budgets. Applies to budget selects in transaction-detail-panel.tsx and inline budget edit in transactions-table.tsx. May require passing the transaction date to the budget query or filtering client-side using budget startDate/endDate fields.",
+    "dependencies": []
   }
 ]
