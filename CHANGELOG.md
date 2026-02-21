@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-02-22d
+
+### Added
+- Decomposed Phase 9 (Transaction Data Correctness) into 12 tasks (P9-001 through P9-012)
+  - Wire transaction_sources at runtime, fix amount sign convention, redesign returning detection (single-transaction model), wire fee-split detection, remove RETURNING type, production data fix script, seed data, transfer UI improvements, returning indicator, tests, docs
+  - Based on existing plans: `claude_plans/returning-single-transaction-model.md` and `claude_plans/wire-returnings-fee-splits.md`
+- Decomposed Manual Transaction UI into 5 tasks (MTX-001 through MTX-005)
+  - Verify/fix backend, build form component, add UI entry points, E2E tests, seed data
+  - Backend (`createTransaction` mutation + `CreateTransactionUseCase`) already exists — needs verification and frontend UI
+
+### Changed
+- Deferred REFACTOR-001 (extract generic DatabaseRepository base class) — after analysis, repositories are too heterogeneous for a meaningful base class; common patterns are simple 3-4 line methods
+
 ## 2026-02-22c
 
 ### Changed

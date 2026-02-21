@@ -500,9 +500,9 @@
     "id": "REFACTOR-001",
     "phase": "REFACTOR: Infrastructure Improvements",
     "title": "Extract generic DatabaseRepository base class",
-    "status": "pending",
+    "status": "deferred",
     "plan": null,
-    "description": "Database repository implementations (DatabaseTransactionRepository, DatabaseBankTransactionRepository, DatabaseAccountRepository, etc.) duplicate the same boilerplate: insert → returning → map, findById, findMany patterns. Extract a generic DatabaseRepository<TEntity, TRow, TInsert> base class with shared methods (insertOne, findOneBy, findManyBy) so concrete repositories only define mapping and custom queries.",
+    "description": "Database repository implementations (DatabaseTransactionRepository, DatabaseBankTransactionRepository, DatabaseAccountRepository, etc.) duplicate the same boilerplate: insert → returning → map, findById, findMany patterns. Extract a generic DatabaseRepository<TEntity, TRow, TInsert> base class with shared methods (insertOne, findOneBy, findManyBy) so concrete repositories only define mapping and custom queries. DEFERRED: After analysis, repos are too heterogeneous (Transaction alone has 30+ unique methods) for a meaningful base class. Common patterns are simple 3-4 line methods — abstraction would add complexity without proportional value.",
     "dependencies": []
   },
 
@@ -629,5 +629,160 @@
     "status": "done",
     "plan": null,
     "description": "UI elements like the left sidebar (collapsed/expanded), right transaction filter sidebar (collapsed/expanded), selected transaction filters, and other toggleable states reset to their defaults on page reload. Fix by: (1) Create a useLocalStorage<T>(key: LocalStorageKey, initialValue: T) hook in web/src/hooks/use-local-storage.ts with the same API as useState but backed by localStorage. Handle SSR (return initialValue during server render, sync from localStorage on mount), JSON serialization/deserialization, and storage errors gracefully. (2) Define a LocalStorageKey enum or const object in web/src/lib/local-storage-keys.ts with all keys in one place (e.g., SIDEBAR_COLLAPSED, FILTER_SIDEBAR_COLLAPSED, TRANSACTION_FILTERS) to prevent key collisions and make usage discoverable. (3) Replace useState calls for these UI states with useLocalStorage throughout the app: left sidebar collapse state in app-shell.tsx, transaction filter sidebar visibility, applied transaction filters (account, category, budget, type, status, date range, search), and any other toggleable UI state that should persist across reloads. For filters, persist the appliedFilters object so returning to the transactions page restores the last-used filter set. URL params should take precedence over localStorage when present (e.g., navigating from a budget link)."
+  },
+
+  {
+    "id": "P9-001",
+    "phase": "P9: Transaction Data Correctness",
+    "title": "Wire transaction_sources creation at runtime",
+    "status": "pending",
+    "plan": "claude_plans/wire-returnings-fee-splits.md",
+    "description": "transaction_sources join table (linking bank_transactions to transactions) is never populated at runtime. Add linkTransactionSource(transactionId, bankTransactionId) and linkTransactionSources(links[]) abstract methods to BankTransactionRepository. Implement in DatabaseBankTransactionRepository using INSERT INTO transaction_sources ON CONFLICT DO NOTHING. Wire into TransactionSyncService: in saveBankTransactions(), after saving bank_transactions (which return entities with IDs), build externalId→bankTxId map, match with transaction dbIds, and call linkTransactionSources(). In saveSingleBankTransaction(), call linkTransactionSource() after save. Add stubs in SpreadsheetBankTransactionRepository. This is a prerequisite for returnings, fee splits, and the GraphQL bankTransactions field resolver.",
+    "dependencies": []
+  },
+  {
+    "id": "P9-002",
+    "phase": "P9: Transaction Data Correctness",
+    "title": "Fix amount sign convention (transactions.amount always positive)",
+    "status": "pending",
+    "plan": "claude_plans/returning-single-transaction-model.md",
+    "description": "transactions.amount should always be positive (type column indicates direction), but the write path still stores signed amounts from Monobank. Fix: (1) In MonobankMapper, use Math.abs() when creating Transaction entities (bank_transactions keep signed amounts). (2) In DatabaseTransactionMapper, rename calculateSignedAmount → getAmount and update comments. (3) Create scripts/fix-amount-sign.ts one-time script: UPDATE transactions SET amount = ABS(amount) WHERE amount < 0 (fixes ~250 negative debits in production). (4) Document convention in CLAUDE.md Data Conventions section. Run script with --dry-run first, then apply. Write unit tests for mapper changes.",
+    "dependencies": []
+  },
+  {
+    "id": "P9-003",
+    "phase": "P9: Transaction Data Correctness",
+    "title": "Redesign returning detection using single-transaction model",
+    "status": "pending",
+    "plan": "claude_plans/returning-single-transaction-model.md",
+    "description": "Current returning detection creates two transaction rows (original + returning). Redesign to single-transaction model: partial refund → ONE transaction linked to TWO bank_transactions (original amount reduced), full refund → ZERO transactions (both bank_txs orphaned). Update TransactionSyncService.detectReturningForTransaction(): (1) Classify incoming transaction as cancellation (bank description starts with 'Скасування. '). (2) Find original debit via findCancellationCandidate(). (3) Partial refund: reduce original amount, link cancellation bank_tx to original via transaction_sources, delete cancellation transaction. (4) Full refund: delete both transactions. Update TransactionProcessingService.processCancellation() to set transaction: null. Write unit tests for new behavior.",
+    "dependencies": ["P9-001", "P9-002"]
+  },
+  {
+    "id": "P9-004",
+    "phase": "P9: Transaction Data Correctness",
+    "title": "Wire fee-split detection at runtime",
+    "status": "pending",
+    "plan": "claude_plans/wire-returnings-fee-splits.md",
+    "description": "Transactions with commission > 0 are saved with full amount — no separate fee transaction is created. Add detectFeeSplits() to TransactionSyncService: for each transaction where bank_transaction has commission > 0, (1) reduce main transaction amount by commission, (2) create separate fee transaction (type='debit', amount=commission, description='Bank commission', same date/account/currency), (3) link fee transaction to same bank_transaction via transaction_sources. Wire into use cases after returning detection. Write unit tests.",
+    "dependencies": ["P9-001", "P9-002"]
+  },
+  {
+    "id": "P9-005",
+    "phase": "P9: Transaction Data Correctness",
+    "title": "Wire detection into all use cases with correct ordering",
+    "status": "pending",
+    "plan": "claude_plans/wire-returnings-fee-splits.md",
+    "description": "Wire detectReturnings() and detectFeeSplits() into ProcessIncomingTransaction, SyncTransactions, and SyncMonobank use cases. Order: returnings first (may delete transactions), fee splits second (adjusts amounts), transfers last (existing). If detectReturnings deletes the saved transaction (full refund), skip fee splits, transfers, and categorization. Update existing use case unit tests to verify the new detection calls with correct ordering.",
+    "dependencies": ["P9-003", "P9-004"]
+  },
+  {
+    "id": "P9-006",
+    "phase": "P9: Transaction Data Correctness",
+    "title": "Remove RETURNING type from codebase",
+    "status": "pending",
+    "plan": "claude_plans/returning-single-transaction-model.md",
+    "description": "Eliminate the RETURNING transaction type since returnings are now handled by amount reduction on original transactions. (1) Domain: remove RETURNING from TransactionType enum, remove 'returning' from type unions. (2) GraphQL: remove RETURNING from TransactionTypeEnum, remove adjustedTransactionId from Transaction type, remove markAsReturning/unmarkReturning mutations. (3) Resolvers: remove markAsReturning/unmarkReturning handlers. (4) Mappers: remove 'returning: RETURNING' from type map. (5) MonthlyOverviewResolver: remove 'returning' exclusion filter (only 'transfer' remains). (6) Frontend: remove RETURNING from TYPE_CONFIG in transactions-table.tsx and transaction-detail-panel.tsx, remove from filter options. (7) Delete tests/integration/api/mark-as-returning.test.ts. Run just check && just test && just test-api.",
+    "dependencies": ["P9-005"]
+  },
+  {
+    "id": "P9-007",
+    "phase": "P9: Transaction Data Correctness",
+    "title": "Create production data fix script for returnings and amounts",
+    "status": "pending",
+    "plan": "claude_plans/returning-single-transaction-model.md",
+    "description": "Create scripts/fix-returning-data.ts to fix production data in three phases: (1) Make all transaction amounts positive: UPDATE transactions SET amount = ABS(amount) WHERE amount < 0. (2) Process all 15 cancellation bank_txs into single-transaction model: for each cancellation, find matching original, handle partial (reduce amount, link bank_tx) or full (delete both txs) refund. Categories: 2 already type='returning', 5 still type='credit', 8 orphaned. (3) Clear adjusted_transaction_id: UPDATE transactions SET adjusted_transaction_id = NULL. Support --dry-run flag. Verify: no transactions with type='returning', no negative amounts, no adjusted_transaction_id values.",
+    "dependencies": ["P9-003"]
+  },
+  {
+    "id": "P9-008",
+    "phase": "P9: Transaction Data Correctness",
+    "title": "Update seed data with bank_transactions, transaction_sources, transfers, returnings, fee splits",
+    "status": "pending",
+    "plan": "claude_plans/wire-returnings-fee-splits.md",
+    "description": "Update scripts/seed-local-db.ts: (1) Add clearDatabase for transfer_pairs, transaction_sources, bank_transactions tables. (2) Create bank_transactions for each seeded transaction (map from transaction fields). (3) Create transaction_sources links. (4) Add 2 transfer pair examples per month (debit on one account, credit on another, same amount, ~1min apart). (5) Add returning examples: partial refund (one debit with reduced amount linked to 2 bank_txs) and full refund (orphaned bank_txs, no transaction). (6) Add fee split examples: main tx with reduced amount + separate 'Bank commission' debit, both linked to same bank_tx. Also update test factories in tests/integration/api/test-factories.ts with createTestBankTransaction(), createTestTransactionSource(), createTestTransferPair().",
+    "dependencies": ["P9-001"]
+  },
+  {
+    "id": "P9-009",
+    "phase": "P9: Transaction Data Correctness",
+    "title": "Transfer UI improvements: skip categorization prompts and consistent display",
+    "status": "pending",
+    "plan": null,
+    "description": "Improve transfer transaction display on the frontend: (1) In transactions-table.tsx, for type='transfer' rows: hide category/budget comboboxes (show '-' or 'Transfer' label instead), remove the verify button (transfers don't need verification), don't show 'Categorized' warning badge. (2) In transaction-detail-panel.tsx, for transfers: hide category/budget selectors, hide verify button, show transfer pair info (linked transaction ID/description if available). (3) In CategorizeTransactionUseCase or EnqueueCategorizationUseCase, skip categorization for transfer transactions. (4) In ProcessIncomingTransaction, skip enqueueing categorization for transactions detected as transfers. Write unit tests for skip logic.",
+    "dependencies": []
+  },
+  {
+    "id": "P9-010",
+    "phase": "P9: Transaction Data Correctness",
+    "title": "Add returning indicator for partially returned transactions",
+    "status": "pending",
+    "plan": "claude_plans/returning-single-transaction-model.md",
+    "description": "Add visual indicator for partially returned transactions on the frontend. After P9-003, a partially returned transaction is a debit linked to >1 bank_transactions (original + cancellation). (1) Add bankTransactionCount field to Transaction GraphQL type (or use existing bankTransactions field count). (2) In transactions-table.tsx, show a small 'Returned' badge or icon next to debit transactions where bankTransactionCount > 1. (3) In transaction-detail-panel.tsx, show both bank_transactions in a collapsible section with original and cancellation amounts. (4) Update GetTransactions and GetTransaction queries to include bankTransactionCount. Run codegen.",
+    "dependencies": ["P9-006", "P9-008"]
+  },
+  {
+    "id": "P9-011",
+    "phase": "P9: Transaction Data Correctness",
+    "title": "Write comprehensive tests for Phase 9 changes",
+    "status": "pending",
+    "plan": null,
+    "description": "Ensure test coverage for all Phase 9 changes: (1) Unit tests: TransactionSyncService — transaction_sources linking, detectReturnings (partial/full refund, no match), detectFeeSplits (reduce amount + create fee tx). (2) Unit tests: updated use cases — verify detection ordering (returnings → fees → transfers), skip processing after full refund deletion. (3) API integration tests: query partially returned transaction (bankTransactionCount > 1), query fee-split transactions, verify RETURNING type no longer accepted in filters. (4) Update mocks: add findCancellationCandidate, updateTransactionAmount to TransactionRepository mock; add linkTransactionSource, linkTransactionSources to BankTransactionRepository mock.",
+    "dependencies": ["P9-005", "P9-006"]
+  },
+  {
+    "id": "P9-012",
+    "phase": "P9: Transaction Data Correctness",
+    "title": "Update documentation for Phase 9 changes",
+    "status": "pending",
+    "plan": null,
+    "description": "Update project documentation to reflect Phase 9 changes: (1) docs/database-design.md — document transaction_sources usage, single-transaction returning model, fee split model. (2) docs/data-flow.md — update transaction processing flow diagram with returning/fee/transfer detection ordering. (3) CLAUDE.md — update Data Conventions section with amount sign convention (already partially documented). (4) Mark Phase 9 tasks as completed in ROADMAP.md.",
+    "dependencies": ["P9-006"]
+  },
+
+  {
+    "id": "MTX-001",
+    "phase": "MTX: Manual Transaction UI",
+    "title": "Verify and fix createTransaction backend",
+    "status": "pending",
+    "plan": null,
+    "description": "The createTransaction GraphQL mutation and CreateTransactionUseCase already exist but may have issues. Verify: (1) accountId mapping — GraphQL input uses Int (DB ID), but use case may use externalId internally. Test the mutation end-to-end via API integration test. (2) Amount conversion — input accepts Float in major units, use case should multiply by 100 for minor units. Verify Math.round(request.amount * 100). (3) Error handling — ManualTransactionNotAllowedError for synced accounts, account not found. (4) Return value — mutation should return the created Transaction with all fields. Fix any issues found. Write API integration test: create transaction on manual account (happy path), reject on synced account, validate required fields.",
+    "dependencies": []
+  },
+  {
+    "id": "MTX-002",
+    "phase": "MTX: Manual Transaction UI",
+    "title": "Add frontend GraphQL operation and create transaction form component",
+    "status": "pending",
+    "plan": null,
+    "description": "Build the create transaction form: (1) Add CreateTransaction mutation to web/src/graphql/mutations/transactions.graphql, run codegen. (2) Create web/src/components/transactions/create-transaction-sheet.tsx — Sheet with form: account selector (manual accounts only, fetched from GetAccounts with source filter), date picker (default today), amount input (positive number, shows currency from selected account), type radio (Expense/Income), description text input (required), counterparty name (optional), notes textarea (optional). (3) Form validation: amount > 0, description non-empty, account selected. (4) On submit: call CreateTransaction mutation, refetch transactions list, show success toast, close sheet. (5) Add data-qa attributes for E2E testing. Follow patterns from create-account-sheet.tsx and other Sheet components.",
+    "dependencies": ["MTX-001"]
+  },
+  {
+    "id": "MTX-003",
+    "phase": "MTX: Manual Transaction UI",
+    "title": "Add create transaction entry points in UI",
+    "status": "pending",
+    "plan": null,
+    "description": "Add entry points to open the create transaction form: (1) In transactions page header (next to the page title), add a '+ Add Transaction' button that opens CreateTransactionSheet. Only show when user has at least one manual account. (2) In the accounts page, on manual account rows, add a 'Record Transaction' option in the account dropdown menu that navigates to /transactions with the account pre-selected in the create form. (3) Consider adding a floating action button or keyboard shortcut (Ctrl+N) for quick access. Add data-qa attributes.",
+    "dependencies": ["MTX-002"]
+  },
+  {
+    "id": "MTX-004",
+    "phase": "MTX: Manual Transaction UI",
+    "title": "Write E2E tests for manual transaction creation",
+    "status": "pending",
+    "plan": null,
+    "description": "Add E2E test coverage for manual transaction creation: (1) Create e2e/tests/transactions/create-manual-transaction.spec.ts. (2) Test: open create form, fill all fields, submit, verify transaction appears in list with correct amount/description/type. (3) Test: verify synced accounts are not shown in account selector. (4) Test: verify form validation (empty description, zero amount). (5) Update TransactionsPage page object with createTransaction() helper method. (6) Ensure seed data includes at least one manual account for E2E tests.",
+    "dependencies": ["MTX-003"]
+  },
+  {
+    "id": "MTX-005",
+    "phase": "MTX: Manual Transaction UI",
+    "title": "Add manual account transactions to seed data",
+    "status": "pending",
+    "plan": null,
+    "description": "Update scripts/seed-local-db.ts to include sample manual transactions: (1) Ensure at least one manual account exists in seed (e.g., 'Cash' account with UAH currency). (2) Add 5-10 manual transactions on the cash account with varied types (income/expense), categories, budgets, and dates across recent months. (3) Manual transactions have no bank_transaction or transaction_sources entries. This provides demo data for 'just dev' and ensures the create transaction form has a valid account to target.",
+    "dependencies": []
   }
 ]

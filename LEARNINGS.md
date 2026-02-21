@@ -1,5 +1,13 @@
 # Learnings
 
+## Phase 9 Decomposition (2026-02-22)
+- `transaction_sources` join table is **never populated at runtime** — must be wired before returnings/fee splits work.
+- `classifyTransaction()` in `TransactionProcessingService` is never called from any use case — returning/fee detection is implemented but not wired.
+- Returning detection order matters: returnings first (may delete transactions), fee splits second, transfers last.
+- `createTransaction` mutation and `CreateTransactionUseCase` already exist in backend — only frontend UI is missing for manual transactions.
+- REFACTOR-001 (generic DatabaseRepository base class) deferred: 10 repos are too heterogeneous, common patterns are 3-4 lines, abstraction adds complexity without proportional value.
+- Key planning docs: `claude_plans/returning-single-transaction-model.md` (authoritative returning plan) and `claude_plans/wire-returnings-fee-splits.md` (wiring plan).
+
 ## localStorage Persistence (2026-02-22)
 - `useLocalStorage` must use `useSyncExternalStore` (not `useState` + `useEffect`) to comply with React Compiler's `react-hooks/set-state-in-effect` rule.
 - Module-level `Map` cache ensures `getSnapshot` returns referentially stable values for non-primitive types (avoids infinite re-render from `JSON.parse` creating new objects).
