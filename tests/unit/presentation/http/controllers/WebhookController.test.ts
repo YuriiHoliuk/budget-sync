@@ -1,8 +1,10 @@
 import 'reflect-metadata';
 import { describe, expect, mock, test } from 'bun:test';
 import type { QueuedWebhookTransactionDTO } from '@application/dtos/QueuedWebhookTransactionDTO.ts';
+import type { CategorizeTransactionResultDTO } from '@application/use-cases/CategorizeTransaction.ts';
 import type { ProcessIncomingTransactionResultDTO } from '@application/use-cases/ProcessIncomingTransaction.ts';
 import type { HttpRequest } from '@modules/http';
+import { LLMRateLimitError } from '@modules/llm/index.ts';
 import { WebhookController } from '@presentation/http/controllers/WebhookController.ts';
 import { createMockLogger } from '../../../helpers';
 
@@ -14,6 +16,12 @@ interface MockProcessIncomingTransactionUseCase {
   execute: (
     payload: QueuedWebhookTransactionDTO,
   ) => Promise<ProcessIncomingTransactionResultDTO>;
+}
+
+interface MockCategorizeTransactionUseCase {
+  execute: (request: {
+    transactionDbId: number;
+  }) => Promise<CategorizeTransactionResultDTO>;
 }
 
 function createMockEnqueueUseCase(
@@ -35,6 +43,24 @@ function createMockProcessUseCase(
     transactionExternalId: 'tx-123',
   },
 ): MockProcessIncomingTransactionUseCase {
+  if (result instanceof Error) {
+    return {
+      execute: mock(() => Promise.reject(result)),
+    };
+  }
+  return {
+    execute: mock(() => Promise.resolve(result)),
+  };
+}
+
+function createMockCategorizeUseCase(
+  result: CategorizeTransactionResultDTO | Error = {
+    success: true,
+    category: 'Food',
+    budget: 'Groceries',
+    isNewCategory: false,
+  },
+): MockCategorizeTransactionUseCase {
   if (result instanceof Error) {
     return {
       execute: mock(() => Promise.reject(result)),
@@ -92,9 +118,26 @@ function createPubSubPushBody(
   };
 }
 
+/**
+ * Creates a valid Pub/Sub push message body for categorization.
+ */
+function createCategorizationPushBody(
+  data: { transactionDbId: number } = { transactionDbId: 42 },
+): unknown {
+  return {
+    message: {
+      data: toBase64(JSON.stringify(data)),
+      messageId: 'cat-msg-123',
+      publishTime: '2024-01-01T12:00:00Z',
+    },
+    subscription: 'projects/test-project/subscriptions/categorization-sub',
+  };
+}
+
 function createController(
   enqueueUseCase: MockEnqueueWebhookTransactionUseCase = createMockEnqueueUseCase(),
   processUseCase: MockProcessIncomingTransactionUseCase = createMockProcessUseCase(),
+  categorizeUseCase: MockCategorizeTransactionUseCase = createMockCategorizeUseCase(),
   logger = createMockLogger(),
 ): WebhookController {
   return new WebhookController(
@@ -104,6 +147,9 @@ function createController(
     processUseCase as unknown as ConstructorParameters<
       typeof WebhookController
     >[1],
+    categorizeUseCase as unknown as ConstructorParameters<
+      typeof WebhookController
+    >[2],
     logger,
   );
 }
@@ -115,6 +161,7 @@ describe('WebhookController', () => {
       const controller = createController(
         createMockEnqueueUseCase(),
         createMockProcessUseCase(),
+        createMockCategorizeUseCase(),
         mockLogger,
       );
 
@@ -136,6 +183,7 @@ describe('WebhookController', () => {
       const controller = createController(
         mockEnqueueUseCase,
         createMockProcessUseCase(),
+        createMockCategorizeUseCase(),
         mockLogger,
       );
 
@@ -161,6 +209,7 @@ describe('WebhookController', () => {
       const controller = createController(
         mockEnqueueUseCase,
         createMockProcessUseCase(),
+        createMockCategorizeUseCase(),
         mockLogger,
       );
 
@@ -182,6 +231,7 @@ describe('WebhookController', () => {
       const controller = createController(
         mockEnqueueUseCase,
         createMockProcessUseCase(),
+        createMockCategorizeUseCase(),
         mockLogger,
       );
 
@@ -209,6 +259,7 @@ describe('WebhookController', () => {
       const controller = createController(
         createMockEnqueueUseCase(),
         mockProcessUseCase,
+        createMockCategorizeUseCase(),
         mockLogger,
       );
 
@@ -242,6 +293,7 @@ describe('WebhookController', () => {
       const controller = createController(
         createMockEnqueueUseCase(),
         mockProcessUseCase,
+        createMockCategorizeUseCase(),
         mockLogger,
       );
 
@@ -260,6 +312,7 @@ describe('WebhookController', () => {
       const controller = createController(
         createMockEnqueueUseCase(),
         createMockProcessUseCase(),
+        createMockCategorizeUseCase(),
         mockLogger,
       );
 
@@ -284,6 +337,7 @@ describe('WebhookController', () => {
       const controller = createController(
         createMockEnqueueUseCase(),
         createMockProcessUseCase(),
+        createMockCategorizeUseCase(),
         mockLogger,
       );
 
@@ -310,6 +364,7 @@ describe('WebhookController', () => {
       const controller = createController(
         createMockEnqueueUseCase(),
         createMockProcessUseCase(),
+        createMockCategorizeUseCase(),
         mockLogger,
       );
 
@@ -339,6 +394,7 @@ describe('WebhookController', () => {
       const controller = createController(
         createMockEnqueueUseCase(),
         createMockProcessUseCase(),
+        createMockCategorizeUseCase(),
         mockLogger,
       );
 
@@ -364,6 +420,7 @@ describe('WebhookController', () => {
       const controller = createController(
         createMockEnqueueUseCase(),
         createMockProcessUseCase(),
+        createMockCategorizeUseCase(),
         mockLogger,
       );
 
@@ -397,6 +454,7 @@ describe('WebhookController', () => {
       const controller = createController(
         createMockEnqueueUseCase(),
         mockProcessUseCase,
+        createMockCategorizeUseCase(),
         mockLogger,
       );
 
@@ -422,6 +480,7 @@ describe('WebhookController', () => {
       const controller = createController(
         createMockEnqueueUseCase(),
         createMockProcessUseCase(),
+        createMockCategorizeUseCase(),
         mockLogger,
       );
 
@@ -447,6 +506,7 @@ describe('WebhookController', () => {
       const controller = createController(
         createMockEnqueueUseCase(),
         mockProcessUseCase,
+        createMockCategorizeUseCase(),
         createMockLogger(),
       );
 
@@ -463,6 +523,153 @@ describe('WebhookController', () => {
           }),
         }),
       );
+    });
+  });
+
+  describe('handleCategorizationPush', () => {
+    test('should process valid categorization message and return 200', async () => {
+      const mockCategorizeUseCase = createMockCategorizeUseCase({
+        success: true,
+        category: 'Food',
+        budget: 'Groceries',
+        isNewCategory: false,
+      });
+      const mockLogger = createMockLogger();
+      const controller = createController(
+        createMockEnqueueUseCase(),
+        createMockProcessUseCase(),
+        mockCategorizeUseCase,
+        mockLogger,
+      );
+
+      const request = {
+        body: createCategorizationPushBody({ transactionDbId: 42 }),
+      } as HttpRequest;
+
+      const response = await controller.handleCategorizationPush(request);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ categorized: true });
+      expect(mockCategorizeUseCase.execute).toHaveBeenCalledWith({
+        transactionDbId: 42,
+      });
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Categorization processed',
+        expect.objectContaining({
+          messageId: 'cat-msg-123',
+          transactionDbId: 42,
+          category: 'Food',
+          budget: 'Groceries',
+        }),
+      );
+    });
+
+    test('should return 500 on rate limit error for Pub/Sub retry', async () => {
+      const mockCategorizeUseCase = createMockCategorizeUseCase(
+        new LLMRateLimitError(),
+      );
+      const mockLogger = createMockLogger();
+      const controller = createController(
+        createMockEnqueueUseCase(),
+        createMockProcessUseCase(),
+        mockCategorizeUseCase,
+        mockLogger,
+      );
+
+      const request = {
+        body: createCategorizationPushBody({ transactionDbId: 42 }),
+      } as HttpRequest;
+
+      const response = await controller.handleCategorizationPush(request);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Rate limited' });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Categorization rate-limited, will retry',
+        expect.objectContaining({
+          messageId: 'cat-msg-123',
+          transactionDbId: 42,
+        }),
+      );
+    });
+
+    test('should return 500 on transient error for Pub/Sub retry', async () => {
+      const mockCategorizeUseCase = createMockCategorizeUseCase(
+        new Error('Database unavailable'),
+      );
+      const mockLogger = createMockLogger();
+      const controller = createController(
+        createMockEnqueueUseCase(),
+        createMockProcessUseCase(),
+        mockCategorizeUseCase,
+        mockLogger,
+      );
+
+      const request = {
+        body: createCategorizationPushBody({ transactionDbId: 42 }),
+      } as HttpRequest;
+
+      const response = await controller.handleCategorizationPush(request);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Database unavailable' });
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to categorize transaction',
+        expect.objectContaining({
+          messageId: 'cat-msg-123',
+          transactionDbId: 42,
+          error: 'Database unavailable',
+        }),
+      );
+    });
+
+    test('should return 400 for invalid categorization message format', async () => {
+      const mockLogger = createMockLogger();
+      const controller = createController(
+        createMockEnqueueUseCase(),
+        createMockProcessUseCase(),
+        createMockCategorizeUseCase(),
+        mockLogger,
+      );
+
+      const request = {
+        body: { invalid: 'format' },
+      } as HttpRequest;
+
+      const response = await controller.handleCategorizationPush(request);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: 'Invalid Pub/Sub push message format',
+      });
+    });
+
+    test('should return 400 for invalid categorization DTO', async () => {
+      const mockLogger = createMockLogger();
+      const controller = createController(
+        createMockEnqueueUseCase(),
+        createMockProcessUseCase(),
+        createMockCategorizeUseCase(),
+        mockLogger,
+      );
+
+      const invalidDto = { invalidField: 'value' };
+
+      const request = {
+        body: {
+          message: {
+            data: toBase64(JSON.stringify(invalidDto)),
+            messageId: 'msg-123',
+            publishTime: '2024-01-01T12:00:00Z',
+          },
+          subscription: 'test-sub',
+        },
+      } as HttpRequest;
+
+      const response = await controller.handleCategorizationPush(request);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'Invalid message data' });
     });
   });
 
@@ -486,6 +693,11 @@ describe('WebhookController', () => {
         { method: 'get', path: '', handler: 'handleValidation' },
         { method: 'post', path: '', handler: 'handleWebhook' },
         { method: 'post', path: '/process', handler: 'handlePubSubPush' },
+        {
+          method: 'post',
+          path: '/categorize',
+          handler: 'handleCategorizationPush',
+        },
         { method: 'get', path: '/health', handler: 'handleHealthCheck' },
       ]);
     });

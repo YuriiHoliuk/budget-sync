@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-02-22
+
+### Added
+- Categorization queue via Pub/Sub (CATQ-002 through CATQ-008)
+  - `CategorizationQueueGateway` abstract class (publish-only, push-based delivery)
+  - `PubSubCategorizationQueueGateway` implementation reusing existing `PubSubClient`
+  - `QueuedCategorizationDTO` with Zod schema (minimal: `{ transactionDbId: number }`)
+  - `EnqueueCategorizationUseCase` for publishing to categorization queue
+  - `POST /webhook/categorize` endpoint in `WebhookController` — processes Pub/Sub push messages, calls `CategorizeTransactionUseCase`, returns 500 on rate limit for automatic retry
+  - `--via-queue` flag on `CategorizeCommand` for batch enqueue instead of direct LLM calls
+  - `CATEGORIZATION_TOPIC` env var (defaults to `categorization-queue`)
+
+### Changed
+- `ProcessIncomingTransaction` now enqueues categorization via Pub/Sub instead of inline LLM calls (CATQ-005)
+  - Removed inline `categorizeWithRetry()` with 60s sleep and `markCategorizationFailed()`
+  - Replaced with `enqueueCategorizationSafely()` — failures logged but don't block transaction processing
+  - Rate limiting handled by Pub/Sub exponential backoff (10s–600s) instead of application-level retry
+- Updated mock helpers: `createMockCategorizationQueueGateway()`, `createMockEnqueueCategorizationUseCase()`
+- Updated unit tests for `ProcessIncomingTransaction` (enqueue instead of inline categorize) and `WebhookController` (new `/categorize` endpoint)
+
 ## 2026-02-21
 
 ### Improved

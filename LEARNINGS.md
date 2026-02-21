@@ -1,5 +1,11 @@
 # Learnings
 
+## Categorization Queue (2026-02-22)
+- Push-based Pub/Sub queue only needs `publish()` method — no `pull()`/`acknowledge()` since Pub/Sub pushes to the webhook endpoint.
+- `CategorizationQueueGateway` is separate from `MessageQueueGateway` — different topic, different retry policy, publish-only interface.
+- `CATEGORIZATION_TOPIC` env var defaults to `categorization-queue`. Infrastructure tasks (CATQ-001, CATQ-007, CATQ-009) still pending for Terraform and docs.
+- When removing `private` from a constructor parameter that's only used to pass to another constructor, keep the `@inject()` decorator and the type — just remove `private` so it's a parameter only, not a class property.
+
 ## URL Params & Navigation (2026-02-15)
 - React Compiler (eslint `react-hooks/preserve-manual-memoization`) disallows `useMemo(() => ..., [])` with empty deps when there's a dependency. Use `useState(() => ...)` lazy initializer instead.
 - React Compiler `react-hooks/refs` rule forbids reading `ref.current` during render (e.g. as `useState` initial value). Use inline computation or lazy initializer instead.

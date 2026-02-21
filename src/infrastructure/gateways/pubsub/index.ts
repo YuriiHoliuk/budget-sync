@@ -1,4 +1,8 @@
 export {
+  CATEGORIZATION_TOPIC_TOKEN,
+  PubSubCategorizationQueueGateway,
+} from './PubSubCategorizationQueueGateway.ts';
+export {
   PUBSUB_CLIENT_TOKEN,
   PUBSUB_QUEUE_CONFIG_TOKEN,
   PubSubMessageQueueGateway,

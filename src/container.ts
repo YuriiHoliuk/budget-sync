@@ -8,6 +8,7 @@
 import 'reflect-metadata';
 
 import { BANK_GATEWAY_TOKEN } from '@domain/gateways/BankGateway.ts';
+import { CATEGORIZATION_QUEUE_GATEWAY_TOKEN } from '@domain/gateways/CategorizationQueueGateway.ts';
 import { LLM_GATEWAY_TOKEN } from '@domain/gateways/LLMGateway.ts';
 import { MESSAGE_QUEUE_GATEWAY_TOKEN } from '@domain/gateways/MessageQueueGateway.ts';
 import { ACCOUNT_REPOSITORY_TOKEN } from '@domain/repositories/AccountRepository.ts';
@@ -29,8 +30,10 @@ import {
   MonobankGateway,
 } from '@infrastructure/gateways/monobank/MonobankGateway.ts';
 import {
+  CATEGORIZATION_TOPIC_TOKEN,
   PUBSUB_CLIENT_TOKEN,
   PUBSUB_QUEUE_CONFIG_TOKEN,
+  PubSubCategorizationQueueGateway,
   PubSubMessageQueueGateway,
 } from '@infrastructure/gateways/pubsub/index.ts';
 import { DatabaseAccountRepository } from '@infrastructure/repositories/database/DatabaseAccountRepository.ts';
@@ -110,6 +113,8 @@ export function setupContainer(): typeof container {
     subscriptionName:
       getOptionalEnv('PUBSUB_SUBSCRIPTION') ?? 'webhook-transactions-sub',
   };
+  const categorizationTopic =
+    getOptionalEnv('CATEGORIZATION_TOPIC') ?? 'categorization-queue';
   const gcpProjectId = getOptionalEnv('GCP_PROJECT_ID');
   const pubSubClient = new PubSubClient({
     projectId: gcpProjectId,
@@ -146,10 +151,18 @@ export function setupContainer(): typeof container {
     container.register(GEMINI_CLIENT_TOKEN, { useValue: geminiClient });
   }
 
+  // Register categorization queue config
+  container.register(CATEGORIZATION_TOPIC_TOKEN, {
+    useValue: categorizationTopic,
+  });
+
   // Register gateways
   container.register(BANK_GATEWAY_TOKEN, { useClass: MonobankGateway });
   container.register(MESSAGE_QUEUE_GATEWAY_TOKEN, {
     useClass: PubSubMessageQueueGateway,
+  });
+  container.register(CATEGORIZATION_QUEUE_GATEWAY_TOKEN, {
+    useClass: PubSubCategorizationQueueGateway,
   });
 
   // Register repositories (all direct Database implementations)

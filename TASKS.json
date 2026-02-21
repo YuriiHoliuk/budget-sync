@@ -179,7 +179,7 @@
     "id": "CATQ-002",
     "phase": "CATQ: Categorization Queue",
     "title": "Create CategorizationQueueGateway domain and infrastructure",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/categorization-queue.md",
     "description": "Add abstract CategorizationQueueGateway in domain/gateways (publish method only). Implement PubSubCategorizationQueueGateway reusing PubSubClient. Register in container.ts with CATEGORIZATION_TOPIC/SUBSCRIPTION env vars.",
     "dependencies": []
@@ -188,7 +188,7 @@
     "id": "CATQ-003",
     "phase": "CATQ: Categorization Queue",
     "title": "Create EnqueueCategorizationUseCase",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/categorization-queue.md",
     "description": "New use case accepting transactionExternalId, publishes to categorization queue. Minimal DTO: { transactionExternalId: string }. Returns { messageId: string }.",
     "dependencies": ["CATQ-002"]
@@ -197,7 +197,7 @@
     "id": "CATQ-004",
     "phase": "CATQ: Categorization Queue",
     "title": "Add POST /webhook/categorize endpoint",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/categorization-queue.md",
     "description": "New route in WebhookController. Parses Pub/Sub push envelope via PubSubPushParser. Calls CategorizeTransactionUseCase. Returns 200 on success/already-categorized, 400 on bad data, 500 on rate limit or transient errors to trigger Pub/Sub retry.",
     "dependencies": ["CATQ-002"]
@@ -206,7 +206,7 @@
     "id": "CATQ-005",
     "phase": "CATQ: Categorization Queue",
     "title": "Update ProcessIncomingTransaction to enqueue categorization",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/categorization-queue.md",
     "description": "Replace inline categorizeTransactionSafely() with enqueue to categorization queue via EnqueueCategorizationUseCase. Remove rate limit retry logic and sleep method. Keep markCategorizationFailed for enqueue failures only.",
     "dependencies": ["CATQ-003"]
@@ -215,7 +215,7 @@
     "id": "CATQ-006",
     "phase": "CATQ: Categorization Queue",
     "title": "Update CategorizeCommand for queue-based retry",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/categorization-queue.md",
     "description": "Add --via-queue flag to CategorizeCommand that enqueues pending/failed transactions instead of direct LLM calls. Keep direct mode as default for local dev without Pub/Sub.",
     "dependencies": ["CATQ-003"]
@@ -233,7 +233,7 @@
     "id": "CATQ-008",
     "phase": "CATQ: Categorization Queue",
     "title": "Write tests for categorization queue",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/categorization-queue.md",
     "description": "Unit tests for EnqueueCategorizationUseCase, updated ProcessIncomingTransaction (enqueue instead of inline), and /webhook/categorize endpoint handler. Update existing tests that mock categorization.",
     "dependencies": ["CATQ-004", "CATQ-005"]
@@ -566,6 +566,16 @@
   },
 
   {
+    "id": "UI-013",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Make budgets table scroll only table body like transactions table",
+    "status": "pending",
+    "plan": null,
+    "description": "The transactions table scrolls only the table body while keeping the header fixed, which works well. The budgets table uses a sticky header approach instead, which looks awkward. Refactor the budgets table in budget-table.tsx to match the transactions table pattern — the table header should stay fixed and only the table body should scroll, rather than using sticky positioning on the header. Look at how transactions-table.tsx achieves this (likely a fixed header with a scrollable tbody container) and apply the same approach to the budgets table.",
+    "dependencies": []
+  },
+
+  {
     "id": "CI-001",
     "phase": "CI: Optimize CI/CD Pipeline with Change Detection",
     "title": "Move change detection to the first CI step and skip unnecessary jobs",
@@ -573,5 +583,51 @@
     "plan": null,
     "description": "Currently the CI/CD workflow runs all static checks and tests before detecting what changed. Restructure the GitHub Actions workflow to detect changed files as the very first step (e.g., using dorny/paths-filter or git diff against the base branch), then conditionally skip jobs that aren't affected by the changes. Target mapping (needs exploration during implementation to find the right balance between reliability and optimization): (1) Unit tests — run if src/ or tests/unit/ changed. (2) API integration tests — run only if backend code changed (src/, tests/integration/, drizzle/). Skip if only frontend or scripts changed. (3) E2E tests — run if backend (src/), frontend (web/), E2E tests (e2e/), or Docker config changed. (4) Static checks (typecheck, lint) — run if any source code changed (src/, web/, tests/). (5) Build/deploy — existing change detection logic. (6) Changes to scripts/, docs/, or other non-production files should not trigger test runs. During implementation, explore: how to handle shared config files (package.json, tsconfig, etc.) that affect multiple categories; whether to use path filters per job or a single detection job with output variables; how to ensure reliability so that skipping doesn't accidentally miss regressions (e.g., always run everything on main branch merges as a safety net).",
     "dependencies": []
+  },
+
+  {
+    "id": "FREQ-001",
+    "phase": "FREQ: Sort Dropdowns by Usage Frequency",
+    "title": "Add transaction count repository methods",
+    "status": "pending",
+    "plan": "claude_plans/dropdown-usage-frequency-sorting.md",
+    "description": "Add abstract methods countByBudgetId(): Promise<Map<number, number>> and countByCategoryId(): Promise<Map<number, number>> to TransactionRepository (domain layer). Implement in DatabaseTransactionRepository using Drizzle: SELECT budget_id/category_id, COUNT(*) FROM transactions WHERE budget_id/category_id IS NOT NULL GROUP BY budget_id/category_id. Return a Map<id, count>. Existing indexes (idx_transactions_budget_id, idx_transactions_category_id) make this efficient.",
+    "dependencies": []
+  },
+  {
+    "id": "FREQ-002",
+    "phase": "FREQ: Sort Dropdowns by Usage Frequency",
+    "title": "Add transactionCount field to Budget and Category GraphQL types",
+    "status": "pending",
+    "plan": "claude_plans/dropdown-usage-frequency-sorting.md",
+    "description": "Add transactionCount: Int! field to Budget and Category types in GraphQL schema (budgets.graphql, categories.graphql). In budgetsResolver, fetch counts via transactionRepository.countByBudgetId() in parallel with budget fetch, merge into GQL response. Same for categoriesResolver with countByCategoryId(). Inject TransactionRepository into both resolvers via DI.",
+    "dependencies": ["FREQ-001"]
+  },
+  {
+    "id": "FREQ-003",
+    "phase": "FREQ: Sort Dropdowns by Usage Frequency",
+    "title": "Sort frontend combobox options by usage frequency",
+    "status": "pending",
+    "plan": "claude_plans/dropdown-usage-frequency-sorting.md",
+    "description": "Add transactionCount to GetBudgets and GetCategories GraphQL query documents in web/src/graphql/queries/. Run 'just codegen'. In BudgetCombobox, sort budgets by transactionCount DESC (with name alphabetical as tiebreaker) before converting to SearchableSelectOption[]. In CategoryCombobox, sort categories by transactionCount DESC within each parent group. Only affects combobox components — budget management page keeps existing sortOrder.",
+    "dependencies": ["FREQ-002"]
+  },
+  {
+    "id": "FREQ-004",
+    "phase": "FREQ: Sort Dropdowns by Usage Frequency",
+    "title": "Write tests for usage frequency sorting",
+    "status": "pending",
+    "plan": "claude_plans/dropdown-usage-frequency-sorting.md",
+    "description": "Unit tests: test countByBudgetId() and countByCategoryId() repository methods with mocked DB (verify correct SQL pattern, empty results, multiple budgets/categories). API integration tests: seed transactions with varying budget/category assignments, query budgets/categories via GraphQL, verify transactionCount field returns correct counts. Add to tests/integration/api/.",
+    "dependencies": ["FREQ-002"]
+  },
+
+  {
+    "id": "UI-014",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Persist UI state in localStorage via useLocalStorage hook",
+    "status": "pending",
+    "plan": null,
+    "description": "UI elements like the left sidebar (collapsed/expanded), right transaction filter sidebar (collapsed/expanded), and other toggleable states reset to their defaults on page reload. Fix by: (1) Create a useLocalStorage<T>(key: LocalStorageKey, initialValue: T) hook in web/src/hooks/use-local-storage.ts with the same API as useState but backed by localStorage. Handle SSR (return initialValue during server render, sync from localStorage on mount), JSON serialization/deserialization, and storage errors gracefully. (2) Define a LocalStorageKey enum or const object in web/src/lib/local-storage-keys.ts with all keys in one place (e.g., SIDEBAR_COLLAPSED, FILTER_SIDEBAR_COLLAPSED) to prevent key collisions and make usage discoverable. (3) Replace useState calls for these UI states with useLocalStorage throughout the app: left sidebar collapse state in app-shell.tsx, transaction filter sidebar visibility, and any other toggleable UI state that should persist across reloads."
   }
 ]

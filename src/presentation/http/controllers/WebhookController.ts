@@ -5,6 +5,7 @@
  * - GET /webhook - Validation endpoint (Monobank sends this to verify the URL)
  * - POST /webhook - Receives transaction notifications
  * - POST /webhook/process - Processes Pub/Sub push messages
+ * - POST /webhook/categorize - Processes categorization Pub/Sub push messages
  * - GET /health - Health check for Cloud Run
  *
  * Critical: POST /webhook always returns 200 to prevent Monobank
@@ -12,9 +13,14 @@
  */
 
 import {
+  type QueuedCategorizationDTO,
+  queuedCategorizationSchema,
+} from '@application/dtos/QueuedCategorizationDTO.ts';
+import {
   type QueuedWebhookTransactionDTO,
   queuedWebhookTransactionSchema,
 } from '@application/dtos/QueuedWebhookTransactionDTO.ts';
+import { CategorizeTransactionUseCase } from '@application/use-cases/CategorizeTransaction.ts';
 import { EnqueueWebhookTransactionUseCase } from '@application/use-cases/EnqueueWebhookTransaction.ts';
 import { ProcessIncomingTransactionUseCase } from '@application/use-cases/ProcessIncomingTransaction.ts';
 import {
@@ -24,6 +30,7 @@ import {
   ok,
   serverError,
 } from '@modules/http/index.ts';
+import { LLMRateLimitError } from '@modules/llm/index.ts';
 import { LOGGER_TOKEN, type Logger } from '@modules/logging/index.ts';
 import { inject, injectable } from 'tsyringe';
 import { Controller, type RouteDefinition } from '../Controller.ts';
@@ -36,6 +43,7 @@ import { PubSubPushParser } from '../pubsub/index.ts';
  * - Validating webhook URLs (GET /webhook)
  * - Receiving and enqueuing transaction notifications (POST /webhook)
  * - Processing Pub/Sub push messages (POST /webhook/process)
+ * - Processing categorization Pub/Sub push messages (POST /webhook/categorize)
  * - Health checks for Cloud Run (GET /health)
  */
 @injectable()
@@ -46,6 +54,11 @@ export class WebhookController extends Controller {
     { method: 'get', path: '', handler: 'handleValidation' },
     { method: 'post', path: '', handler: 'handleWebhook' },
     { method: 'post', path: '/process', handler: 'handlePubSubPush' },
+    {
+      method: 'post',
+      path: '/categorize',
+      handler: 'handleCategorizationPush',
+    },
     { method: 'get', path: '/health', handler: 'handleHealthCheck' },
   ];
 
@@ -54,6 +67,7 @@ export class WebhookController extends Controller {
   constructor(
     private enqueueWebhookTransaction: EnqueueWebhookTransactionUseCase,
     private processIncomingTransaction: ProcessIncomingTransactionUseCase,
+    private categorizeTransaction: CategorizeTransactionUseCase,
     @inject(LOGGER_TOKEN) protected logger: Logger,
   ) {
     super();
@@ -211,6 +225,74 @@ export class WebhookController extends Controller {
       });
 
       // Return 500 to trigger Pub/Sub retry
+      return serverError(errorMessage);
+    }
+  }
+
+  /**
+   * Handle POST /webhook/categorize - Process categorization Pub/Sub push message.
+   *
+   * Response contract (controls Pub/Sub retry behavior):
+   * - 200: Success or already-categorized - acknowledge message (no retry)
+   * - 400: Invalid format - acknowledge message (permanent error, no retry)
+   * - 500: Transient/rate-limit error - Pub/Sub will retry with exponential backoff
+   */
+  async handleCategorizationPush(request: HttpRequest): Promise<HttpResponse> {
+    const parseResult = this.pubSubParser.parse(
+      request.body,
+      queuedCategorizationSchema,
+    );
+
+    if (!parseResult.success) {
+      return this.handlePubSubParseError(parseResult, request.body);
+    }
+
+    return await this.processCategorization(
+      parseResult.data,
+      parseResult.messageId,
+    );
+  }
+
+  /**
+   * Process the categorization request and return appropriate HTTP response.
+   */
+  private async processCategorization(
+    data: QueuedCategorizationDTO,
+    messageId: string,
+  ): Promise<HttpResponse> {
+    try {
+      const result = await this.categorizeTransaction.execute({
+        transactionDbId: data.transactionDbId,
+      });
+
+      this.logger.info('Categorization processed', {
+        messageId,
+        transactionDbId: data.transactionDbId,
+        category: result.category,
+        budget: result.budget,
+      });
+
+      return ok({ categorized: true });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+
+      // Rate limit errors are transient — return 500 to trigger Pub/Sub retry
+      if (error instanceof LLMRateLimitError) {
+        this.logger.warn('Categorization rate-limited, will retry', {
+          messageId,
+          transactionDbId: data.transactionDbId,
+        });
+        return serverError('Rate limited');
+      }
+
+      this.logger.error('Failed to categorize transaction', {
+        messageId,
+        transactionDbId: data.transactionDbId,
+        error: errorMessage,
+      });
+
+      // Other errors are also transient — return 500 for retry
       return serverError(errorMessage);
     }
   }

@@ -4,6 +4,11 @@ import type {
   CategorizeTransactionResultDTO,
   CategorizeTransactionUseCase,
 } from '@application/use-cases/CategorizeTransaction.ts';
+import type {
+  EnqueueCategorizationRequestDTO,
+  EnqueueCategorizationResultDTO,
+  EnqueueCategorizationUseCase,
+} from '@application/use-cases/EnqueueCategorization.ts';
 import type { Account } from '@domain/entities/Account.ts';
 import type { Allocation } from '@domain/entities/Allocation.ts';
 import type { BankTransaction } from '@domain/entities/BankTransaction.ts';
@@ -14,6 +19,7 @@ import type { Category } from '@domain/entities/Category.ts';
 import type { Rule } from '@domain/entities/Rule.ts';
 import type { Transaction } from '@domain/entities/Transaction.ts';
 import type { BankGateway } from '@domain/gateways/BankGateway.ts';
+import type { CategorizationQueueGateway } from '@domain/gateways/CategorizationQueueGateway.ts';
 import type {
   BudgetAssignmentRequest,
   BudgetAssignmentResult,
@@ -296,6 +302,39 @@ export function createMockCategorizeTransactionUseCase(
   return {
     execute: executeMock,
   } as unknown as CategorizeTransactionUseCase;
+}
+
+/**
+ * Creates a mock CategorizationQueueGateway with default implementation.
+ * Publish returns a message ID.
+ */
+export function createMockCategorizationQueueGateway(
+  overrides: Partial<{
+    publish: (data: unknown) => Promise<string>;
+  }> = {},
+): CategorizationQueueGateway {
+  return {
+    publish: overrides.publish ?? mock(() => Promise.resolve('cat-msg-123')),
+  } as unknown as CategorizationQueueGateway;
+}
+
+/**
+ * Creates a mock EnqueueCategorizationUseCase with default implementation.
+ * Execute returns a message ID.
+ */
+export function createMockEnqueueCategorizationUseCase(
+  overrides: Partial<{
+    execute: (
+      request: EnqueueCategorizationRequestDTO,
+    ) => Promise<EnqueueCategorizationResultDTO>;
+  }> = {},
+): EnqueueCategorizationUseCase {
+  const executeMock =
+    overrides.execute ??
+    mock(() => Promise.resolve({ messageId: 'cat-msg-123' }));
+  return {
+    execute: executeMock,
+  } as unknown as EnqueueCategorizationUseCase;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { CategorizeTransactionUseCase } from '@application/use-cases/CategorizeTransaction.ts';
+import { EnqueueCategorizationUseCase } from '@application/use-cases/EnqueueCategorization.ts';
 import type { Transaction } from '@domain/entities/Transaction.ts';
 import {
   TRANSACTION_REPOSITORY_TOKEN,
@@ -11,6 +12,7 @@ import { Command, type CommandMeta } from '../Command.ts';
 interface CategorizeOptions {
   limit: number;
   delay: number;
+  viaQueue: boolean;
 }
 
 @injectable()
@@ -31,11 +33,18 @@ export class CategorizeCommand extends Command<CategorizeOptions> {
         defaultValue: 3000,
         parse: (value: string) => Number.parseInt(value, 10),
       },
+      {
+        flags: '--via-queue',
+        description:
+          'Enqueue transactions for async categorization via Pub/Sub instead of direct LLM calls',
+        defaultValue: false,
+      },
     ],
   };
 
   constructor(
     private categorizeUseCase: CategorizeTransactionUseCase,
+    private enqueueCategorization: EnqueueCategorizationUseCase,
     @inject(TRANSACTION_REPOSITORY_TOKEN)
     private transactionRepository: TransactionRepository,
     @inject(LOGGER_TOKEN) protected logger: Logger,
@@ -50,6 +59,17 @@ export class CategorizeCommand extends Command<CategorizeOptions> {
       `Found ${uncategorized.length} uncategorized transactions, processing ${transactions.length}`,
     );
 
+    if (options.viaQueue) {
+      this.logger.info('Mode: enqueue via Pub/Sub');
+      const { enqueued, failed } = await this.enqueueAll(transactions);
+      this.logger.info(`\nDone: ${enqueued} enqueued, ${failed} failed`);
+      if (failed > 0) {
+        process.exit(1);
+      }
+      return;
+    }
+
+    this.logger.info('Mode: direct LLM categorization');
     const { categorized, failed } = await this.categorizeAll(
       transactions,
       options.delay,
@@ -59,6 +79,59 @@ export class CategorizeCommand extends Command<CategorizeOptions> {
 
     if (failed > 0) {
       process.exit(1);
+    }
+  }
+
+  private async enqueueAll(
+    transactions: Transaction[],
+  ): Promise<{ enqueued: number; failed: number }> {
+    let enqueued = 0;
+    let failed = 0;
+
+    for (const transaction of transactions) {
+      const success = await this.enqueueTransaction(
+        transaction,
+        enqueued + failed + 1,
+        transactions.length,
+      );
+
+      if (success) {
+        enqueued++;
+      } else {
+        failed++;
+      }
+    }
+
+    return { enqueued, failed };
+  }
+
+  private async enqueueTransaction(
+    transaction: Transaction,
+    index: number,
+    total: number,
+  ): Promise<boolean> {
+    const dbId = transaction.dbId;
+    if (dbId === null) {
+      this.logger.error(
+        `[${index}/${total}] ${transaction.externalId}: no database ID`,
+      );
+      return false;
+    }
+
+    try {
+      const result = await this.enqueueCategorization.execute({
+        transactionDbId: dbId,
+      });
+      this.logger.info(
+        `[${index}/${total}] ${transaction.externalId}: enqueued (${result.messageId})`,
+      );
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `[${index}/${total}] ${transaction.externalId}: ${message}`,
+      );
+      return false;
     }
   }
 

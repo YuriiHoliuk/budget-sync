@@ -1,20 +1,18 @@
 import 'reflect-metadata';
 import { beforeEach, describe, expect, type mock, test } from 'bun:test';
 import type { QueuedWebhookTransactionDTO } from '@application/dtos/QueuedWebhookTransactionDTO.ts';
-import type { CategorizeTransactionUseCase } from '@application/use-cases/CategorizeTransaction.ts';
+import type { EnqueueCategorizationUseCase } from '@application/use-cases/EnqueueCategorization.ts';
 import { ProcessIncomingTransactionUseCase } from '@application/use-cases/ProcessIncomingTransaction.ts';
 import type { Transaction } from '@domain/entities/Transaction.ts';
 import { AccountNotFoundError } from '@domain/errors/DomainErrors.ts';
 import type { AccountRepository } from '@domain/repositories/AccountRepository.ts';
 import type { BankTransactionRepository } from '@domain/repositories/BankTransactionRepository.ts';
 import type { TransactionRepository } from '@domain/repositories/TransactionRepository.ts';
-import { CategorizationStatus } from '@domain/value-objects/index.ts';
-import { LLMRateLimitError } from '@modules/llm/index.ts';
 import type { Logger } from '@modules/logging';
 import {
   createMockAccountRepository,
   createMockBankTransactionRepository,
-  createMockCategorizeTransactionUseCase,
+  createMockEnqueueCategorizationUseCase,
   createMockLogger,
   createMockTransactionRepository,
   createTestAccount,
@@ -26,7 +24,7 @@ describe('ProcessIncomingTransactionUseCase', () => {
   let accountRepository: AccountRepository;
   let transactionRepository: TransactionRepository;
   let bankTransactionRepository: BankTransactionRepository;
-  let categorizeTransaction: CategorizeTransactionUseCase;
+  let enqueueCategorization: EnqueueCategorizationUseCase;
   let logger: Logger;
   let useCase: ProcessIncomingTransactionUseCase;
 
@@ -34,13 +32,13 @@ describe('ProcessIncomingTransactionUseCase', () => {
     accountRepository = createMockAccountRepository();
     transactionRepository = createMockTransactionRepository();
     bankTransactionRepository = createMockBankTransactionRepository();
-    categorizeTransaction = createMockCategorizeTransactionUseCase();
+    enqueueCategorization = createMockEnqueueCategorizationUseCase();
     logger = createMockLogger();
     useCase = new ProcessIncomingTransactionUseCase(
       accountRepository,
       transactionRepository,
       bankTransactionRepository,
-      categorizeTransaction,
+      enqueueCategorization,
       logger,
     );
   });
@@ -216,10 +214,38 @@ describe('ProcessIncomingTransactionUseCase', () => {
       expect(transactionRepository.saveAndReturn).toHaveBeenCalledTimes(1);
     });
 
-    test('should mark categorization as failed when LLM error occurs', async () => {
+    test('should enqueue categorization for saved transaction', async () => {
       const account = createTestAccount({ externalId: 'acc-123' });
       const input = createTestQueuedTransaction({
-        transaction: { externalId: 'tx-fail' },
+        transaction: { externalId: 'tx-enqueue' },
+      });
+
+      (
+        accountRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(account);
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(null);
+      mockSaveAndReturn(42);
+
+      await useCase.execute(input);
+
+      expect(enqueueCategorization.execute).toHaveBeenCalledWith({
+        transactionDbId: 42,
+      });
+      expect(logger.info).toHaveBeenCalledWith(
+        'Categorization enqueued',
+        expect.objectContaining({
+          externalId: 'tx-enqueue',
+          messageId: 'cat-msg-123',
+        }),
+      );
+    });
+
+    test('should log error but still succeed when enqueue fails', async () => {
+      const account = createTestAccount({ externalId: 'acc-123' });
+      const input = createTestQueuedTransaction({
+        transaction: { externalId: 'tx-enqueue-fail' },
       });
 
       (
@@ -230,32 +256,28 @@ describe('ProcessIncomingTransactionUseCase', () => {
       ).mockResolvedValue(null);
       mockSaveAndReturn();
       (
-        categorizeTransaction.execute as ReturnType<typeof mock>
-      ).mockRejectedValue(new Error('LLM unavailable'));
+        enqueueCategorization.execute as ReturnType<typeof mock>
+      ).mockRejectedValue(new Error('Queue unavailable'));
 
       const result = await useCase.execute(input);
 
       expect(result.saved).toBe(true);
-      expect(transactionRepository.updateCategorization).toHaveBeenCalledWith(
-        expect.any(Number),
-        {
-          category: null,
-          budget: null,
-          categoryReason: null,
-          budgetReason: null,
-          status: CategorizationStatus.FAILED,
-        },
-      );
       expect(logger.error).toHaveBeenCalledWith(
-        'Failed to categorize transaction',
-        expect.objectContaining({ externalId: 'tx-fail' }),
+        'Failed to enqueue categorization',
+        expect.objectContaining({
+          externalId: 'tx-enqueue-fail',
+          error: 'Queue unavailable',
+        }),
       );
     });
 
-    test('should retry once on rate limit before failing', async () => {
+    test('should not enqueue categorization for duplicate transactions', async () => {
       const account = createTestAccount({ externalId: 'acc-123' });
+      const existingTransaction = createTestTransaction({
+        externalId: 'tx-existing',
+      });
       const input = createTestQueuedTransaction({
-        transaction: { externalId: 'tx-rate-limited' },
+        transaction: { externalId: 'tx-existing' },
       });
 
       (
@@ -263,70 +285,11 @@ describe('ProcessIncomingTransactionUseCase', () => {
       ).mockResolvedValue(account);
       (
         transactionRepository.findByExternalId as ReturnType<typeof mock>
-      ).mockResolvedValue(null);
-      mockSaveAndReturn();
+      ).mockResolvedValue(existingTransaction);
 
-      // First call: rate limit, second call: success
-      let callCount = 0;
-      (
-        categorizeTransaction.execute as ReturnType<typeof mock>
-      ).mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.reject(new LLMRateLimitError());
-        }
-        return Promise.resolve({
-          success: true,
-          category: 'Food',
-          budget: null,
-          isNewCategory: false,
-        });
-      });
+      await useCase.execute(input);
 
-      // Override sleep to avoid waiting 60s in tests
-      (useCase as any).sleep = () => Promise.resolve();
-
-      const result = await useCase.execute(input);
-
-      expect(result.saved).toBe(true);
-      expect(categorizeTransaction.execute).toHaveBeenCalledTimes(2);
-      expect(transactionRepository.updateCategorization).not.toHaveBeenCalled();
-    });
-
-    test('should mark as failed when retry also hits rate limit', async () => {
-      const account = createTestAccount({ externalId: 'acc-123' });
-      const input = createTestQueuedTransaction({
-        transaction: { externalId: 'tx-double-rate-limit' },
-      });
-
-      (
-        accountRepository.findByExternalId as ReturnType<typeof mock>
-      ).mockResolvedValue(account);
-      (
-        transactionRepository.findByExternalId as ReturnType<typeof mock>
-      ).mockResolvedValue(null);
-      mockSaveAndReturn();
-      (
-        categorizeTransaction.execute as ReturnType<typeof mock>
-      ).mockRejectedValue(new LLMRateLimitError());
-
-      // Override sleep to avoid waiting 60s in tests
-      (useCase as any).sleep = () => Promise.resolve();
-
-      const result = await useCase.execute(input);
-
-      expect(result.saved).toBe(true);
-      expect(categorizeTransaction.execute).toHaveBeenCalledTimes(2);
-      expect(transactionRepository.updateCategorization).toHaveBeenCalledWith(
-        expect.any(Number),
-        {
-          category: null,
-          budget: null,
-          categoryReason: null,
-          budgetReason: null,
-          status: CategorizationStatus.FAILED,
-        },
-      );
+      expect(enqueueCategorization.execute).not.toHaveBeenCalled();
     });
   });
 });
