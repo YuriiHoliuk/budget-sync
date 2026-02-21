@@ -121,11 +121,26 @@ export class ProcessIncomingTransactionUseCase extends UseCase<
         .map((activeAccount) => activeAccount.dbId)
         .filter((dbId): dbId is number => dbId !== null);
 
-      await this.transactionSyncService.detectTransfers(
+      const transferredIds = await this.transactionSyncService.detectTransfers(
         [savedTransaction],
         account.dbId,
         ownAccountIds,
       );
+
+      if (
+        savedTransaction.dbId !== null &&
+        transferredIds.has(savedTransaction.dbId)
+      ) {
+        this.logger.info('Skipping categorization for transfer transaction', {
+          externalId: savedTransaction.externalId,
+        });
+        const newBalance = this.reconstructBalance(input);
+        await this.accountRepository.updateBalance(
+          account.externalId,
+          newBalance,
+        );
+        return this.createSavedResult(transactionExternalId);
+      }
     }
 
     await this.enqueueCategorizationSafely(savedTransaction);

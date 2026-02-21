@@ -149,28 +149,33 @@ export class TransactionSyncService {
     savedTransactions: Transaction[],
     accountDbId: number,
     ownAccountIds: number[],
-  ): Promise<void> {
+  ): Promise<Set<number>> {
+    const transferredIds = new Set<number>();
     if (ownAccountIds.length <= 1) {
-      return;
+      return transferredIds;
     }
 
     for (const transaction of savedTransactions) {
-      await this.detectTransferForTransaction(
+      const transferredId = await this.detectTransferForTransaction(
         transaction,
         accountDbId,
         ownAccountIds,
       );
+      if (transferredId !== null) {
+        transferredIds.add(transferredId);
+      }
     }
+    return transferredIds;
   }
 
   private async detectTransferForTransaction(
     transaction: Transaction,
     accountDbId: number,
     ownAccountIds: number[],
-  ): Promise<void> {
+  ): Promise<number | null> {
     const dbId = transaction.dbId;
     if (dbId === null) {
-      return;
+      return null;
     }
 
     const oppositeType: 'credit' | 'debit' = transaction.isCredit
@@ -193,7 +198,7 @@ export class TransactionSyncService {
     });
 
     if (!candidate) {
-      return;
+      return null;
     }
 
     await this.transactionRepository.updateRecordType(dbId, 'transfer');
@@ -208,6 +213,8 @@ export class TransactionSyncService {
       incomingId,
       amount: Math.abs(transaction.amount.amount),
     });
+
+    return dbId;
   }
 
   /**

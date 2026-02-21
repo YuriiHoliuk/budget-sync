@@ -33,6 +33,7 @@ import {
 import {
   CategorizationStatus,
   CategoryStatus,
+  TransactionType,
 } from '@domain/value-objects/index.ts';
 import { inject, injectable } from 'tsyringe';
 import { UseCase } from './UseCase.ts';
@@ -112,6 +113,16 @@ export class CategorizeTransactionUseCase extends UseCase<
     const transaction = await this.findTransactionOrThrow(
       request.transactionDbId,
     );
+
+    if (transaction.type === TransactionType.TRANSFER) {
+      return {
+        success: true,
+        category: null,
+        budget: null,
+        isNewCategory: false,
+      };
+    }
+
     const data = await this.loadCategorizationData(transaction.date);
 
     const result = await this.categorizeWithLLM(transaction, data);

@@ -204,6 +204,7 @@ function TransactionDetailContent({
   const TypeIcon = typeConfig.icon;
   const StatusIcon = statusConfig.icon;
 
+  const isTransfer = transaction.type === TransactionTypeEnum.Transfer;
   const isVerified =
     transaction.categorizationStatus === CategorizationStatusEnum.Verified;
   const isCategorized =
@@ -330,83 +331,89 @@ function TransactionDetailContent({
             {formatCurrency(transaction.amount)} {transaction.currency}
           </Badge>
 
-          <Badge
-            variant="outline"
-            className={cn("gap-1", statusConfig.bgColor, statusConfig.color)}
-          >
-            <StatusIcon className="h-3 w-3" />
-            {statusConfig.label}
-          </Badge>
+          {!isTransfer && (
+            <Badge
+              variant="outline"
+              className={cn("gap-1", statusConfig.bgColor, statusConfig.color)}
+            >
+              <StatusIcon className="h-3 w-3" />
+              {statusConfig.label}
+            </Badge>
+          )}
         </div>
       </SheetHeader>
 
       <div className="mt-6 space-y-6 px-4 pb-6">
-        <div className="space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Classification
-          </h3>
+        {!isTransfer && (
+          <>
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Classification
+              </h3>
 
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="category" className="flex items-center gap-2">
-                <Tag className="h-4 w-4" />
-                Category
-              </Label>
-              <CategoryCombobox
-                categories={categories}
-                value={transaction.category?.id ?? null}
-                onValueChange={handleCategoryChange}
-                allowNone
-                disabled={isUpdating}
-                triggerClassName="w-full"
-                data-qa="select-category"
-              />
-              {transaction.categoryReason && (
-                <AIReasoningNote reason={transaction.categoryReason} />
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="category" className="flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Category
+                  </Label>
+                  <CategoryCombobox
+                    categories={categories}
+                    value={transaction.category?.id ?? null}
+                    onValueChange={handleCategoryChange}
+                    allowNone
+                    disabled={isUpdating}
+                    triggerClassName="w-full"
+                    data-qa="select-category"
+                  />
+                  {transaction.categoryReason && (
+                    <AIReasoningNote reason={transaction.categoryReason} />
+                  )}
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="budget" className="flex items-center gap-2">
+                    <Wallet className="h-4 w-4" />
+                    Budget
+                  </Label>
+                  <BudgetCombobox
+                    budgets={filteredBudgets}
+                    value={transaction.budget?.id ?? null}
+                    onValueChange={handleBudgetChange}
+                    allowNone
+                    disabled={isUpdating}
+                    triggerClassName="w-full"
+                    data-qa="select-budget"
+                  />
+                  {transaction.budgetReason && (
+                    <AIReasoningNote reason={transaction.budgetReason} />
+                  )}
+                </div>
+              </div>
+
+              {!isVerified && (
+                <Button
+                  onClick={handleVerify}
+                  disabled={isUpdating}
+                  className={cn(
+                    "w-full",
+                    isCategorized && "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                  )}
+                  variant={isCategorized ? "outline" : "outline"}
+                >
+                  {isUpdating ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="mr-2 h-4 w-4" />
+                  )}
+                  {isCategorized ? "Approve AI Categorization" : "Verify Categorization"}
+                </Button>
               )}
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="budget" className="flex items-center gap-2">
-                <Wallet className="h-4 w-4" />
-                Budget
-              </Label>
-              <BudgetCombobox
-                budgets={filteredBudgets}
-                value={transaction.budget?.id ?? null}
-                onValueChange={handleBudgetChange}
-                allowNone
-                disabled={isUpdating}
-                triggerClassName="w-full"
-                data-qa="select-budget"
-              />
-              {transaction.budgetReason && (
-                <AIReasoningNote reason={transaction.budgetReason} />
-              )}
-            </div>
-          </div>
-
-          {!isVerified && (
-            <Button
-              onClick={handleVerify}
-              disabled={isUpdating}
-              className={cn(
-                "w-full",
-                isCategorized && "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
-              )}
-              variant={isCategorized ? "outline" : "outline"}
-            >
-              {isUpdating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="mr-2 h-4 w-4" />
-              )}
-              {isCategorized ? "Approve AI Categorization" : "Verify Categorization"}
-            </Button>
-          )}
-        </div>
-
-        <Separator />
+            <Separator />
+          </>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="notes" className="flex items-center gap-2 text-sm font-medium text-muted-foreground">

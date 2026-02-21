@@ -291,5 +291,46 @@ describe('ProcessIncomingTransactionUseCase', () => {
 
       expect(enqueueCategorization.execute).not.toHaveBeenCalled();
     });
+
+    test('should not enqueue categorization for transfer transactions', async () => {
+      const account = createTestAccount({
+        externalId: 'acc-123',
+        dbId: 1,
+      });
+      const secondAccount = createTestAccount({
+        externalId: 'acc-456',
+        name: 'Second Account',
+        dbId: 2,
+      });
+      const input = createTestQueuedTransaction({
+        transaction: { externalId: 'tx-transfer' },
+      });
+
+      (
+        accountRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(account);
+      (
+        transactionRepository.findByExternalId as ReturnType<typeof mock>
+      ).mockResolvedValue(null);
+      mockSaveAndReturn(42);
+      (
+        accountRepository.findActive as ReturnType<typeof mock>
+      ).mockResolvedValue([account, secondAccount]);
+      // Mock transfer candidate found — triggers transfer detection
+      (
+        transactionRepository.findTransferCandidate as ReturnType<typeof mock>
+      ).mockResolvedValue({ id: 99 });
+
+      const result = await useCase.execute(input);
+
+      expect(result.saved).toBe(true);
+      expect(enqueueCategorization.execute).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith(
+        'Skipping categorization for transfer transaction',
+        expect.objectContaining({
+          externalId: 'tx-transfer',
+        }),
+      );
+    });
   });
 });

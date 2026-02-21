@@ -27,6 +27,7 @@ import { Currency } from '@domain/value-objects/Currency.ts';
 import {
   CategorizationStatus,
   CategoryStatus,
+  TransactionType,
 } from '@domain/value-objects/index.ts';
 import { Money } from '@domain/value-objects/Money.ts';
 import {
@@ -774,6 +775,32 @@ describe('CategorizeTransactionUseCase', () => {
       ).mock.calls[0]?.[0];
 
       expect(assignBudgetCall.assignedCategory).toBeNull();
+    });
+
+    test('should skip categorization for TRANSFER transactions', async () => {
+      const transaction = createTestTransaction({
+        externalId: 'tx-transfer',
+        description: 'Transfer to savings',
+        type: TransactionType.TRANSFER,
+        dbId: 54,
+      });
+
+      (
+        transactionRepository.findByDbId as ReturnType<typeof bunMock>
+      ).mockResolvedValue(transaction);
+
+      const result = await useCase.execute({ transactionDbId: 54 });
+
+      expect(result).toEqual({
+        success: true,
+        category: null,
+        budget: null,
+        isNewCategory: false,
+      });
+
+      expect(llmGateway.assignCategory).not.toHaveBeenCalled();
+      expect(llmGateway.assignBudget).not.toHaveBeenCalled();
+      expect(transactionRepository.updateCategorization).not.toHaveBeenCalled();
     });
   });
 });
