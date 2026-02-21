@@ -68,7 +68,11 @@ export class SyncAccountsUseCase extends UseCase<void, SyncAccountsResultDTO> {
 
     if (existingAccount) {
       if (this.hasAccountChanged(existingAccount, incomingAccount)) {
-        await this.accountRepository.update(incomingAccount);
+        const mergedAccount = this.mergeWithBankData(
+          existingAccount,
+          incomingAccount,
+        );
+        await this.accountRepository.update(mergedAccount);
         result.updated++;
       } else {
         result.unchanged++;
@@ -77,6 +81,25 @@ export class SyncAccountsUseCase extends UseCase<void, SyncAccountsResultDTO> {
       await this.accountRepository.save(incomingAccount);
       result.created++;
     }
+  }
+
+  /**
+   * Merges bank-provided fields from the incoming account into the existing account,
+   * preserving user-editable fields (role, initialBalance, isArchived).
+   */
+  private mergeWithBankData(existing: Account, incoming: Account): Account {
+    return existing.withUpdatedProps({
+      externalId: incoming.externalId,
+      name: incoming.name,
+      currency: incoming.currency,
+      balance: incoming.balance,
+      creditLimit: incoming.creditLimit,
+      type: incoming.type,
+      iban: incoming.iban,
+      maskedPan: incoming.maskedPan,
+      bank: incoming.bank,
+      source: incoming.source,
+    });
   }
 
   private async findExistingAccount(

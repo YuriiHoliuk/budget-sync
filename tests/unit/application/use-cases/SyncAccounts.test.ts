@@ -90,9 +90,42 @@ describe('SyncAccountsUseCase', () => {
       expect(result.updated).toBe(1);
       expect(result.unchanged).toBe(0);
       expect(mockAccountRepository.update).toHaveBeenCalledTimes(1);
-      expect(mockAccountRepository.update).toHaveBeenCalledWith(
-        incomingAccount,
+    });
+
+    test('should preserve user-editable fields when updating from bank sync', async () => {
+      const existingAccount = createAccount({
+        externalId: 'acc-123',
+        balance: Money.create(50000, Currency.UAH),
+        role: 'savings',
+        initialBalance: Money.create(10000, Currency.UAH),
+        isArchived: false,
+      });
+      const incomingAccount = createAccount({
+        externalId: 'acc-123',
+        balance: Money.create(100000, Currency.UAH),
+        role: 'operational',
+      });
+
+      mockBankGateway.getAccounts = mock(() =>
+        Promise.resolve([incomingAccount]),
       );
+      mockAccountRepository.findByExternalId = mock(() =>
+        Promise.resolve(existingAccount),
+      );
+
+      await useCase.execute();
+
+      expect(mockAccountRepository.update).toHaveBeenCalledTimes(1);
+      const updateCalls = (
+        mockAccountRepository.update as ReturnType<typeof mock>
+      ).mock.calls;
+      expect(updateCalls).toHaveLength(1);
+      const updatedAccount = updateCalls[0]?.[0] as ReturnType<
+        typeof createAccount
+      >;
+      expect(updatedAccount.balance.amount).toBe(100000);
+      expect(updatedAccount.role).toBe('savings');
+      expect(updatedAccount.initialBalance?.amount).toBe(10000);
     });
 
     test('should skip update when account unchanged', async () => {
