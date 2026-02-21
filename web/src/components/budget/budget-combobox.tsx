@@ -86,8 +86,8 @@ export function BudgetCombobox({
       placeholder={allowAll ? "All budgets" : placeholder}
       searchPlaceholder="Search budgets..."
       emptyMessage="No budgets found."
-      allowClear={allowNone}
-      clearLabel="No budget"
+      allowClear={allowNone || allowAll}
+      clearLabel={allowAll ? "All budgets" : "No budget"}
       disabled={disabled}
       className={className}
       triggerClassName={triggerClassName}

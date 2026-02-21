@@ -76,8 +76,8 @@ export function CategoryCombobox({
       placeholder={allowAll ? "All categories" : placeholder}
       searchPlaceholder="Search categories..."
       emptyMessage="No categories found."
-      allowClear={allowNone}
-      clearLabel="No category"
+      allowClear={allowNone || allowAll}
+      clearLabel={allowAll ? "All categories" : "No category"}
       disabled={disabled}
       className={className}
       triggerClassName={triggerClassName}
