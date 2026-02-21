@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-02-22b
+
+### Added
+- Persist UI state across page reloads via localStorage (UI-014)
+  - `useLocalStorage<T>` hook using `useSyncExternalStore` for React Compiler compatibility
+  - `LocalStorageKey` constants in `web/src/lib/local-storage-keys.ts`
+  - Left sidebar collapse state persists (replaced cookie-based persistence)
+  - Transaction filter sidebar visibility persists
+  - Applied transaction filters persist — restored when navigating to `/transactions` without URL params
+  - URL params take precedence over localStorage when present
+
 ## 2026-02-21c
 
 ### Changed

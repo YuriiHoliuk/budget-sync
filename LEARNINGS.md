@@ -1,5 +1,12 @@
 # Learnings
 
+## localStorage Persistence (2026-02-22)
+- `useLocalStorage` must use `useSyncExternalStore` (not `useState` + `useEffect`) to comply with React Compiler's `react-hooks/set-state-in-effect` rule.
+- Module-level `Map` cache ensures `getSnapshot` returns referentially stable values for non-primitive types (avoids infinite re-render from `JSON.parse` creating new objects).
+- Same-tab localStorage updates need a custom event (`window.dispatchEvent(new Event(...))`) since the native `storage` event only fires cross-tab.
+- ShadCN sidebar previously used cookies for persistence — `useLocalStorage` is a simpler replacement.
+- Transaction filters use a dual-source pattern: URL params take precedence (navigating from budget link), then localStorage (returning to page), then `emptyFilters` default.
+
 ## Budget Table Scroll Fix (2026-02-21)
 - ShadCN `TableHead` already has `sticky top-0 z-[1] bg-background` built-in — no need to add sticky classes manually.
 - For a table to scroll independently, the page must use `flex h-full flex-col` (fill viewport height) and the table wrapper needs `min-h-0 flex-1 overflow-y-auto`.

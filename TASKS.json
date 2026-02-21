@@ -626,7 +626,7 @@
     "id": "UI-014",
     "phase": "UI: Small Frontend Fixes",
     "title": "Persist UI state in localStorage via useLocalStorage hook",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "UI elements like the left sidebar (collapsed/expanded), right transaction filter sidebar (collapsed/expanded), selected transaction filters, and other toggleable states reset to their defaults on page reload. Fix by: (1) Create a useLocalStorage<T>(key: LocalStorageKey, initialValue: T) hook in web/src/hooks/use-local-storage.ts with the same API as useState but backed by localStorage. Handle SSR (return initialValue during server render, sync from localStorage on mount), JSON serialization/deserialization, and storage errors gracefully. (2) Define a LocalStorageKey enum or const object in web/src/lib/local-storage-keys.ts with all keys in one place (e.g., SIDEBAR_COLLAPSED, FILTER_SIDEBAR_COLLAPSED, TRANSACTION_FILTERS) to prevent key collisions and make usage discoverable. (3) Replace useState calls for these UI states with useLocalStorage throughout the app: left sidebar collapse state in app-shell.tsx, transaction filter sidebar visibility, applied transaction filters (account, category, budget, type, status, date range, search), and any other toggleable UI state that should persist across reloads. For filters, persist the appliedFilters object so returning to the transactions page restores the last-used filter set. URL params should take precedence over localStorage when present (e.g., navigating from a budget link)."
   }

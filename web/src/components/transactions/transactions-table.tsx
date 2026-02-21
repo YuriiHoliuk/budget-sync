@@ -2,6 +2,8 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import { LocalStorageKey } from "@/lib/local-storage-keys";
 import { useMutation, useQuery } from "@apollo/client/react";
 import {
   ChevronLeft,
@@ -182,16 +184,40 @@ export function TransactionsTable() {
 
   const initialFilters = useState<TransactionFilters>(() => {
     const parsed = parseTransactionFiltersFromParams(searchParams);
-    return {
-      search: parsed.search ?? "",
-      accountId: parsed.accountId ?? null,
-      categoryId: parsed.categoryId ?? null,
-      budgetId: parsed.budgetId ?? null,
-      type: parsed.type ?? null,
-      status: parsed.status ?? null,
-      dateFrom: parsed.dateFrom ?? "",
-      dateTo: parsed.dateTo ?? "",
-    };
+    const hasUrlFilters =
+      parsed.search !== undefined ||
+      parsed.accountId !== undefined ||
+      parsed.categoryId !== undefined ||
+      parsed.budgetId !== undefined ||
+      parsed.type !== undefined ||
+      parsed.status !== undefined ||
+      parsed.dateFrom !== undefined ||
+      parsed.dateTo !== undefined;
+
+    if (hasUrlFilters) {
+      return {
+        search: parsed.search ?? "",
+        accountId: parsed.accountId ?? null,
+        categoryId: parsed.categoryId ?? null,
+        budgetId: parsed.budgetId ?? null,
+        type: parsed.type ?? null,
+        status: parsed.status ?? null,
+        dateFrom: parsed.dateFrom ?? "",
+        dateTo: parsed.dateTo ?? "",
+      };
+    }
+
+    // Restore last-used filters from localStorage when no URL filter params
+    try {
+      const stored = localStorage.getItem(LocalStorageKey.TRANSACTION_FILTERS);
+      if (stored) {
+        return JSON.parse(stored) as TransactionFilters;
+      }
+    } catch {
+      // Ignore parse errors
+    }
+
+    return emptyFilters;
   })[0];
 
   const [appliedFilters, setAppliedFilters] = useState<TransactionFilters>(initialFilters);
@@ -211,9 +237,9 @@ export function TransactionsTable() {
     return Number.isFinite(parsed) ? parsed : null;
   });
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useLocalStorage(LocalStorageKey.FILTER_SIDEBAR_OPEN, true);
 
-  // Sync applied filters and selected transaction back to URL
+  // Sync applied filters and selected transaction back to URL + persist filters to localStorage
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
@@ -223,6 +249,15 @@ export function TransactionsTable() {
     const query = params.toString();
     router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
   }, [appliedFilters, page, selectedTransaction, router, pathname]);
+
+  // Persist applied filters to localStorage for restoration on next visit
+  useEffect(() => {
+    try {
+      localStorage.setItem(LocalStorageKey.TRANSACTION_FILTERS, JSON.stringify(appliedFilters));
+    } catch {
+      // Silently fail
+    }
+  }, [appliedFilters]);
 
   const gqlFilter = useMemo(() => filtersToGraphQL(appliedFilters), [appliedFilters]);
 
