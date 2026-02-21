@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useQuery } from "@apollo/client/react";
 import { useMonth } from "@/hooks/use-month";
 import { GetMonthlyOverviewDocument } from "@/graphql/generated/graphql";
@@ -32,10 +33,12 @@ export default function BudgetPage() {
       {loading ? (
         <BudgetTableSkeleton />
       ) : data ? (
-        <BudgetTable
-          budgetSummaries={data.monthlyOverview.budgetSummaries}
-          budgetGroups={data.monthlyOverview.budgetGroups}
-        />
+        <Suspense>
+          <BudgetTable
+            budgetSummaries={data.monthlyOverview.budgetSummaries}
+            budgetGroups={data.monthlyOverview.budgetGroups}
+          />
+        </Suspense>
       ) : null}
 
       <UnbudgetedTransactionsWarning />

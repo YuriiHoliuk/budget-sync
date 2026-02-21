@@ -733,6 +733,68 @@ interface BudgetWithOrder {
   budgetGroupId: number | null;
 }
 
+/**
+ * Categorization rule creation via GraphQL
+ */
+interface CreateRuleInput {
+  rule: string;
+  priority?: number;
+}
+
+interface Rule {
+  id: number;
+  rule: string;
+  priority: number;
+}
+
+export async function createCategorizationRule(input: CreateRuleInput): Promise<Rule> {
+  const mutation = `
+    mutation CreateCategorizationRule($input: CreateRuleInput!) {
+      createCategorizationRule(input: $input) {
+        id
+        rule
+        priority
+      }
+    }
+  `;
+
+  const result = await executeGraphQL<{ createCategorizationRule: Rule }>(mutation, { input });
+
+  if (result.errors) {
+    throw new Error(`Failed to create categorization rule: ${result.errors[0].message}`);
+  }
+
+  if (!result.data?.createCategorizationRule) {
+    throw new Error('No rule returned from mutation');
+  }
+
+  return result.data.createCategorizationRule;
+}
+
+export async function createBudgetizationRule(input: CreateRuleInput): Promise<Rule> {
+  const mutation = `
+    mutation CreateBudgetizationRule($input: CreateRuleInput!) {
+      createBudgetizationRule(input: $input) {
+        id
+        rule
+        priority
+      }
+    }
+  `;
+
+  const result = await executeGraphQL<{ createBudgetizationRule: Rule }>(mutation, { input });
+
+  if (result.errors) {
+    throw new Error(`Failed to create budgetization rule: ${result.errors[0].message}`);
+  }
+
+  if (!result.data?.createBudgetizationRule) {
+    throw new Error('No rule returned from mutation');
+  }
+
+  return result.data.createBudgetizationRule;
+}
+
 export async function getBudgetsWithOrder(): Promise<BudgetWithOrder[]> {
   const query = `
     query GetBudgets {

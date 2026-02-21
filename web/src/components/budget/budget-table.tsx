@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useMutation, useQuery } from "@apollo/client/react";
 import {
   DndContext,
@@ -174,15 +175,25 @@ interface BudgetForDialog {
 
 export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps) {
   const { month } = useMonth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const [editingBudgetId, setEditingBudgetId] = useState<number | null>(null);
   const [moveFundsOpen, setMoveFundsOpen] = useState(false);
   const [moveFundsSourceId, setMoveFundsSourceId] = useState<
     number | undefined
   >(undefined);
   const [createBudgetOpen, setCreateBudgetOpen] = useState(false);
-  const [editBudgetDialogOpen, setEditBudgetDialogOpen] = useState(false);
+  const [editBudgetDialogOpen, setEditBudgetDialogOpen] = useState(() => {
+    return searchParams.get("budgetId") !== null;
+  });
   const [archiveBudgetDialogOpen, setArchiveBudgetDialogOpen] = useState(false);
-  const [selectedBudgetId, setSelectedBudgetId] = useState<number | null>(null);
+  const [selectedBudgetId, setSelectedBudgetId] = useState<number | null>(() => {
+    const budgetIdParam = searchParams.get("budgetId");
+    if (!budgetIdParam) return null;
+    const parsed = Number.parseInt(budgetIdParam, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  });
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
   const [deleteGroupId, setDeleteGroupId] = useState<number | null>(null);
@@ -328,9 +339,21 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
     setMoveFundsOpen(true);
   };
 
+  const updateBudgetIdInUrl = useCallback((budgetId: number | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (budgetId !== null) {
+      params.set("budgetId", String(budgetId));
+    } else {
+      params.delete("budgetId");
+    }
+    const query = params.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+  }, [searchParams, router, pathname]);
+
   const handleEditBudget = (budgetId: number) => {
     setSelectedBudgetId(budgetId);
     setEditBudgetDialogOpen(true);
+    updateBudgetIdInUrl(budgetId);
   };
 
   const handleArchiveBudget = (budgetId: number) => {
@@ -581,7 +604,12 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
       {budgetForEdit && (
         <EditBudgetSheet
           open={editBudgetDialogOpen}
-          onOpenChange={setEditBudgetDialogOpen}
+          onOpenChange={(open) => {
+            setEditBudgetDialogOpen(open);
+            if (!open) {
+              updateBudgetIdInUrl(null);
+            }
+          }}
           budget={budgetForEdit}
           budgetGroups={budgetGroups}
         />

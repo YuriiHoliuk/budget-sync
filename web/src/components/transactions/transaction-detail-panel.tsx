@@ -182,7 +182,7 @@ export function TransactionDetailPanel({
 interface TransactionDetailContentProps {
   transaction: Transaction;
   categories: Array<{ id: number; name: string; fullPath: string }>;
-  budgets: Array<{ id: number; name: string }>;
+  budgets: Array<{ id: number; name: string; startDate?: string | null; endDate?: string | null }>;
 }
 
 function TransactionDetailContent({
@@ -287,6 +287,17 @@ function TransactionDetailContent({
   const description =
     transaction.counterpartyName || transaction.description || "Unknown";
 
+  const currentBudgetId = transaction.budget?.id ?? null;
+  const filteredBudgets = useMemo(() => {
+    const txDate = transaction.date;
+    return budgets.filter((budget) => {
+      if (budget.id === currentBudgetId) return true;
+      const afterStart = !budget.startDate || txDate >= budget.startDate;
+      const beforeEnd = !budget.endDate || txDate <= budget.endDate;
+      return afterStart && beforeEnd;
+    });
+  }, [budgets, transaction.date, currentBudgetId]);
+
   return (
     <>
       <SheetHeader className="space-y-4">
@@ -356,7 +367,7 @@ function TransactionDetailContent({
                 Budget
               </Label>
               <BudgetCombobox
-                budgets={budgets}
+                budgets={filteredBudgets}
                 value={transaction.budget?.id ?? null}
                 onValueChange={handleBudgetChange}
                 allowNone

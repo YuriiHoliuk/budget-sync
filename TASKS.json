@@ -443,7 +443,7 @@
     "id": "RULES-010",
     "phase": "RULES: Categorization Rules Management",
     "title": "Add E2E tests for rules management",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/categorization-rules-management.md",
     "description": "Create e2e/pages/SettingsPage.ts page object with methods for interacting with rule sections (navigateToSettings, addRule, editRule, deleteRule, getRuleCount, getRuleText). Create e2e/tests/settings/manage-rules.spec.ts covering: create a categorization rule, verify it appears in the table, edit its text, delete it, verify empty state. Add data-qa selectors used by the page object.",
     "dependencies": ["RULES-008"]
@@ -520,7 +520,7 @@
     "id": "URL-001",
     "phase": "URL: Persist Selected Entity ID in URL",
     "title": "Persist selected transaction ID in URL",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "When a transaction is selected (detail panel open) in the transactions table, reflect its ID in the URL as a search param (e.g., /transactions?transactionId=123). On page load, if transactionId is present, auto-select and open the detail panel for that transaction. This enables sharing direct links to a specific transaction and easy ID copying from the browser address bar.",
     "dependencies": []
@@ -529,7 +529,7 @@
     "id": "URL-002",
     "phase": "URL: Persist Selected Entity ID in URL",
     "title": "Persist selected budget ID in URL when editing",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "When a budget row is selected for editing on the budgets page, reflect its ID in the URL as a search param (e.g., /budgets/2026-02?budgetId=45). On page load, if budgetId is present, auto-select and open the edit state for that budget. This enables sharing direct links to a specific budget and easy ID copying from the browser address bar.",
     "dependencies": []
@@ -539,9 +539,29 @@
     "id": "UI-010",
     "phase": "UI: Small Frontend Fixes",
     "title": "Filter budget dropdown by transaction date when editing a transaction",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "When assigning a budget to a transaction (in the detail panel or inline edit), the budget dropdown currently shows all non-archived budgets. Instead, filter budgets to only those whose date range (startDate–endDate) covers the transaction's date. This way, editing an old transaction shows only budgets that were active at that time (not newer ones), and editing a recent transaction doesn't show expired budgets. Applies to budget selects in transaction-detail-panel.tsx and inline budget edit in transactions-table.tsx. May require passing the transaction date to the budget query or filtering client-side using budget startDate/endDate fields.",
+    "dependencies": []
+  },
+
+  {
+    "id": "UI-011",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Show transaction time alongside date in table and detail sidebar",
+    "status": "pending",
+    "plan": null,
+    "description": "Currently the transactions table and detail sidebar only display the date of a transaction (e.g., '21 Feb 2026') without the time. Show the time as well (e.g., '21 Feb 2026, 14:35') in both: (1) the date column in transactions-table.tsx, and (2) the date field in transaction-detail-panel.tsx. The transaction's date field already stores a full timestamp — just update the formatting to include hours and minutes.",
+    "dependencies": []
+  },
+
+  {
+    "id": "UI-012",
+    "phase": "UI: Small Frontend Fixes",
+    "title": "Auto-open category/budget dropdown on first click in transaction table row",
+    "status": "pending",
+    "plan": null,
+    "description": "When clicking a category or budget cell in the transactions table, the first click selects the row (showing the inline dropdowns), and a second click is needed to actually open the dropdown. Instead, when the click target is the category or budget cell, auto-open the corresponding combobox/dropdown immediately after the row becomes selected — so a single click both selects the row and opens the picker. This likely requires detecting which cell was clicked during row selection and programmatically triggering the combobox open state on mount. Applies to CategoryCombobox and BudgetCombobox inline edits in transactions-table.tsx.",
     "dependencies": []
   },
 

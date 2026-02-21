@@ -8,3 +8,4 @@ export { BudgetPage } from './BudgetPage';
 export { TransactionsPage } from './TransactionsPage';
 export { AccountsPage } from './AccountsPage';
 export { CategoriesPage } from './CategoriesPage';
+export { SettingsPage } from './SettingsPage';

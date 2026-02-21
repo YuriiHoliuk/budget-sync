@@ -1,8 +1,28 @@
 # Changelog
 
+## 2026-02-21
+
+### Improved
+- Filter budget dropdown by transaction date when editing (UI-010)
+  - Budget selects in transaction detail panel and inline table edit now only show budgets whose date range covers the transaction's date
+  - Currently-assigned budget always remains visible even if out of range
+
+### Added
+- Persist selected transaction ID in URL as `?transactionId=N` search param (URL-001)
+  - Opening a transaction detail panel updates the URL; closing it removes the param
+  - Navigating to a URL with `transactionId` auto-opens the detail panel
+- Persist selected budget ID in URL as `?budgetId=N` search param on budget page (URL-002)
+  - Opening the edit budget sheet updates the URL; closing it removes the param
+  - Navigating to a URL with `budgetId` auto-opens the edit sheet
+  - Added Suspense boundary around BudgetTable for useSearchParams support
+
 ## 2026-02-20
 
 ### Added
+- E2E tests for rules management on Settings page (RULES-010)
+  - `SettingsPage` page object with methods for creating, editing, deleting rules and asserting rule presence
+  - `createCategorizationRule` and `createBudgetizationRule` data factories for E2E test setup
+  - `manage-rules.spec.ts` with 6 tests: create/edit/delete categorization rule, create budgetization rule, cancel creation, verify seeded rules
 - Full CRUD for categorization and budgetization rules (RULES-001 through RULES-009)
   - `Rule` domain entity with validation, priority, timestamps
   - Expanded `CategorizationRuleRepository` and `BudgetizationRuleRepository` with `findAllRules`, `findById`, `save`, `update`, `delete`

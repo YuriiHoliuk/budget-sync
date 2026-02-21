@@ -154,7 +154,7 @@ function filtersToGraphQL(filters: TransactionFilters): TransactionFilter {
   return gqlFilter;
 }
 
-function filtersToUrlParams(filters: TransactionFilters, page: number): URLSearchParams {
+function filtersToUrlParams(filters: TransactionFilters, page: number, transactionId: number | null): URLSearchParams {
   const params = new URLSearchParams();
   if (filters.search) params.set("search", filters.search);
   if (filters.accountId !== null) params.set("accountId", String(filters.accountId));
@@ -165,6 +165,7 @@ function filtersToUrlParams(filters: TransactionFilters, page: number): URLSearc
   if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
   if (filters.dateTo) params.set("dateTo", filters.dateTo);
   if (page > 0) params.set("page", String(page + 1));
+  if (transactionId !== null) params.set("transactionId", String(transactionId));
   return params;
 }
 
@@ -197,20 +198,25 @@ export function TransactionsTable() {
     return Number.isFinite(parsed) && parsed >= 1 ? parsed - 1 : 0;
   });
   const [editingTransaction, setEditingTransaction] = useState<number | null>(null);
-  const [selectedTransaction, setSelectedTransaction] = useState<number | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<number | null>(() => {
+    const transactionId = searchParams.get("transactionId");
+    if (!transactionId) return null;
+    const parsed = Number.parseInt(transactionId, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  });
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
 
-  // Sync applied filters back to URL
+  // Sync applied filters and selected transaction back to URL
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-    const params = filtersToUrlParams(appliedFilters, page);
+    const params = filtersToUrlParams(appliedFilters, page, selectedTransaction);
     const query = params.toString();
     router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
-  }, [appliedFilters, page, router, pathname]);
+  }, [appliedFilters, page, selectedTransaction, router, pathname]);
 
   const gqlFilter = useMemo(() => filtersToGraphQL(appliedFilters), [appliedFilters]);
 
@@ -477,7 +483,7 @@ export function TransactionsTable() {
 interface TransactionRowProps {
   transaction: Transaction;
   categories: Array<{ id: number; name: string; fullPath: string }>;
-  budgets: Array<{ id: number; name: string }>;
+  budgets: Array<{ id: number; name: string; startDate?: string | null; endDate?: string | null }>;
   isEditing: boolean;
   onStartEdit: () => void;
   onCancelEdit: () => void;
@@ -508,6 +514,17 @@ function TransactionRow({
   const description = transaction.counterpartyName || transaction.description || "Unknown";
   const isVerified = transaction.categorizationStatus === CategorizationStatusEnum.Verified;
   const isCategorized = transaction.categorizationStatus === CategorizationStatusEnum.Categorized;
+
+  const currentBudgetId = transaction.budget?.id ?? null;
+  const filteredBudgets = useMemo(() => {
+    const txDate = transaction.date;
+    return budgets.filter((budget) => {
+      if (budget.id === currentBudgetId) return true;
+      const afterStart = !budget.startDate || txDate >= budget.startDate;
+      const beforeEnd = !budget.endDate || txDate <= budget.endDate;
+      return afterStart && beforeEnd;
+    });
+  }, [budgets, transaction.date, currentBudgetId]);
 
   const handleCategorySelect = async (categoryId: number | null) => {
     setIsUpdating(true);
@@ -597,7 +614,7 @@ function TransactionRow({
       <TableCell onClick={(event) => isEditing && event.stopPropagation()} data-qa={`transaction-budget-${transaction.id}`}>
         {isEditing ? (
           <BudgetCombobox
-            budgets={budgets}
+            budgets={filteredBudgets}
             value={transaction.budget?.id ?? null}
             onValueChange={handleBudgetSelect}
             allowNone

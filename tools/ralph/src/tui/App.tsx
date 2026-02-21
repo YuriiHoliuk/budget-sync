@@ -35,6 +35,37 @@ export function App({ config }: AppProps) {
   const outputRef = useRef('');
   const autoIterateRef = useRef(true); // Auto-start next iteration when turn completes
   const iterationRef = useRef(1); // Track current iteration for async callbacks
+  const restartScheduledRef = useRef(false); // Prevent double-restart from onTurnComplete + onComplete race
+  const restartRef = useRef<() => void>(() => {}); // Filled after hook returns
+
+  // Shared restart logic used by both onTurnComplete and onComplete
+  const scheduleRestart = useCallback(() => {
+    if (restartScheduledRef.current) return; // Already scheduled
+    restartScheduledRef.current = true;
+
+    iterationRef.current += 1;
+    const nextIteration = iterationRef.current;
+    addLog('system', `\n----- Iteration ${nextIteration}/${config.maxIterations} -----`);
+    outputRef.current = ''; // Reset output buffer for new iteration
+
+    setState((prev) => ({
+      ...prev,
+      currentIteration: nextIteration,
+      status: 'running',
+    }));
+
+    // Restart with fresh Claude process after a small delay
+    if (config.verbose) {
+      addLog('debug', `Restarting Claude in 1.5s...`);
+    }
+    setTimeout(() => {
+      restartScheduledRef.current = false;
+      if (config.verbose) {
+        addLog('debug', `Starting fresh Claude process`);
+      }
+      restartRef.current(); // Spawn new process with fresh prompt (re-reads PROMPT.md)
+    }, 1500);
+  }, [addLog, config.maxIterations, config.verbose]);
 
   // Load prompt from file
   const loadPrompt = useCallback((): string => {
@@ -105,6 +136,26 @@ export function App({ config }: AppProps) {
       }));
       markIterationComplete();
       addLog('system', '\n----- Session Complete -----');
+
+      // If onTurnComplete already scheduled a restart, don't double-restart
+      if (restartScheduledRef.current) {
+        return;
+      }
+
+      // Process exited without a proper result event (crash, error, context overflow).
+      // Schedule a restart if the loop should continue.
+      if (!autoIterateRef.current) return;
+      if (outputRef.current.includes(config.exitSignal)) {
+        addLog('system', `\n[OK] Exit signal detected: ${config.exitSignal}`);
+        return;
+      }
+      if (iterationRef.current >= config.maxIterations) {
+        addLog('system', '\n[WARN] Max iterations reached');
+        return;
+      }
+
+      addLog('warn', 'Process exited unexpectedly, restarting...');
+      scheduleRestart();
     },
     onTurnComplete: () => {
       if (config.verbose) {
@@ -135,30 +186,12 @@ export function App({ config }: AppProps) {
         return;
       }
 
-      // Start next iteration
-      iterationRef.current += 1;
-      const nextIteration = iterationRef.current;
-      addLog('system', `\n----- Iteration ${nextIteration}/${config.maxIterations} -----`);
-      outputRef.current = ''; // Reset output buffer for new iteration
-
-      setState((prev) => ({
-        ...prev,
-        currentIteration: nextIteration,
-        status: 'running',
-      }));
-
-      // Restart with fresh Claude process after a small delay
-      if (config.verbose) {
-        addLog('debug', `[Turn Complete] Restarting Claude in 1.5s...`);
-      }
-      setTimeout(() => {
-        if (config.verbose) {
-          addLog('debug', `[Turn Complete] Starting fresh Claude process`);
-        }
-        restart(); // Spawn new process with fresh prompt (re-reads PROMPT.md)
-      }, 1500);
+      scheduleRestart();
     },
   });
+
+  // Keep restartRef in sync with the latest restart function
+  restartRef.current = restart;
 
   // Start the process on mount
   useEffect(() => {
