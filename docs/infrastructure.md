@@ -48,7 +48,9 @@ Terraform manages secret **metadata** (existence, labels, replication). Secret *
 
 ### Pub/Sub
 
-Used for asynchronous webhook transaction processing:
+Used for asynchronous transaction processing and categorization:
+
+**Webhook Transaction Queue** — receives Monobank webhook events for transaction processing:
 
 | Resource | Name | Purpose |
 |----------|------|---------|
@@ -57,7 +59,18 @@ Used for asynchronous webhook transaction processing:
 | Topic | `webhook-transactions-dlq` | Dead letter queue for failed messages |
 | Subscription | `webhook-transactions-dlq-sub` | Pull subscription for inspecting failed messages |
 
-Messages retry up to 5 times with exponential backoff (10s-600s) before going to the DLQ.
+**Categorization Queue** — decouples LLM-based categorization from transaction processing to handle Gemini API rate limits:
+
+| Resource | Name | Purpose |
+|----------|------|---------|
+| Topic | `categorization-queue` | Receives categorization requests after transaction is saved |
+| Subscription | `categorization-queue-sub` | Push delivery to `webhook` service at `/webhook/categorize` |
+| Topic | `categorization-queue-dlq` | Dead letter queue for failed categorizations |
+| Subscription | `categorization-queue-dlq-sub` | Pull subscription for inspecting failed messages |
+
+Both queues retry up to 5 times with exponential backoff (10s-600s) before going to the DLQ. The categorization queue uses a 120s ack deadline (vs 60s for webhooks) to allow for LLM response time.
+
+**Flow**: Webhook → save transaction → enqueue categorization → return 200. Pub/Sub pushes to `/webhook/categorize` which calls `CategorizeTransactionUseCase`. Rate limit errors return 500, triggering Pub/Sub's exponential backoff retry.
 
 ### Terraform State
 
@@ -75,6 +88,9 @@ Runs all Cloud Run workloads. Roles:
 | `roles/pubsub.publisher` | `webhook-transactions` topic | Publish webhook messages |
 | `roles/pubsub.subscriber` | `webhook-transactions-sub` | Process messages from subscription |
 | `roles/pubsub.subscriber` | `webhook-transactions-dlq-sub` | Inspect failed messages |
+| `roles/pubsub.publisher` | `categorization-queue` topic | Publish categorization requests |
+| `roles/pubsub.subscriber` | `categorization-queue-sub` | Process categorization messages |
+| `roles/pubsub.subscriber` | `categorization-queue-dlq-sub` | Inspect failed categorizations |
 
 ### `budget-sync-scheduler`
 

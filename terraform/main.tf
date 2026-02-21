@@ -376,8 +376,84 @@ resource "google_pubsub_subscription" "webhook_transactions_dlq" {
 }
 
 # =============================================================================
+# Pub/Sub - Categorization Queue
+# =============================================================================
+
+# Main topic for categorization messages
+resource "google_pubsub_topic" "categorization_queue" {
+  name    = "categorization-queue"
+  project = var.project_id
+
+  labels = {
+    app = "budget-sync"
+  }
+}
+
+# Dead letter topic for failed categorization messages
+resource "google_pubsub_topic" "categorization_queue_dlq" {
+  name    = "categorization-queue-dlq"
+  project = var.project_id
+
+  labels = {
+    app = "budget-sync"
+  }
+}
+
+# Main subscription with push delivery to Cloud Run
+resource "google_pubsub_subscription" "categorization_queue" {
+  name    = "categorization-queue-sub"
+  topic   = google_pubsub_topic.categorization_queue.id
+  project = var.project_id
+
+  ack_deadline_seconds = 120
+
+  push_config {
+    push_endpoint = "${google_cloud_run_v2_service.webhook.uri}/webhook/categorize"
+
+    oidc_token {
+      service_account_email = google_service_account.runner.email
+      audience              = google_cloud_run_v2_service.webhook.uri
+    }
+  }
+
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "600s"
+  }
+
+  dead_letter_policy {
+    dead_letter_topic     = google_pubsub_topic.categorization_queue_dlq.id
+    max_delivery_attempts = 5
+  }
+
+  labels = {
+    app = "budget-sync"
+  }
+
+  depends_on = [
+    google_pubsub_topic_iam_member.categorization_dlq_publisher,
+    google_cloud_run_v2_service.webhook
+  ]
+}
+
+# DLQ subscription for inspecting failed categorization messages
+resource "google_pubsub_subscription" "categorization_queue_dlq" {
+  name    = "categorization-queue-dlq-sub"
+  topic   = google_pubsub_topic.categorization_queue_dlq.id
+  project = var.project_id
+
+  ack_deadline_seconds = 60
+
+  labels = {
+    app = "budget-sync"
+  }
+}
+
+# =============================================================================
 # Pub/Sub IAM
 # =============================================================================
+
+# --- Webhook Transactions Queue ---
 
 # Runner can publish messages to the main topic
 resource "google_pubsub_topic_iam_member" "runner_publisher" {
@@ -419,6 +495,48 @@ resource "google_pubsub_subscription_iam_member" "pubsub_subscriber" {
   member       = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
 }
 
+# --- Categorization Queue ---
+
+# Runner can publish messages to the categorization topic
+resource "google_pubsub_topic_iam_member" "runner_categorization_publisher" {
+  project = var.project_id
+  topic   = google_pubsub_topic.categorization_queue.name
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_service_account.runner.email}"
+}
+
+# Runner can subscribe/pull from the categorization subscription
+resource "google_pubsub_subscription_iam_member" "runner_categorization_subscriber" {
+  project      = var.project_id
+  subscription = google_pubsub_subscription.categorization_queue.name
+  role         = "roles/pubsub.subscriber"
+  member       = "serviceAccount:${google_service_account.runner.email}"
+}
+
+# Runner can subscribe/pull from the categorization DLQ subscription
+resource "google_pubsub_subscription_iam_member" "runner_categorization_dlq_subscriber" {
+  project      = var.project_id
+  subscription = google_pubsub_subscription.categorization_queue_dlq.name
+  role         = "roles/pubsub.subscriber"
+  member       = "serviceAccount:${google_service_account.runner.email}"
+}
+
+# Pub/Sub service account can publish to categorization DLQ (required for dead letter policy)
+resource "google_pubsub_topic_iam_member" "categorization_dlq_publisher" {
+  project = var.project_id
+  topic   = google_pubsub_topic.categorization_queue_dlq.name
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
+
+# Pub/Sub service account can acknowledge messages from categorization subscription (required for dead letter policy)
+resource "google_pubsub_subscription_iam_member" "pubsub_categorization_subscriber" {
+  project      = var.project_id
+  subscription = google_pubsub_subscription.categorization_queue.name
+  role         = "roles/pubsub.subscriber"
+  member       = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
+
 # =============================================================================
 # Cloud Run Service - Webhook Endpoint
 # =============================================================================
@@ -438,6 +556,11 @@ resource "google_cloud_run_v2_service" "webhook" {
       env {
         name  = "PUBSUB_TOPIC"
         value = google_pubsub_topic.webhook_transactions.name
+      }
+
+      env {
+        name  = "CATEGORIZATION_TOPIC"
+        value = google_pubsub_topic.categorization_queue.name
       }
 
       env {

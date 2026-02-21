@@ -48,6 +48,16 @@ output "pubsub_subscription" {
   value       = google_pubsub_subscription.webhook_transactions.name
 }
 
+output "categorization_topic" {
+  description = "Pub/Sub topic for categorization messages"
+  value       = google_pubsub_topic.categorization_queue.name
+}
+
+output "categorization_subscription" {
+  description = "Pub/Sub subscription for categorization messages"
+  value       = google_pubsub_subscription.categorization_queue.name
+}
+
 output "web_url" {
   description = "Cloud Run Service URL for the web application"
   value       = google_cloud_run_v2_service.web.uri

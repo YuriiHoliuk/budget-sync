@@ -170,7 +170,7 @@
     "id": "CATQ-001",
     "phase": "CATQ: Categorization Queue",
     "title": "Add Terraform resources for categorization Pub/Sub queue",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/categorization-queue.md",
     "description": "Create Terraform resources: topic (categorization-queue), push subscription (categorization-queue-sub → /webhook/categorize), DLQ topic/sub, IAM bindings. Retry: 10s-600s exponential backoff, 5 max attempts, 120s ack deadline.",
     "dependencies": []
@@ -224,7 +224,7 @@
     "id": "CATQ-007",
     "phase": "CATQ: Categorization Queue",
     "title": "Add CATEGORIZATION_TOPIC env var to webhook service Terraform",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/categorization-queue.md",
     "description": "Add CATEGORIZATION_TOPIC environment variable to webhook Cloud Run service in Terraform, pointing to the categorization-queue topic.",
     "dependencies": ["CATQ-001"]
@@ -242,7 +242,7 @@
     "id": "CATQ-009",
     "phase": "CATQ: Categorization Queue",
     "title": "Update infrastructure documentation",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/categorization-queue.md",
     "description": "Update docs/infrastructure.md with new Pub/Sub resources (categorization-queue topic, subscription, DLQ). Document the push-based categorization flow and retry behavior.",
     "dependencies": ["CATQ-001"]
@@ -635,7 +635,7 @@
     "id": "P9-001",
     "phase": "P9: Transaction Data Correctness",
     "title": "Wire transaction_sources creation at runtime",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/wire-returnings-fee-splits.md",
     "description": "transaction_sources join table (linking bank_transactions to transactions) is never populated at runtime. Add linkTransactionSource(transactionId, bankTransactionId) and linkTransactionSources(links[]) abstract methods to BankTransactionRepository. Implement in DatabaseBankTransactionRepository using INSERT INTO transaction_sources ON CONFLICT DO NOTHING. Wire into TransactionSyncService: in saveBankTransactions(), after saving bank_transactions (which return entities with IDs), build externalId→bankTxId map, match with transaction dbIds, and call linkTransactionSources(). In saveSingleBankTransaction(), call linkTransactionSource() after save. Add stubs in SpreadsheetBankTransactionRepository. This is a prerequisite for returnings, fee splits, and the GraphQL bankTransactions field resolver.",
     "dependencies": []
@@ -644,7 +644,7 @@
     "id": "P9-002",
     "phase": "P9: Transaction Data Correctness",
     "title": "Fix amount sign convention (transactions.amount always positive)",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/returning-single-transaction-model.md",
     "description": "transactions.amount should always be positive (type column indicates direction), but the write path still stores signed amounts from Monobank. Fix: (1) In MonobankMapper, use Math.abs() when creating Transaction entities (bank_transactions keep signed amounts). (2) In DatabaseTransactionMapper, rename calculateSignedAmount → getAmount and update comments. (3) Create scripts/fix-amount-sign.ts one-time script: UPDATE transactions SET amount = ABS(amount) WHERE amount < 0 (fixes ~250 negative debits in production). (4) Document convention in CLAUDE.md Data Conventions section. Run script with --dry-run first, then apply. Write unit tests for mapper changes.",
     "dependencies": []
@@ -653,7 +653,7 @@
     "id": "P9-003",
     "phase": "P9: Transaction Data Correctness",
     "title": "Redesign returning detection using single-transaction model",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/returning-single-transaction-model.md",
     "description": "Current returning detection creates two transaction rows (original + returning). Redesign to single-transaction model: partial refund → ONE transaction linked to TWO bank_transactions (original amount reduced), full refund → ZERO transactions (both bank_txs orphaned). Update TransactionSyncService.detectReturningForTransaction(): (1) Classify incoming transaction as cancellation (bank description starts with 'Скасування. '). (2) Find original debit via findCancellationCandidate(). (3) Partial refund: reduce original amount, link cancellation bank_tx to original via transaction_sources, delete cancellation transaction. (4) Full refund: delete both transactions. Update TransactionProcessingService.processCancellation() to set transaction: null. Write unit tests for new behavior.",
     "dependencies": ["P9-001", "P9-002"]
@@ -662,7 +662,7 @@
     "id": "P9-004",
     "phase": "P9: Transaction Data Correctness",
     "title": "Wire fee-split detection at runtime",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/wire-returnings-fee-splits.md",
     "description": "Transactions with commission > 0 are saved with full amount — no separate fee transaction is created. Add detectFeeSplits() to TransactionSyncService: for each transaction where bank_transaction has commission > 0, (1) reduce main transaction amount by commission, (2) create separate fee transaction (type='debit', amount=commission, description='Bank commission', same date/account/currency), (3) link fee transaction to same bank_transaction via transaction_sources. Wire into use cases after returning detection. Write unit tests.",
     "dependencies": ["P9-001", "P9-002"]
@@ -671,7 +671,7 @@
     "id": "P9-005",
     "phase": "P9: Transaction Data Correctness",
     "title": "Wire detection into all use cases with correct ordering",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/wire-returnings-fee-splits.md",
     "description": "Wire detectReturnings() and detectFeeSplits() into ProcessIncomingTransaction, SyncTransactions, and SyncMonobank use cases. Order: returnings first (may delete transactions), fee splits second (adjusts amounts), transfers last (existing). If detectReturnings deletes the saved transaction (full refund), skip fee splits, transfers, and categorization. Update existing use case unit tests to verify the new detection calls with correct ordering.",
     "dependencies": ["P9-003", "P9-004"]
@@ -680,7 +680,7 @@
     "id": "P9-006",
     "phase": "P9: Transaction Data Correctness",
     "title": "Remove RETURNING type from codebase",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/returning-single-transaction-model.md",
     "description": "Eliminate the RETURNING transaction type since returnings are now handled by amount reduction on original transactions. (1) Domain: remove RETURNING from TransactionType enum, remove 'returning' from type unions. (2) GraphQL: remove RETURNING from TransactionTypeEnum, remove adjustedTransactionId from Transaction type, remove markAsReturning/unmarkReturning mutations. (3) Resolvers: remove markAsReturning/unmarkReturning handlers. (4) Mappers: remove 'returning: RETURNING' from type map. (5) MonthlyOverviewResolver: remove 'returning' exclusion filter (only 'transfer' remains). (6) Frontend: remove RETURNING from TYPE_CONFIG in transactions-table.tsx and transaction-detail-panel.tsx, remove from filter options. (7) Delete tests/integration/api/mark-as-returning.test.ts. Run just check && just test && just test-api.",
     "dependencies": ["P9-005"]
@@ -689,7 +689,7 @@
     "id": "P9-007",
     "phase": "P9: Transaction Data Correctness",
     "title": "Create production data fix script for returnings and amounts",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/returning-single-transaction-model.md",
     "description": "Create scripts/fix-returning-data.ts to fix production data in three phases: (1) Make all transaction amounts positive: UPDATE transactions SET amount = ABS(amount) WHERE amount < 0. (2) Process all 15 cancellation bank_txs into single-transaction model: for each cancellation, find matching original, handle partial (reduce amount, link bank_tx) or full (delete both txs) refund. Categories: 2 already type='returning', 5 still type='credit', 8 orphaned. (3) Clear adjusted_transaction_id: UPDATE transactions SET adjusted_transaction_id = NULL. Support --dry-run flag. Verify: no transactions with type='returning', no negative amounts, no adjusted_transaction_id values.",
     "dependencies": ["P9-003"]
@@ -698,7 +698,7 @@
     "id": "P9-008",
     "phase": "P9: Transaction Data Correctness",
     "title": "Update seed data with bank_transactions, transaction_sources, transfers, returnings, fee splits",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/wire-returnings-fee-splits.md",
     "description": "Update scripts/seed-local-db.ts: (1) Add clearDatabase for transfer_pairs, transaction_sources, bank_transactions tables. (2) Create bank_transactions for each seeded transaction (map from transaction fields). (3) Create transaction_sources links. (4) Add 2 transfer pair examples per month (debit on one account, credit on another, same amount, ~1min apart). (5) Add returning examples: partial refund (one debit with reduced amount linked to 2 bank_txs) and full refund (orphaned bank_txs, no transaction). (6) Add fee split examples: main tx with reduced amount + separate 'Bank commission' debit, both linked to same bank_tx. Also update test factories in tests/integration/api/test-factories.ts with createTestBankTransaction(), createTestTransactionSource(), createTestTransferPair().",
     "dependencies": ["P9-001"]
@@ -716,7 +716,7 @@
     "id": "P9-010",
     "phase": "P9: Transaction Data Correctness",
     "title": "Add returning indicator for partially returned transactions",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/returning-single-transaction-model.md",
     "description": "Add visual indicator for partially returned transactions on the frontend. After P9-003, a partially returned transaction is a debit linked to >1 bank_transactions (original + cancellation). (1) Add bankTransactionCount field to Transaction GraphQL type (or use existing bankTransactions field count). (2) In transactions-table.tsx, show a small 'Returned' badge or icon next to debit transactions where bankTransactionCount > 1. (3) In transaction-detail-panel.tsx, show both bank_transactions in a collapsible section with original and cancellation amounts. (4) Update GetTransactions and GetTransaction queries to include bankTransactionCount. Run codegen.",
     "dependencies": ["P9-006", "P9-008"]
@@ -725,7 +725,7 @@
     "id": "P9-011",
     "phase": "P9: Transaction Data Correctness",
     "title": "Write comprehensive tests for Phase 9 changes",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "Ensure test coverage for all Phase 9 changes: (1) Unit tests: TransactionSyncService — transaction_sources linking, detectReturnings (partial/full refund, no match), detectFeeSplits (reduce amount + create fee tx). (2) Unit tests: updated use cases — verify detection ordering (returnings → fees → transfers), skip processing after full refund deletion. (3) API integration tests: query partially returned transaction (bankTransactionCount > 1), query fee-split transactions, verify RETURNING type no longer accepted in filters. (4) Update mocks: add findCancellationCandidate, updateTransactionAmount to TransactionRepository mock; add linkTransactionSource, linkTransactionSources to BankTransactionRepository mock.",
     "dependencies": ["P9-005", "P9-006"]
@@ -734,7 +734,7 @@
     "id": "P9-012",
     "phase": "P9: Transaction Data Correctness",
     "title": "Update documentation for Phase 9 changes",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "Update project documentation to reflect Phase 9 changes: (1) docs/database-design.md — document transaction_sources usage, single-transaction returning model, fee split model. (2) docs/data-flow.md — update transaction processing flow diagram with returning/fee/transfer detection ordering. (3) CLAUDE.md — update Data Conventions section with amount sign convention (already partially documented). (4) Mark Phase 9 tasks as completed in ROADMAP.md.",
     "dependencies": ["P9-006"]
@@ -744,7 +744,7 @@
     "id": "MTX-001",
     "phase": "MTX: Manual Transaction UI",
     "title": "Verify and fix createTransaction backend",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "The createTransaction GraphQL mutation and CreateTransactionUseCase already exist but may have issues. Verify: (1) accountId mapping — GraphQL input uses Int (DB ID), but use case may use externalId internally. Test the mutation end-to-end via API integration test. (2) Amount conversion — input accepts Float in major units, use case should multiply by 100 for minor units. Verify Math.round(request.amount * 100). (3) Error handling — ManualTransactionNotAllowedError for synced accounts, account not found. (4) Return value — mutation should return the created Transaction with all fields. Fix any issues found. Write API integration test: create transaction on manual account (happy path), reject on synced account, validate required fields.",
     "dependencies": []
