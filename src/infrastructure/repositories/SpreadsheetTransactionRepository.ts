@@ -437,6 +437,18 @@ export class SpreadsheetTransactionRepository
     );
   }
 
+  countByBudgetId(): Promise<Map<number, number>> {
+    throw new Error(
+      'countByBudgetId is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  countByCategoryId(): Promise<Map<number, number>> {
+    throw new Error(
+      'countByCategoryId is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
   updateRecordType(_dbId: number, _type: string): Promise<void> {
     throw new Error(
       'updateRecordType is not supported by SpreadsheetTransactionRepository',

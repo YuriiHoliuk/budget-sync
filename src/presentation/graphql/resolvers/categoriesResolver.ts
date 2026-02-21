@@ -7,6 +7,10 @@ import {
   CATEGORY_REPOSITORY_TOKEN,
   type CategoryRepository,
 } from '@domain/repositories/CategoryRepository.ts';
+import {
+  TRANSACTION_REPOSITORY_TOKEN,
+  type TransactionRepository,
+} from '@domain/repositories/TransactionRepository.ts';
 import { inject, injectable } from 'tsyringe';
 import {
   type CategoryGql,
@@ -33,6 +37,8 @@ export class CategoriesResolver extends Resolver {
   constructor(
     @inject(CATEGORY_REPOSITORY_TOKEN)
     private categoryRepository: CategoryRepository,
+    @inject(TRANSACTION_REPOSITORY_TOKEN)
+    private transactionRepository: TransactionRepository,
     private createCategoryUseCase: CreateCategoryUseCase,
     private updateCategoryUseCase: UpdateCategoryUseCase,
     private archiveCategoryUseCase: ArchiveCategoryUseCase,
@@ -67,10 +73,16 @@ export class CategoriesResolver extends Resolver {
   }
 
   private async getCategories(activeOnly: boolean) {
-    const categories = activeOnly
-      ? await this.categoryRepository.findActive()
-      : await this.categoryRepository.findAll();
-    return categories.map(mapCategoryToGql);
+    const [categories, counts] = await Promise.all([
+      activeOnly
+        ? this.categoryRepository.findActive()
+        : this.categoryRepository.findAll(),
+      this.transactionRepository.countByCategoryId(),
+    ]);
+    return categories.map((category) => ({
+      ...mapCategoryToGql(category),
+      transactionCount: counts.get(category.dbId ?? 0) ?? 0,
+    }));
   }
 
   private async getCategoryById(id: number) {

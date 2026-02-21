@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/searchable-select"
 
 interface BudgetComboboxProps {
-  budgets: Array<{ id: number; name: string }>
+  budgets: Array<{ id: number; name: string; transactionCount?: number }>
   value: number | null
   onValueChange: (budgetId: number | null) => void
   allowNone?: boolean
@@ -42,7 +42,10 @@ export function BudgetCombobox({
   balanceMap,
 }: BudgetComboboxProps) {
   const options = useMemo(() => {
-    return budgets.map((budget): SearchableSelectOption => {
+    const sorted = [...budgets].sort((a, b) =>
+      (b.transactionCount ?? 0) - (a.transactionCount ?? 0) || a.name.localeCompare(b.name)
+    )
+    return sorted.map((budget): SearchableSelectOption => {
       const balance = balanceMap?.get(budget.id)
       const isDisabled = disabledIds?.includes(budget.id) ?? false
 

@@ -28,6 +28,7 @@ export interface BudgetGql {
   cap: number | null;
   sortOrder: string | null;
   budgetGroupId: number | null;
+  transactionCount: number;
 }
 
 export function mapBudgetToGql(budget: Budget): BudgetGql {
@@ -51,6 +52,7 @@ export function mapBudgetToGql(budget: Budget): BudgetGql {
     cap: budget.cap?.toMajorUnits() ?? null,
     sortOrder: budget.sortOrder,
     budgetGroupId: budget.budgetGroupId,
+    transactionCount: 0,
   };
 }
 

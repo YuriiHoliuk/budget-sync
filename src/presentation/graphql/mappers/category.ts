@@ -19,6 +19,7 @@ export interface CategoryGql {
   parentName: string | null;
   status: string;
   fullPath: string;
+  transactionCount: number;
 }
 
 export function mapCategoryToGql(category: Category): CategoryGql {
@@ -28,6 +29,7 @@ export function mapCategoryToGql(category: Category): CategoryGql {
     parentName: category.parent ?? null,
     status: CATEGORY_STATUS_TO_GQL[category.status] ?? 'ACTIVE',
     fullPath: category.fullPath,
+    transactionCount: 0,
   };
 }
 

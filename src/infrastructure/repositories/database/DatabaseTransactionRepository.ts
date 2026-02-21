@@ -28,6 +28,7 @@ import {
   gte,
   ilike,
   inArray,
+  isNotNull,
   isNull,
   lte,
   ne,
@@ -627,6 +628,44 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       );
     }
     return conditions;
+  }
+
+  async countByBudgetId(): Promise<Map<number, number>> {
+    const rows = await this.db
+      .select({
+        budgetId: transactions.budgetId,
+        count: count(),
+      })
+      .from(transactions)
+      .where(isNotNull(transactions.budgetId))
+      .groupBy(transactions.budgetId);
+
+    const result = new Map<number, number>();
+    for (const row of rows) {
+      if (row.budgetId !== null) {
+        result.set(row.budgetId, row.count);
+      }
+    }
+    return result;
+  }
+
+  async countByCategoryId(): Promise<Map<number, number>> {
+    const rows = await this.db
+      .select({
+        categoryId: transactions.categoryId,
+        count: count(),
+      })
+      .from(transactions)
+      .where(isNotNull(transactions.categoryId))
+      .groupBy(transactions.categoryId);
+
+    const result = new Map<number, number>();
+    for (const row of rows) {
+      if (row.categoryId !== null) {
+        result.set(row.categoryId, row.count);
+      }
+    }
+    return result;
   }
 
   private async resolveCategoryId(

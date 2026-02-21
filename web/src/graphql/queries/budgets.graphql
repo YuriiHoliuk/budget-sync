@@ -31,5 +31,6 @@ query GetBudgets($activeOnly: Boolean = false) {
     cap
     sortOrder
     budgetGroupId
+    transactionCount
   }
 }

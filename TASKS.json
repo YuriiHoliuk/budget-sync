@@ -589,7 +589,7 @@
     "id": "FREQ-001",
     "phase": "FREQ: Sort Dropdowns by Usage Frequency",
     "title": "Add transaction count repository methods",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/dropdown-usage-frequency-sorting.md",
     "description": "Add abstract methods countByBudgetId(): Promise<Map<number, number>> and countByCategoryId(): Promise<Map<number, number>> to TransactionRepository (domain layer). Implement in DatabaseTransactionRepository using Drizzle: SELECT budget_id/category_id, COUNT(*) FROM transactions WHERE budget_id/category_id IS NOT NULL GROUP BY budget_id/category_id. Return a Map<id, count>. Existing indexes (idx_transactions_budget_id, idx_transactions_category_id) make this efficient.",
     "dependencies": []
@@ -598,7 +598,7 @@
     "id": "FREQ-002",
     "phase": "FREQ: Sort Dropdowns by Usage Frequency",
     "title": "Add transactionCount field to Budget and Category GraphQL types",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/dropdown-usage-frequency-sorting.md",
     "description": "Add transactionCount: Int! field to Budget and Category types in GraphQL schema (budgets.graphql, categories.graphql). In budgetsResolver, fetch counts via transactionRepository.countByBudgetId() in parallel with budget fetch, merge into GQL response. Same for categoriesResolver with countByCategoryId(). Inject TransactionRepository into both resolvers via DI.",
     "dependencies": ["FREQ-001"]
@@ -607,7 +607,7 @@
     "id": "FREQ-003",
     "phase": "FREQ: Sort Dropdowns by Usage Frequency",
     "title": "Sort frontend combobox options by usage frequency",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/dropdown-usage-frequency-sorting.md",
     "description": "Add transactionCount to GetBudgets and GetCategories GraphQL query documents in web/src/graphql/queries/. Run 'just codegen'. In BudgetCombobox, sort budgets by transactionCount DESC (with name alphabetical as tiebreaker) before converting to SearchableSelectOption[]. In CategoryCombobox, sort categories by transactionCount DESC within each parent group. Only affects combobox components — budget management page keeps existing sortOrder.",
     "dependencies": ["FREQ-002"]
@@ -616,7 +616,7 @@
     "id": "FREQ-004",
     "phase": "FREQ: Sort Dropdowns by Usage Frequency",
     "title": "Write tests for usage frequency sorting",
-    "status": "pending",
+    "status": "done",
     "plan": "claude_plans/dropdown-usage-frequency-sorting.md",
     "description": "Unit tests: test countByBudgetId() and countByCategoryId() repository methods with mocked DB (verify correct SQL pattern, empty results, multiple budgets/categories). API integration tests: seed transactions with varying budget/category assignments, query budgets/categories via GraphQL, verify transactionCount field returns correct counts. Add to tests/integration/api/.",
     "dependencies": ["FREQ-002"]
@@ -628,6 +628,6 @@
     "title": "Persist UI state in localStorage via useLocalStorage hook",
     "status": "pending",
     "plan": null,
-    "description": "UI elements like the left sidebar (collapsed/expanded), right transaction filter sidebar (collapsed/expanded), and other toggleable states reset to their defaults on page reload. Fix by: (1) Create a useLocalStorage<T>(key: LocalStorageKey, initialValue: T) hook in web/src/hooks/use-local-storage.ts with the same API as useState but backed by localStorage. Handle SSR (return initialValue during server render, sync from localStorage on mount), JSON serialization/deserialization, and storage errors gracefully. (2) Define a LocalStorageKey enum or const object in web/src/lib/local-storage-keys.ts with all keys in one place (e.g., SIDEBAR_COLLAPSED, FILTER_SIDEBAR_COLLAPSED) to prevent key collisions and make usage discoverable. (3) Replace useState calls for these UI states with useLocalStorage throughout the app: left sidebar collapse state in app-shell.tsx, transaction filter sidebar visibility, and any other toggleable UI state that should persist across reloads."
+    "description": "UI elements like the left sidebar (collapsed/expanded), right transaction filter sidebar (collapsed/expanded), selected transaction filters, and other toggleable states reset to their defaults on page reload. Fix by: (1) Create a useLocalStorage<T>(key: LocalStorageKey, initialValue: T) hook in web/src/hooks/use-local-storage.ts with the same API as useState but backed by localStorage. Handle SSR (return initialValue during server render, sync from localStorage on mount), JSON serialization/deserialization, and storage errors gracefully. (2) Define a LocalStorageKey enum or const object in web/src/lib/local-storage-keys.ts with all keys in one place (e.g., SIDEBAR_COLLAPSED, FILTER_SIDEBAR_COLLAPSED, TRANSACTION_FILTERS) to prevent key collisions and make usage discoverable. (3) Replace useState calls for these UI states with useLocalStorage throughout the app: left sidebar collapse state in app-shell.tsx, transaction filter sidebar visibility, applied transaction filters (account, category, budget, type, status, date range, search), and any other toggleable UI state that should persist across reloads. For filters, persist the appliedFilters object so returning to the transactions page restores the last-used filter set. URL params should take precedence over localStorage when present (e.g., navigating from a budget link)."
   }
 ]

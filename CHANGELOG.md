@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-02-21b
+
+### Added
+- Sort budget and category dropdown options by usage frequency (FREQ-001 through FREQ-004)
+  - `countByBudgetId()` and `countByCategoryId()` methods on `TransactionRepository` — indexed `GROUP BY COUNT(*)` queries
+  - `transactionCount: Int!` field on `Budget` and `Category` GraphQL types, resolved in parallel with entity fetch
+  - `BudgetCombobox` and `CategoryCombobox` now sort options by `transactionCount DESC` with alphabetical tiebreaker
+  - API integration tests for `transactionCount` field on budgets and categories queries
+
 ## 2026-02-22
 
 ### Added

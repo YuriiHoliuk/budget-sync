@@ -1,5 +1,11 @@
 # Learnings
 
+## Usage Frequency Sorting (2026-02-21)
+- Adding new abstract methods to `TransactionRepository` requires stub implementations in `SpreadsheetTransactionRepository` (throws) in addition to `DatabaseTransactionRepository`.
+- Biome linter forbids non-null assertions (`!`). Use `for...of` with narrowing guard instead of `.filter().map()` with `!`.
+- `BudgetGql` and `CategoryGql` mapper interfaces need default values (e.g., `transactionCount: 0`) in `mapBudgetToGql`/`mapCategoryToGql` since the count is merged at the resolver level, not the mapper level.
+- Combobox `transactionCount` prop is optional (`number | undefined`) so existing call sites that don't fetch the field still work.
+
 ## Categorization Queue (2026-02-22)
 - Push-based Pub/Sub queue only needs `publish()` method — no `pull()`/`acknowledge()` since Pub/Sub pushes to the webhook endpoint.
 - `CategorizationQueueGateway` is separate from `MessageQueueGateway` — different topic, different retry policy, publish-only interface.

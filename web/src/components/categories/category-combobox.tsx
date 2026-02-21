@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/searchable-select"
 
 interface CategoryComboboxProps {
-  categories: Array<{ id: number; name: string; fullPath: string; parentName?: string | null }>
+  categories: Array<{ id: number; name: string; fullPath: string; parentName?: string | null; transactionCount?: number }>
   value: number | null
   onValueChange: (categoryId: number | null) => void
   allowNone?: boolean
@@ -46,7 +46,11 @@ export function CategoryCombobox({
       filtered = filtered.filter((category) => !category.parentName)
     }
 
-    return filtered.map((category): SearchableSelectOption => ({
+    const sorted = [...filtered].sort((a, b) =>
+      (b.transactionCount ?? 0) - (a.transactionCount ?? 0) || a.name.localeCompare(b.name)
+    )
+
+    return sorted.map((category): SearchableSelectOption => ({
       value: category.id.toString(),
       label: rootOnly ? category.name : category.fullPath,
       group: !rootOnly && category.parentName ? category.parentName : undefined,

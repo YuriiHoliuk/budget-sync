@@ -9,6 +9,10 @@ import {
   BUDGET_REPOSITORY_TOKEN,
   type BudgetRepository,
 } from '@domain/repositories/BudgetRepository.ts';
+import {
+  TRANSACTION_REPOSITORY_TOKEN,
+  type TransactionRepository,
+} from '@domain/repositories/TransactionRepository.ts';
 import { inject, injectable } from 'tsyringe';
 import {
   GQL_TO_CADENCE_UNIT,
@@ -53,6 +57,8 @@ export class BudgetsResolver extends Resolver {
   constructor(
     @inject(BUDGET_REPOSITORY_TOKEN)
     private budgetRepository: BudgetRepository,
+    @inject(TRANSACTION_REPOSITORY_TOKEN)
+    private transactionRepository: TransactionRepository,
     private createBudgetUseCase: CreateBudgetUseCase,
     private updateBudgetUseCase: UpdateBudgetUseCase,
     private archiveBudgetUseCase: ArchiveBudgetUseCase,
@@ -85,10 +91,16 @@ export class BudgetsResolver extends Resolver {
   }
 
   private async getBudgets(activeOnly: boolean) {
-    const budgets = activeOnly
-      ? await this.budgetRepository.findActive(new Date())
-      : await this.budgetRepository.findAll();
-    return budgets.map(mapBudgetToGql);
+    const [budgets, counts] = await Promise.all([
+      activeOnly
+        ? this.budgetRepository.findActive(new Date())
+        : this.budgetRepository.findAll(),
+      this.transactionRepository.countByBudgetId(),
+    ]);
+    return budgets.map((budget) => ({
+      ...mapBudgetToGql(budget),
+      transactionCount: counts.get(budget.dbId ?? 0) ?? 0,
+    }));
   }
 
   private async getBudgetById(id: number) {

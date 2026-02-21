@@ -17,7 +17,12 @@ import {
   expect,
   test,
 } from 'bun:test';
-import { clearAllTestData, createTestCategory } from './test-factories.ts';
+import {
+  clearAllTestData,
+  createTestAccount,
+  createTestCategory,
+  createTestTransaction,
+} from './test-factories.ts';
 import { TestHarness } from './test-harness.ts';
 
 const harness = new TestHarness();
@@ -209,5 +214,89 @@ describe('Query: categories', () => {
     const childNames = foodCategory?.children.map((child) => child.name);
     expect(childNames).toContain('Groceries');
     expect(childNames).toContain('Restaurants');
+  });
+
+  test('should return transactionCount for each category', async () => {
+    const account = await createTestAccount(harness.getDb());
+
+    const category1 = await createTestCategory(harness.getDb(), {
+      name: 'Food',
+    });
+    const category2 = await createTestCategory(harness.getDb(), {
+      name: 'Transport',
+    });
+
+    // Create 2 transactions for category1
+    await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      categoryId: category1.id,
+      externalId: 'tx-cat-count-1',
+    });
+    await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      categoryId: category1.id,
+      externalId: 'tx-cat-count-2',
+    });
+
+    // Create 1 transaction for category2
+    await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      categoryId: category2.id,
+      externalId: 'tx-cat-count-3',
+    });
+
+    const result = await harness.executeQuery<{
+      categories: Array<{
+        id: number;
+        name: string;
+        transactionCount: number;
+      }>;
+    }>(`
+      query {
+        categories {
+          id
+          name
+          transactionCount
+        }
+      }
+    `);
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.categories).toHaveLength(2);
+
+    const food = result.data?.categories.find((cat) => cat.name === 'Food');
+    expect(food?.transactionCount).toBe(2);
+
+    const transport = result.data?.categories.find(
+      (cat) => cat.name === 'Transport',
+    );
+    expect(transport?.transactionCount).toBe(1);
+  });
+
+  test('should return 0 transactionCount for categories with no transactions', async () => {
+    await createTestCategory(harness.getDb(), {
+      name: 'Empty Category',
+    });
+
+    const result = await harness.executeQuery<{
+      categories: Array<{
+        id: number;
+        name: string;
+        transactionCount: number;
+      }>;
+    }>(`
+      query {
+        categories {
+          id
+          name
+          transactionCount
+        }
+      }
+    `);
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.categories).toHaveLength(1);
+    expect(result.data?.categories[0]?.name).toBe('Empty Category');
+    expect(result.data?.categories[0]?.transactionCount).toBe(0);
   });
 });

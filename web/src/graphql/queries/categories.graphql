@@ -5,11 +5,13 @@ query GetCategories($activeOnly: Boolean = false) {
     parentName
     fullPath
     status
+    transactionCount
     children {
       id
       name
       fullPath
       status
+      transactionCount
     }
   }
 }

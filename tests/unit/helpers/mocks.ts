@@ -144,6 +144,8 @@ function getDefaultTransactionRepositoryMocks() {
     findByCategorizationStatus: mock(() => Promise.resolve([])),
     findUncategorized: mock(() => Promise.resolve([])),
     findTransactionSummaries: mock(() => Promise.resolve([])),
+    countByBudgetId: mock(() => Promise.resolve(new Map<number, number>())),
+    countByCategoryId: mock(() => Promise.resolve(new Map<number, number>())),
     findRecordById: mock(() => Promise.resolve(null)),
     findRecordsFiltered: mock(() => Promise.resolve([])),
     countFiltered: mock(() => Promise.resolve(0)),

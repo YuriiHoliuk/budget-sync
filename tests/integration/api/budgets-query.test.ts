@@ -17,7 +17,12 @@ import {
   expect,
   test,
 } from 'bun:test';
-import { clearAllTestData, createTestBudget } from './test-factories.ts';
+import {
+  clearAllTestData,
+  createTestAccount,
+  createTestBudget,
+  createTestTransaction,
+} from './test-factories.ts';
 import { TestHarness } from './test-harness.ts';
 
 const harness = new TestHarness();
@@ -177,5 +182,65 @@ describe('Query: budgets', () => {
 
     expect(result.errors).toBeUndefined();
     expect(result.data?.budgets).toHaveLength(2);
+  });
+
+  test('should return transactionCount for each budget', async () => {
+    const account = await createTestAccount(harness.getDb());
+
+    const budget1 = await createTestBudget(harness.getDb(), {
+      name: 'Groceries',
+    });
+    const budget2 = await createTestBudget(harness.getDb(), {
+      name: 'Transport',
+    });
+
+    // Create 3 transactions for budget1
+    await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      budgetId: budget1.id,
+      externalId: 'tx-budget-count-1',
+    });
+    await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      budgetId: budget1.id,
+      externalId: 'tx-budget-count-2',
+    });
+    await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      budgetId: budget1.id,
+      externalId: 'tx-budget-count-3',
+    });
+
+    // Create 1 transaction for budget2
+    await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      budgetId: budget2.id,
+      externalId: 'tx-budget-count-4',
+    });
+
+    const result = await harness.executeQuery<{
+      budgets: Array<{ id: number; name: string; transactionCount: number }>;
+    }>(`
+      query {
+        budgets {
+          id
+          name
+          transactionCount
+        }
+      }
+    `);
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.budgets).toHaveLength(2);
+
+    const groceries = result.data?.budgets.find(
+      (budget) => budget.name === 'Groceries',
+    );
+    expect(groceries?.transactionCount).toBe(3);
+
+    const transport = result.data?.budgets.find(
+      (budget) => budget.name === 'Transport',
+    );
+    expect(transport?.transactionCount).toBe(1);
   });
 });

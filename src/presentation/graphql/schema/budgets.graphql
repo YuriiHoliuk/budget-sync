@@ -95,6 +95,8 @@ type Budget {
   sortOrder: String
   """Budget group ID if assigned to a group"""
   budgetGroupId: Int
+  """Number of transactions assigned to this budget"""
+  transactionCount: Int!
 }
 
 """

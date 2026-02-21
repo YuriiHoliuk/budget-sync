@@ -124,4 +124,8 @@ export abstract class TransactionRepository extends Repository<
 
   // Summary methods for budget calculations
   abstract findTransactionSummaries(): Promise<TransactionSummary[]>;
+
+  // Usage frequency counts for sorting dropdowns
+  abstract countByBudgetId(): Promise<Map<number, number>>;
+  abstract countByCategoryId(): Promise<Map<number, number>>;
 }

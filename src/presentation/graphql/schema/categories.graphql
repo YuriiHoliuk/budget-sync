@@ -50,6 +50,8 @@ type Category {
   parentName: String
   status: CategoryStatus!
   fullPath: String!
+  """Number of transactions assigned to this category"""
+  transactionCount: Int!
   children: [Category!]!
 }
 
