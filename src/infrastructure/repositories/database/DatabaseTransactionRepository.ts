@@ -438,6 +438,27 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       );
   }
 
+  async findTransferPairByTransactionId(transactionId: number): Promise<{
+    outgoingTransactionId: number;
+    incomingTransactionId: number;
+  } | null> {
+    const rows = await this.db
+      .select({
+        outgoingTransactionId: transferPairs.outgoingTransactionId,
+        incomingTransactionId: transferPairs.incomingTransactionId,
+      })
+      .from(transferPairs)
+      .where(
+        or(
+          eq(transferPairs.outgoingTransactionId, transactionId),
+          eq(transferPairs.incomingTransactionId, transactionId),
+        ),
+      )
+      .limit(1);
+    const row = rows[0];
+    return row ?? null;
+  }
+
   async findTransferCandidate(params: {
     absoluteAmount: number;
     oppositeType: 'credit' | 'debit';

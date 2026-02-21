@@ -22,6 +22,8 @@ import {
   ChevronDown,
   ChevronUp,
   Database,
+  Undo2,
+  X,
 } from "lucide-react";
 import {
   Sheet,
@@ -42,16 +44,26 @@ import {
   GetCategoriesDocument,
   GetBudgetsDocument,
   GetTransactionsDocument,
+  GetAccountsDocument,
   UpdateTransactionCategoryDocument,
   UpdateTransactionBudgetDocument,
   UpdateTransactionNotesDocument,
   VerifyTransactionDocument,
+  ConvertToTransferDocument,
+  RevertTransferDocument,
   TransactionTypeEnum,
   CategorizationStatusEnum,
   AccountSource,
   type GetTransactionQuery,
   type BankTransaction,
 } from "@/graphql/generated/graphql";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -225,6 +237,37 @@ function TransactionDetailContent({
     refetchQueries: [{ query: GetTransactionsDocument }],
   });
 
+  const [convertToTransfer] = useMutation(ConvertToTransferDocument, {
+    refetchQueries: [
+      { query: GetTransactionsDocument },
+      { query: GetAccountsDocument, variables: { activeOnly: true } },
+    ],
+  });
+
+  const [revertTransfer] = useMutation(RevertTransferDocument, {
+    refetchQueries: [
+      { query: GetTransactionsDocument },
+      { query: GetAccountsDocument, variables: { activeOnly: true } },
+    ],
+  });
+
+  const { data: accountsData } = useQuery(GetAccountsDocument, {
+    variables: { activeOnly: true },
+  });
+
+  const manualAccounts = useMemo(
+    () =>
+      (accountsData?.accounts ?? []).filter(
+        (account) =>
+          account.source === AccountSource.Manual &&
+          account.currency === transaction.currency,
+      ),
+    [accountsData, transaction.currency],
+  );
+
+  const [showTransferForm, setShowTransferForm] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+
   const [notesValue, setNotesValue] = useState(transaction.notes ?? "");
   const [notesSaved, setNotesSaved] = useState(false);
   const notesSavedTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -290,6 +333,46 @@ function TransactionDetailContent({
     }
   };
 
+  const handleConvertToTransfer = async () => {
+    if (!selectedAccountId) return;
+    setIsUpdating(true);
+    try {
+      await convertToTransfer({
+        variables: {
+          input: {
+            transactionId: transaction.id,
+            destinationAccountId: Number.parseInt(selectedAccountId, 10),
+          },
+        },
+        refetchQueries: [
+          { query: GetTransactionsDocument },
+          { query: GetTransactionDocument, variables: { id: transaction.id } },
+          { query: GetAccountsDocument, variables: { activeOnly: true } },
+        ],
+      });
+      setShowTransferForm(false);
+      setSelectedAccountId("");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleRevertTransfer = async () => {
+    setIsUpdating(true);
+    try {
+      await revertTransfer({
+        variables: { transactionId: transaction.id },
+        refetchQueries: [
+          { query: GetTransactionsDocument },
+          { query: GetTransactionDocument, variables: { id: transaction.id } },
+          { query: GetAccountsDocument, variables: { activeOnly: true } },
+        ],
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const description =
     transaction.counterpartyName || transaction.description || "Unknown";
 
@@ -344,6 +427,113 @@ function TransactionDetailContent({
       </SheetHeader>
 
       <div className="mt-6 space-y-6 px-4 pb-6">
+        {isTransfer && transaction.transferPair && (
+          <>
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Transfer Info
+              </h3>
+              <div className="rounded-lg border bg-blue-50/50 p-3 dark:bg-blue-900/10">
+                <div className="flex items-center gap-2 text-sm">
+                  <ArrowLeftRight className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <span>
+                    Transfer to{" "}
+                    <span className="font-medium">
+                      {transaction.transferPair.pairedAccountName ?? "Unknown account"}
+                    </span>
+                  </span>
+                </div>
+              </div>
+              {transaction.transferPair.isRevertible && (
+                <Button
+                  onClick={handleRevertTransfer}
+                  disabled={isUpdating}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {isUpdating ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Undo2 className="mr-2 h-4 w-4" />
+                  )}
+                  Revert Transfer
+                </Button>
+              )}
+            </div>
+            <Separator />
+          </>
+        )}
+
+        {!isTransfer && !showTransferForm && manualAccounts.length > 0 && (
+          <>
+            <Button
+              onClick={() => setShowTransferForm(true)}
+              disabled={isUpdating}
+              variant="outline"
+              className="w-full gap-2"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              Mark as Transfer
+            </Button>
+            <Separator />
+          </>
+        )}
+
+        {!isTransfer && showTransferForm && (
+          <>
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Convert to Transfer
+              </h3>
+              <div className="grid gap-3">
+                <Select
+                  value={selectedAccountId}
+                  onValueChange={setSelectedAccountId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select destination account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {manualAccounts.map((account) => (
+                      <SelectItem
+                        key={account.id}
+                        value={account.id.toString()}
+                      >
+                        {account.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleConvertToTransfer}
+                    disabled={isUpdating || !selectedAccountId}
+                    className="flex-1"
+                  >
+                    {isUpdating ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="mr-2 h-4 w-4" />
+                    )}
+                    Confirm
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowTransferForm(false);
+                      setSelectedAccountId("");
+                    }}
+                    disabled={isUpdating}
+                    variant="outline"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <Separator />
+          </>
+        )}
+
         {!isTransfer && (
           <>
             <div className="space-y-4">

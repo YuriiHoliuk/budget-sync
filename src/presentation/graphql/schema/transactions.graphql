@@ -50,6 +50,20 @@ extend type Mutation {
   """
   unmarkTransfer(outgoingTransactionId: Int!, incomingTransactionId: Int!): Boolean!
 
+  """
+  Convert a DEBIT or CREDIT transaction to a TRANSFER by creating a counterpart
+  transaction on a manual account, linking them as a transfer pair, and adjusting
+  the destination account balance.
+  """
+  convertToTransfer(input: ConvertToTransferInput!): ConvertToTransferResult!
+
+  """
+  Revert a manually-converted transfer back to its original type.
+  Deletes the counterpart transaction, removes the transfer pair,
+  and restores the destination account balance.
+  """
+  revertTransfer(transactionId: Int!): Transaction!
+
 }
 
 input TransactionFilter {
@@ -248,6 +262,11 @@ type Transaction {
   Assigned budget (null if unbudgeted).
   """
   budget: Budget
+
+  """
+  Transfer pair info (null if not a transfer).
+  """
+  transferPair: TransferPairInfo
 }
 
 enum TransactionTypeEnum {
@@ -278,4 +297,38 @@ enum CategorizationStatusEnum {
   PENDING
   CATEGORIZED
   VERIFIED
+}
+
+input ConvertToTransferInput {
+  """
+  Transaction database ID to convert.
+  """
+  transactionId: Int!
+
+  """
+  Destination manual account database ID.
+  """
+  destinationAccountId: Int!
+}
+
+type ConvertToTransferResult {
+  sourceTransaction: Transaction!
+  counterpartTransaction: Transaction!
+}
+
+type TransferPairInfo {
+  """
+  Database ID of the paired transaction.
+  """
+  pairedTransactionId: Int!
+
+  """
+  Name of the paired transaction's account.
+  """
+  pairedAccountName: String
+
+  """
+  Whether this transfer can be reverted (only manually-converted transfers).
+  """
+  isRevertible: Boolean!
 }

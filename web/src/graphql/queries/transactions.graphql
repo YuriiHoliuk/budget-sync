@@ -67,6 +67,11 @@ query GetTransaction($id: Int!) {
       name
       source
     }
+    transferPair {
+      pairedTransactionId
+      pairedAccountName
+      isRevertible
+    }
     bankTransactions {
       id
       externalId

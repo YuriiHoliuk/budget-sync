@@ -94,6 +94,12 @@ export abstract class TransactionRepository extends Repository<
     incomingId: number,
   ): Promise<void>;
 
+  // Transfer pair lookup
+  abstract findTransferPairByTransactionId(transactionId: number): Promise<{
+    outgoingTransactionId: number;
+    incomingTransactionId: number;
+  } | null>;
+
   // Transfer detection
   abstract findTransferCandidate(params: {
     absoluteAmount: number;

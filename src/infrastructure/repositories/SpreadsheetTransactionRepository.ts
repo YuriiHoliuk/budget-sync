@@ -467,6 +467,15 @@ export class SpreadsheetTransactionRepository
     );
   }
 
+  findTransferPairByTransactionId(_transactionId: number): Promise<{
+    outgoingTransactionId: number;
+    incomingTransactionId: number;
+  } | null> {
+    throw new Error(
+      'findTransferPairByTransactionId is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
   findTransferCandidate(_params: {
     absoluteAmount: number;
     oppositeType: 'credit' | 'debit';

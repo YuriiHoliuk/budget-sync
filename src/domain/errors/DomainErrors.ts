@@ -177,3 +177,37 @@ export class RuleNotFoundError extends DomainError {
     super(`Rule not found with id: ${ruleId}`);
   }
 }
+
+/**
+ * Thrown when attempting to convert a transaction that is already a transfer.
+ */
+export class TransactionAlreadyTransferError extends DomainError {
+  constructor(public readonly transactionId: number) {
+    super(`Transaction ${transactionId} is already a transfer`);
+  }
+}
+
+/**
+ * Thrown when the source transaction currency doesn't match the destination account currency.
+ */
+export class CurrencyMismatchError extends DomainError {
+  constructor(
+    public readonly transactionCurrency: string,
+    public readonly accountCurrency: string,
+  ) {
+    super(
+      `Currency mismatch: transaction is ${transactionCurrency} but destination account is ${accountCurrency}`,
+    );
+  }
+}
+
+/**
+ * Thrown when trying to revert a transfer that was auto-detected (not manually created).
+ */
+export class TransferRevertNotAllowedError extends DomainError {
+  constructor(public readonly transactionId: number) {
+    super(
+      `Cannot revert transfer for transaction ${transactionId}: only manually converted transfers can be reverted`,
+    );
+  }
+}

@@ -1,7 +1,9 @@
+import { ConvertToTransferUseCase } from '@application/use-cases/ConvertToTransfer.ts';
 import {
   type CreateTransactionRequestDTO,
   CreateTransactionUseCase,
 } from '@application/use-cases/CreateTransaction.ts';
+import { RevertTransferUseCase } from '@application/use-cases/RevertTransfer.ts';
 import {
   ACCOUNT_REPOSITORY_TOKEN,
   type AccountRepository,
@@ -98,6 +100,8 @@ export class TransactionsResolver extends Resolver {
     @inject(BANK_TRANSACTION_REPOSITORY_TOKEN)
     private bankTransactionRepository: BankTransactionRepository,
     private createTransactionUseCase: CreateTransactionUseCase,
+    private convertToTransferUseCase: ConvertToTransferUseCase,
+    private revertTransferUseCase: RevertTransferUseCase,
   ) {
     super();
   }
@@ -153,6 +157,14 @@ export class TransactionsResolver extends Resolver {
             args.outgoingTransactionId,
             args.incomingTransactionId,
           ),
+        convertToTransfer: (
+          _parent: unknown,
+          args: {
+            input: { transactionId: number; destinationAccountId: number };
+          },
+        ) => this.convertToTransfer(args.input),
+        revertTransfer: (_parent: unknown, args: { transactionId: number }) =>
+          this.revertTransfer(args.transactionId),
       },
       Transaction: {
         account: (parent: TransactionGql) =>
@@ -163,6 +175,8 @@ export class TransactionsResolver extends Resolver {
           this.getTransactionBudget(parent.budgetId),
         bankTransactions: (parent: TransactionGql) =>
           this.getBankTransactions(parent.id),
+        transferPair: (parent: TransactionGql) =>
+          this.getTransferPairInfo(parent.id),
       },
     };
   }
@@ -373,6 +387,76 @@ export class TransactionsResolver extends Resolver {
       ),
     ]);
     return true;
+  }
+
+  private async convertToTransfer(input: {
+    transactionId: number;
+    destinationAccountId: number;
+  }) {
+    const result = await this.convertToTransferUseCase.execute(input);
+
+    const [sourceRecord, counterpartRecord] = await Promise.all([
+      this.transactionRepository.findRecordById(result.sourceTransactionId),
+      this.transactionRepository.findRecordById(
+        result.counterpartTransactionId,
+      ),
+    ]);
+
+    if (!sourceRecord || !counterpartRecord) {
+      throw new Error('Failed to retrieve converted transactions');
+    }
+
+    return {
+      sourceTransaction: mapTransactionRecordToGql(sourceRecord),
+      counterpartTransaction: mapTransactionRecordToGql(counterpartRecord),
+    };
+  }
+
+  private async revertTransfer(transactionId: number) {
+    await this.revertTransferUseCase.execute({ transactionId });
+
+    const record =
+      await this.transactionRepository.findRecordById(transactionId);
+    if (!record) {
+      throw new Error(`Transaction not found with id: ${transactionId}`);
+    }
+    return mapTransactionRecordToGql(record);
+  }
+
+  private async getTransferPairInfo(transactionId: number) {
+    const pair =
+      await this.transactionRepository.findTransferPairByTransactionId(
+        transactionId,
+      );
+    if (!pair) {
+      return null;
+    }
+
+    const pairedId =
+      pair.outgoingTransactionId === transactionId
+        ? pair.incomingTransactionId
+        : pair.outgoingTransactionId;
+
+    const pairedRecord =
+      await this.transactionRepository.findRecordById(pairedId);
+
+    let pairedAccountName: string | null = null;
+    if (pairedRecord?.accountId) {
+      const allAccounts = await this.accountRepository.findAll();
+      const pairedAccount = allAccounts.find(
+        (account) => account.dbId === pairedRecord.accountId,
+      );
+      pairedAccountName = pairedAccount?.name ?? null;
+    }
+
+    const isRevertible =
+      pairedRecord?.externalId?.startsWith('transfer-counterpart-') ?? false;
+
+    return {
+      pairedTransactionId: pairedId,
+      pairedAccountName,
+      isRevertible,
+    };
   }
 
   private mapFilter(filter?: TransactionFilter): TransactionFilterParams {

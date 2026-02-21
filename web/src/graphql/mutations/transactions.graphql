@@ -51,3 +51,28 @@ mutation CreateTransaction($input: CreateTransactionInput!) {
     }
   }
 }
+
+mutation ConvertToTransfer($input: ConvertToTransferInput!) {
+  convertToTransfer(input: $input) {
+    sourceTransaction {
+      id
+      type
+      transferPair {
+        pairedTransactionId
+        pairedAccountName
+        isRevertible
+      }
+    }
+    counterpartTransaction {
+      id
+      type
+    }
+  }
+}
+
+mutation RevertTransfer($transactionId: Int!) {
+  revertTransfer(transactionId: $transactionId) {
+    id
+    type
+  }
+}
