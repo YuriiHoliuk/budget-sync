@@ -13,10 +13,98 @@ env:
   REPOSITORY: budget-sync
 
 jobs:
+  # ── Change Detection ─────────────────────────────────────────────
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      run_lint_test: ${{ steps.set-outputs.outputs.run_lint_test }}
+      run_api_test: ${{ steps.set-outputs.outputs.run_api_test }}
+      run_e2e_test: ${{ steps.set-outputs.outputs.run_e2e_test }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect file changes
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'src/**'
+              - 'package.json'
+              - 'bun.lock'
+              - 'tsconfig.json'
+              - 'biome.json'
+              - 'Dockerfile'
+            frontend:
+              - 'web/**'
+              - 'Dockerfile.web'
+            database:
+              - 'drizzle/**'
+              - 'drizzle.config.ts'
+            unit_tests:
+              - 'tests/unit/**'
+            api_tests:
+              - 'tests/integration/**'
+            e2e_config:
+              - 'e2e/**'
+              - 'docker-compose.e2e.yml'
+              - 'scripts/seed-local-db.ts'
+              - 'playwright.config.ts'
+            ci_config:
+              - '.github/workflows/ci.yml'
+
+      - name: Set job outputs
+        id: set-outputs
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "Non-PR event — running all checks"
+            echo "run_lint_test=true" >> $GITHUB_OUTPUT
+            echo "run_api_test=true" >> $GITHUB_OUTPUT
+            echo "run_e2e_test=true" >> $GITHUB_OUTPUT
+          else
+            # Lint & Unit Tests: backend OR frontend OR unit tests OR CI config changed
+            if [ "${{ steps.filter.outputs.backend }}" = "true" ] || \
+               [ "${{ steps.filter.outputs.frontend }}" = "true" ] || \
+               [ "${{ steps.filter.outputs.unit_tests }}" = "true" ] || \
+               [ "${{ steps.filter.outputs.ci_config }}" = "true" ]; then
+              echo "run_lint_test=true" >> $GITHUB_OUTPUT
+            else
+              echo "run_lint_test=false" >> $GITHUB_OUTPUT
+              echo "Skipping lint & unit tests (no relevant changes)"
+            fi
+
+            # API Integration Tests: backend OR api tests OR database OR CI config changed
+            if [ "${{ steps.filter.outputs.backend }}" = "true" ] || \
+               [ "${{ steps.filter.outputs.api_tests }}" = "true" ] || \
+               [ "${{ steps.filter.outputs.database }}" = "true" ] || \
+               [ "${{ steps.filter.outputs.ci_config }}" = "true" ]; then
+              echo "run_api_test=true" >> $GITHUB_OUTPUT
+            else
+              echo "run_api_test=false" >> $GITHUB_OUTPUT
+              echo "Skipping API integration tests (no relevant changes)"
+            fi
+
+            # E2E Tests: backend OR frontend OR e2e config OR database OR CI config changed
+            if [ "${{ steps.filter.outputs.backend }}" = "true" ] || \
+               [ "${{ steps.filter.outputs.frontend }}" = "true" ] || \
+               [ "${{ steps.filter.outputs.e2e_config }}" = "true" ] || \
+               [ "${{ steps.filter.outputs.database }}" = "true" ] || \
+               [ "${{ steps.filter.outputs.ci_config }}" = "true" ]; then
+              echo "run_e2e_test=true" >> $GITHUB_OUTPUT
+            else
+              echo "run_e2e_test=false" >> $GITHUB_OUTPUT
+              echo "Skipping E2E tests (no relevant changes)"
+            fi
+          fi
+
   # ── CI ──────────────────────────────────────────────────────────────
   test:
     name: Lint & Unit Tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.run_lint_test == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -52,6 +140,8 @@ jobs:
   test-api:
     name: API Integration Tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.run_api_test == 'true'
     services:
       postgres:
         image: postgres:16-alpine
@@ -88,6 +178,8 @@ jobs:
   test-e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.run_e2e_test == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -141,8 +233,14 @@ jobs:
   check:
     name: Check Changes
     runs-on: ubuntu-latest
-    needs: [test, test-api, test-e2e]
-    if: github.event_name != 'pull_request'
+    needs: [changes, test, test-api, test-e2e]
+    if: |
+      always() &&
+      github.event_name != 'pull_request' &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (needs.test-api.result == 'success' || needs.test-api.result == 'skipped') &&
+      (needs.test-e2e.result == 'success' || needs.test-e2e.result == 'skipped') &&
+      needs.changes.result == 'success'
     outputs:
       should_deploy_backend: ${{ steps.filter.outputs.should_deploy_backend }}
       should_deploy_web: ${{ steps.filter.outputs.should_deploy_web }}

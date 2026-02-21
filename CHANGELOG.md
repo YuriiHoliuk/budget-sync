@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-02-22c
+
+### Changed
+- Optimize CI/CD pipeline with change detection to skip unnecessary jobs on PRs (CI-001)
+  - Added `changes` job as the first step using `dorny/paths-filter@v3`
+  - On PRs: detects which paths changed and conditionally skips unaffected test jobs
+  - On push to main / workflow_dispatch: runs all tests (safety net)
+  - Path filter groups: backend (`src/`), frontend (`web/`), database (`drizzle/`), unit tests, API tests, E2E config, CI config
+  - Docs-only, scripts-only, and infrastructure-only PRs skip all test jobs
+  - Frontend-only PRs skip API integration tests
+  - Deploy detection (`check` job) handles skipped test jobs via `always()` with explicit result checks
+
 ## 2026-02-22b
 
 ### Added
