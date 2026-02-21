@@ -290,6 +290,76 @@ export class TransactionsPage extends BasePage {
     return this.paginationPrev.isEnabled();
   }
 
+  // ========== CREATE TRANSACTION ==========
+
+  get addTransactionButton(): Locator {
+    return this.byQa('btn-add-transaction');
+  }
+
+  get createTransactionSheet(): Locator {
+    return this.byQa('sheet-create-transaction');
+  }
+
+  /**
+   * Open the create transaction sheet
+   */
+  async openCreateTransaction(): Promise<void> {
+    await this.addTransactionButton.click();
+    await this.createTransactionSheet.waitFor({ state: 'visible' });
+  }
+
+  /**
+   * Fill and submit the create transaction form
+   */
+  async createTransaction(options: {
+    account: string;
+    amount: string;
+    description: string;
+    type?: 'Expense' | 'Income';
+    date?: string;
+    counterparty?: string;
+    notes?: string;
+  }): Promise<void> {
+    await this.openCreateTransaction();
+
+    // Select account
+    await this.createTransactionSheet.locator('[data-qa="select-tx-account"]').click();
+    await this.page.getByRole('option', { name: options.account }).click();
+
+    // Set date if provided
+    if (options.date) {
+      await this.createTransactionSheet.locator('[data-qa="input-tx-date"]').fill(options.date);
+    }
+
+    // Set amount
+    await this.createTransactionSheet.locator('[data-qa="input-tx-amount"]').fill(options.amount);
+
+    // Set type if not default (Expense)
+    if (options.type === 'Income') {
+      await this.createTransactionSheet.locator('[data-qa="select-tx-type"]').click();
+      await this.page.getByRole('option', { name: 'Income' }).click();
+    }
+
+    // Set description
+    await this.createTransactionSheet.locator('[data-qa="input-tx-description"]').fill(options.description);
+
+    // Set counterparty if provided
+    if (options.counterparty) {
+      await this.createTransactionSheet.locator('[data-qa="input-tx-counterparty"]').fill(options.counterparty);
+    }
+
+    // Set notes if provided
+    if (options.notes) {
+      await this.createTransactionSheet.locator('[data-qa="input-tx-notes"]').fill(options.notes);
+    }
+
+    // Submit
+    await this.createTransactionSheet.locator('[data-qa="btn-create-transaction"]').click();
+
+    // Wait for sheet to close
+    await this.createTransactionSheet.waitFor({ state: 'hidden' });
+  }
+
   // ========== ASSERTIONS ==========
 
   /**

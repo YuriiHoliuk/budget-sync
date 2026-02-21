@@ -707,7 +707,7 @@
     "id": "P9-009",
     "phase": "P9: Transaction Data Correctness",
     "title": "Transfer UI improvements: skip categorization prompts and consistent display",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "Improve transfer transaction display on the frontend: (1) In transactions-table.tsx, for type='transfer' rows: hide category/budget comboboxes (show '-' or 'Transfer' label instead), remove the verify button (transfers don't need verification), don't show 'Categorized' warning badge. (2) In transaction-detail-panel.tsx, for transfers: hide category/budget selectors, hide verify button, show transfer pair info (linked transaction ID/description if available). (3) In CategorizeTransactionUseCase or EnqueueCategorizationUseCase, skip categorization for transfer transactions. (4) In ProcessIncomingTransaction, skip enqueueing categorization for transactions detected as transfers. Write unit tests for skip logic.",
     "dependencies": []
@@ -753,7 +753,7 @@
     "id": "MTX-002",
     "phase": "MTX: Manual Transaction UI",
     "title": "Add frontend GraphQL operation and create transaction form component",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "Build the create transaction form: (1) Add CreateTransaction mutation to web/src/graphql/mutations/transactions.graphql, run codegen. (2) Create web/src/components/transactions/create-transaction-sheet.tsx — Sheet with form: account selector (manual accounts only, fetched from GetAccounts with source filter), date picker (default today), amount input (positive number, shows currency from selected account), type radio (Expense/Income), description text input (required), counterparty name (optional), notes textarea (optional). (3) Form validation: amount > 0, description non-empty, account selected. (4) On submit: call CreateTransaction mutation, refetch transactions list, show success toast, close sheet. (5) Add data-qa attributes for E2E testing. Follow patterns from create-account-sheet.tsx and other Sheet components.",
     "dependencies": ["MTX-001"]
@@ -762,7 +762,7 @@
     "id": "MTX-003",
     "phase": "MTX: Manual Transaction UI",
     "title": "Add create transaction entry points in UI",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "Add entry points to open the create transaction form: (1) In transactions page header (next to the page title), add a '+ Add Transaction' button that opens CreateTransactionSheet. Only show when user has at least one manual account. (2) In the accounts page, on manual account rows, add a 'Record Transaction' option in the account dropdown menu that navigates to /transactions with the account pre-selected in the create form. (3) Consider adding a floating action button or keyboard shortcut (Ctrl+N) for quick access. Add data-qa attributes.",
     "dependencies": ["MTX-002"]
@@ -771,7 +771,7 @@
     "id": "MTX-004",
     "phase": "MTX: Manual Transaction UI",
     "title": "Write E2E tests for manual transaction creation",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "Add E2E test coverage for manual transaction creation: (1) Create e2e/tests/transactions/create-manual-transaction.spec.ts. (2) Test: open create form, fill all fields, submit, verify transaction appears in list with correct amount/description/type. (3) Test: verify synced accounts are not shown in account selector. (4) Test: verify form validation (empty description, zero amount). (5) Update TransactionsPage page object with createTransaction() helper method. (6) Ensure seed data includes at least one manual account for E2E tests.",
     "dependencies": ["MTX-003"]
@@ -780,7 +780,7 @@
     "id": "MTX-005",
     "phase": "MTX: Manual Transaction UI",
     "title": "Add manual account transactions to seed data",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "Update scripts/seed-local-db.ts to include sample manual transactions: (1) Ensure at least one manual account exists in seed (e.g., 'Cash' account with UAH currency). (2) Add 5-10 manual transactions on the cash account with varied types (income/expense), categories, budgets, and dates across recent months. (3) Manual transactions have no bank_transaction or transaction_sources entries. This provides demo data for 'just dev' and ensures the create transaction form has a valid account to target.",
     "dependencies": []

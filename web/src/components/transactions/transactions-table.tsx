@@ -21,6 +21,7 @@ import {
   AlertCircle,
   PanelRightClose,
   PanelRightOpen,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +53,7 @@ import {
   VerifyTransactionDocument,
   TransactionTypeEnum,
   CategorizationStatusEnum,
+  AccountSource,
   type GetTransactionsQuery,
   type TransactionFilter,
 } from "@/graphql/generated/graphql";
@@ -59,6 +61,7 @@ import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { parseTransactionFiltersFromParams } from "@/lib/url-utils";
 import { TransactionDetailPanel } from "./transaction-detail-panel";
+import { CreateTransactionSheet } from "./create-transaction-sheet";
 import {
   TransactionFiltersSidebar,
   type TransactionFilters,
@@ -238,6 +241,7 @@ export function TransactionsTable() {
   });
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useLocalStorage(LocalStorageKey.FILTER_SIDEBAR_OPEN, true);
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
 
   // Sync applied filters and selected transaction back to URL + persist filters to localStorage
   useEffect(() => {
@@ -271,6 +275,10 @@ export function TransactionsTable() {
   const { data: accountsData } = useQuery(GetAccountsDocument, {
     variables: { activeOnly: true },
   });
+
+  const hasManualAccounts = accountsData?.accounts.some(
+    (account) => account.source === AccountSource.Manual,
+  ) ?? false;
 
   const { data: categoriesData } = useQuery(GetCategoriesDocument, {
     variables: { activeOnly: true },
@@ -384,6 +392,18 @@ export function TransactionsTable() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {hasManualAccounts && (
+            <Button
+              size="sm"
+              className="gap-1"
+              onClick={() => setCreateSheetOpen(true)}
+              data-qa="btn-add-transaction"
+            >
+              <Plus className="h-4 w-4" />
+              Add Transaction
+            </Button>
+          )}
+
           {/* Mobile: opens sheet */}
           <Button
             variant="outline"
@@ -518,6 +538,11 @@ export function TransactionsTable() {
         transactionId={selectedTransaction}
         onClose={() => setSelectedTransaction(null)}
       />
+
+      <CreateTransactionSheet
+        open={createSheetOpen}
+        onOpenChange={setCreateSheetOpen}
+      />
     </>
   );
 }
@@ -556,6 +581,7 @@ function TransactionRow({
   const StatusIcon = statusConfig.icon;
 
   const description = transaction.counterpartyName || transaction.description || "Unknown";
+  const isTransfer = transaction.type === TransactionTypeEnum.Transfer;
   const isVerified = transaction.categorizationStatus === CategorizationStatusEnum.Verified;
   const isCategorized = transaction.categorizationStatus === CategorizationStatusEnum.Categorized;
 
@@ -621,7 +647,9 @@ function TransactionRow({
         {transaction.account?.name ?? "Unknown"}
       </TableCell>
       <TableCell onClick={(event) => isEditing && event.stopPropagation()} data-qa={`transaction-category-${transaction.id}`}>
-        {isEditing ? (
+        {isTransfer ? (
+          <span className="text-sm text-muted-foreground">—</span>
+        ) : isEditing ? (
           <CategoryCombobox
             categories={categories}
             value={transaction.category?.id ?? null}
@@ -657,7 +685,9 @@ function TransactionRow({
         )}
       </TableCell>
       <TableCell onClick={(event) => isEditing && event.stopPropagation()} data-qa={`transaction-budget-${transaction.id}`}>
-        {isEditing ? (
+        {isTransfer ? (
+          <span className="text-sm text-muted-foreground">—</span>
+        ) : isEditing ? (
           <BudgetCombobox
             budgets={filteredBudgets}
             value={transaction.budget?.id ?? null}
@@ -693,14 +723,18 @@ function TransactionRow({
         )}
       </TableCell>
       <TableCell>
-        <Badge
-          variant="outline"
-          className={cn("gap-1 text-xs", statusConfig.bgColor, statusConfig.color)}
-          data-qa={`transaction-status-${transaction.id}`}
-        >
-          <StatusIcon className="h-3 w-3" />
-          {statusConfig.label}
-        </Badge>
+        {isTransfer ? (
+          <span className="text-sm text-muted-foreground">—</span>
+        ) : (
+          <Badge
+            variant="outline"
+            className={cn("gap-1 text-xs", statusConfig.bgColor, statusConfig.color)}
+            data-qa={`transaction-status-${transaction.id}`}
+          >
+            <StatusIcon className="h-3 w-3" />
+            {statusConfig.label}
+          </Badge>
+        )}
       </TableCell>
       <TableCell
         className={cn(
@@ -736,7 +770,7 @@ function TransactionRow({
             <X className="h-4 w-4" />
             <span className="sr-only">Cancel</span>
           </Button>
-        ) : !isVerified ? (
+        ) : !isTransfer && !isVerified ? (
           <Button
             variant={isCategorized ? "outline" : "ghost"}
             size="sm"

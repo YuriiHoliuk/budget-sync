@@ -131,6 +131,14 @@ async function seedAccounts() {
         iban: 'UA213996220000026201234567894',
         bank: 'monobank',
       },
+      {
+        externalId: 'manual-cash-uah',
+        name: 'Cash UAH',
+        type: 'debit',
+        currency: 'UAH',
+        balance: 850000,
+        role: 'operational',
+      },
     ])
     .returning();
 }
@@ -1025,6 +1033,141 @@ async function seedFeeSplitExamples(seedAccounts: SeedAccount[]) {
   console.log('  Inserted 2 fee split examples (4 transactions, 2 bank_transactions)');
 }
 
+async function seedManualTransactions(
+  seedAccounts: SeedAccount[],
+  seedCategories: SeedCategory[],
+  seedBudgets: SeedBudget[],
+) {
+  console.log('Seeding manual transactions...');
+
+  // Find the manual Cash account
+  const cashAccount = seedAccounts.find((acc) => acc.role === 'operational' && !seedAccounts.slice(0, 5).includes(acc));
+  if (!cashAccount) {
+    console.log('  Skipped: no manual account found');
+    return;
+  }
+
+  const expenseCategories = seedCategories.filter(
+    (cat) => cat.parentId !== null && !['Зарплата', 'Фріланс'].includes(cat.name),
+  );
+  const spendingBudgets = seedBudgets.filter((bud) => !bud.cadenceUnit && !bud.targetDate);
+
+  const manualTxRows = [
+    // Expenses
+    {
+      externalId: 'manual-txn-cash-1',
+      date: new Date(2026, 0, 8, 12, 30, 0),
+      amount: 15000,
+      currency: 'UAH',
+      type: 'debit',
+      accountId: cashAccount.id,
+      accountExternalId: cashAccount.id.toString(),
+      bankDescription: 'Кава з собою',
+      counterparty: 'Coffee Point',
+      categoryId: expenseCategories.find((cat) => cat.name === 'Кав\'ярня')?.id ?? expenseCategories[0]?.id ?? null,
+      budgetId: spendingBudgets.find((bud) => bud.name === 'Ресторани та кав\'ярні')?.id ?? null,
+      categorizationStatus: 'verified',
+      mcc: 0,
+    },
+    {
+      externalId: 'manual-txn-cash-2',
+      date: new Date(2026, 0, 12, 9, 0, 0),
+      amount: 45000,
+      currency: 'UAH',
+      type: 'debit',
+      accountId: cashAccount.id,
+      accountExternalId: cashAccount.id.toString(),
+      bankDescription: 'Продукти на ринку',
+      counterparty: 'Ринок',
+      categoryId: expenseCategories.find((cat) => cat.name === 'Супермаркет')?.id ?? expenseCategories[0]?.id ?? null,
+      budgetId: spendingBudgets.find((bud) => bud.name === 'Продукти')?.id ?? null,
+      categorizationStatus: 'verified',
+      mcc: 0,
+    },
+    {
+      externalId: 'manual-txn-cash-3',
+      date: new Date(2026, 0, 18, 14, 0, 0),
+      amount: 8000,
+      currency: 'UAH',
+      type: 'debit',
+      accountId: cashAccount.id,
+      accountExternalId: cashAccount.id.toString(),
+      bankDescription: 'Маршрутка',
+      counterparty: 'Маршрутка',
+      categoryId: expenseCategories.find((cat) => cat.name === 'Громадський транспорт')?.id ?? expenseCategories[0]?.id ?? null,
+      budgetId: spendingBudgets.find((bud) => bud.name === 'Транспорт')?.id ?? null,
+      categorizationStatus: 'verified',
+      mcc: 0,
+    },
+    {
+      externalId: 'manual-txn-cash-4',
+      date: new Date(2026, 1, 3, 11, 15, 0),
+      amount: 65000,
+      currency: 'UAH',
+      type: 'debit',
+      accountId: cashAccount.id,
+      accountExternalId: cashAccount.id.toString(),
+      bankDescription: 'Обід в кафе',
+      counterparty: 'Пузата Хата',
+      categoryId: expenseCategories.find((cat) => cat.name === 'Ресторан')?.id ?? expenseCategories[0]?.id ?? null,
+      budgetId: spendingBudgets.find((bud) => bud.name === 'Ресторани та кав\'ярні')?.id ?? null,
+      categorizationStatus: 'pending',
+      mcc: 0,
+    },
+    {
+      externalId: 'manual-txn-cash-5',
+      date: new Date(2026, 1, 10, 16, 45, 0),
+      amount: 32000,
+      currency: 'UAH',
+      type: 'debit',
+      accountId: cashAccount.id,
+      accountExternalId: cashAccount.id.toString(),
+      bankDescription: 'Ліки',
+      counterparty: 'Аптека',
+      categoryId: expenseCategories.find((cat) => cat.name === 'Аптека')?.id ?? expenseCategories[0]?.id ?? null,
+      budgetId: spendingBudgets.find((bud) => bud.name === 'Здоров\'я')?.id ?? null,
+      categorizationStatus: 'verified',
+      mcc: 0,
+    },
+    // Income
+    {
+      externalId: 'manual-txn-cash-6',
+      date: new Date(2026, 0, 25, 10, 0, 0),
+      amount: 200000,
+      currency: 'UAH',
+      type: 'credit',
+      accountId: cashAccount.id,
+      accountExternalId: cashAccount.id.toString(),
+      bankDescription: 'Повернення боргу від друга',
+      counterparty: 'Друг',
+      categoryId: null,
+      budgetId: null,
+      categorizationStatus: 'verified',
+      mcc: 0,
+    },
+    {
+      externalId: 'manual-txn-cash-7',
+      date: new Date(2026, 1, 15, 18, 0, 0),
+      amount: 150000,
+      currency: 'UAH',
+      type: 'credit',
+      accountId: cashAccount.id,
+      accountExternalId: cashAccount.id.toString(),
+      bankDescription: 'Продаж речей на OLX',
+      counterparty: 'OLX покупець',
+      categoryId: null,
+      budgetId: null,
+      categorizationStatus: 'verified',
+      mcc: 0,
+    },
+  ];
+
+  // Manual transactions have no bank_transaction or transaction_sources
+  await db.insert(transactions).values(manualTxRows);
+
+  console.log(`  Inserted ${manualTxRows.length} manual transactions on Cash UAH account`);
+}
+
 async function seedRules() {
   console.log('Seeding rules...');
 
@@ -1090,6 +1233,7 @@ async function main() {
     await seedTransferExamples(seededAccounts);
     await seedReturningExamples(seededAccounts, seededCategories, seededBudgets);
     await seedFeeSplitExamples(seededAccounts);
+    await seedManualTransactions(seededAccounts, seededCategories, seededBudgets);
     await seedRules();
 
     console.log('\nSeed complete!');

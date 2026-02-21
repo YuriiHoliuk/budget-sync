@@ -33,3 +33,21 @@ mutation VerifyTransaction($id: Int!) {
     categorizationStatus
   }
 }
+
+mutation CreateTransaction($input: CreateTransactionInput!) {
+  createTransaction(input: $input) {
+    id
+    date
+    amount
+    currency
+    type
+    description
+    counterpartyName
+    notes
+    categorizationStatus
+    account {
+      id
+      name
+    }
+  }
+}
