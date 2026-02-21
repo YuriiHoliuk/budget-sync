@@ -569,7 +569,7 @@
     "id": "UI-013",
     "phase": "UI: Small Frontend Fixes",
     "title": "Make budgets table scroll only table body like transactions table",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "The transactions table scrolls only the table body while keeping the header fixed, which works well. The budgets table uses a sticky header approach instead, which looks awkward. Refactor the budgets table in budget-table.tsx to match the transactions table pattern — the table header should stay fixed and only the table body should scroll, rather than using sticky positioning on the header. Look at how transactions-table.tsx achieves this (likely a fixed header with a scrollable tbody container) and apply the same approach to the budgets table.",
     "dependencies": []

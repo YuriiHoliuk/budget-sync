@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-02-21c
+
+### Changed
+- Budget table now scrolls independently with sticky header, matching the transactions table pattern (UI-013)
+  - Budget page layout changed from flow (`space-y-6`) to flex fill-height (`flex h-full flex-col`)
+  - `BudgetTable` wraps in a flex column div with `overflow-y-auto` on the table container
+  - Table headers stay pinned via ShadCN's built-in `sticky top-0` on `TableHead`
+  - Page title, overview header, and unbudgeted warning remain fixed outside the scroll area
+
+### Fixed
+- Local dev server crash: added `MockCategorizationQueueGateway` and registered `CATEGORIZATION_QUEUE_GATEWAY_TOKEN` in `container.local.ts` (missing after CATQ work)
+
 ## 2026-02-21b
 
 ### Added

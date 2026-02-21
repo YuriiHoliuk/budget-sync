@@ -8,6 +8,7 @@
 import 'reflect-metadata';
 
 import { BANK_GATEWAY_TOKEN } from '@domain/gateways/BankGateway.ts';
+import { CATEGORIZATION_QUEUE_GATEWAY_TOKEN } from '@domain/gateways/CategorizationQueueGateway.ts';
 import { LLM_GATEWAY_TOKEN } from '@domain/gateways/LLMGateway.ts';
 import { MESSAGE_QUEUE_GATEWAY_TOKEN } from '@domain/gateways/MessageQueueGateway.ts';
 import { ACCOUNT_REPOSITORY_TOKEN } from '@domain/repositories/AccountRepository.ts';
@@ -21,6 +22,7 @@ import { CATEGORIZATION_RULE_REPOSITORY_TOKEN } from '@domain/repositories/Categ
 import { CATEGORY_REPOSITORY_TOKEN } from '@domain/repositories/CategoryRepository.ts';
 import { TRANSACTION_REPOSITORY_TOKEN } from '@domain/repositories/TransactionRepository.ts';
 import { MockBankGateway } from '@infrastructure/gateways/mocks/MockBankGateway.ts';
+import { MockCategorizationQueueGateway } from '@infrastructure/gateways/mocks/MockCategorizationQueueGateway.ts';
 import { MockLLMGateway } from '@infrastructure/gateways/mocks/MockLLMGateway.ts';
 import { MockMessageQueueGateway } from '@infrastructure/gateways/mocks/MockMessageQueueGateway.ts';
 import { DatabaseAccountRepository } from '@infrastructure/repositories/database/DatabaseAccountRepository.ts';
@@ -94,6 +96,9 @@ export function setupLocalContainer(): typeof container {
   container.register(BANK_GATEWAY_TOKEN, { useClass: MockBankGateway });
   container.register(MESSAGE_QUEUE_GATEWAY_TOKEN, {
     useClass: MockMessageQueueGateway,
+  });
+  container.register(CATEGORIZATION_QUEUE_GATEWAY_TOKEN, {
+    useClass: MockCategorizationQueueGateway,
   });
   container.register(LLM_GATEWAY_TOKEN, { useClass: MockLLMGateway });
 

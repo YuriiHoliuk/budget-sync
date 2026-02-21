@@ -1,5 +1,11 @@
 # Learnings
 
+## Budget Table Scroll Fix (2026-02-21)
+- ShadCN `TableHead` already has `sticky top-0 z-[1] bg-background` built-in — no need to add sticky classes manually.
+- For a table to scroll independently, the page must use `flex h-full flex-col` (fill viewport height) and the table wrapper needs `min-h-0 flex-1 overflow-y-auto`.
+- `container.local.ts` is a separate DI setup from `container.ts` — adding new gateways to production container doesn't automatically register them for local dev. Always update both.
+- Docker dev web container (`docker compose`) caches npm dependencies. After adding new packages to `web/`, restart or rebuild: `docker compose up --build web`.
+
 ## Usage Frequency Sorting (2026-02-21)
 - Adding new abstract methods to `TransactionRepository` requires stub implementations in `SpreadsheetTransactionRepository` (throws) in addition to `DatabaseTransactionRepository`.
 - Biome linter forbids non-null assertions (`!`). Use `for...of` with narrowing guard instead of `.filter().map()` with `!`.

@@ -16,8 +16,8 @@ export default function BudgetPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="flex h-full flex-col gap-6 pb-4 md:pb-6">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">Budget Overview</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Manage your envelope budgets and allocations.

@@ -457,7 +457,7 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
 
   if (budgetSummaries.length === 0 && budgetGroups.length === 0) {
     return (
-      <>
+      <div className="min-h-0 flex-1">
         <div className="rounded-xl border border-dashed p-8 text-center">
           <p className="text-sm text-muted-foreground mb-4">
             No budgets yet. Create your first budget to start tracking spending.
@@ -472,13 +472,13 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
           onOpenChange={setCreateBudgetOpen}
           budgetGroups={budgetGroups}
         />
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <div className="flex items-center justify-end gap-2 mb-2">
+    <div className="min-h-0 flex-1 flex flex-col">
+      <div className="shrink-0 flex items-center justify-end gap-2 mb-2">
         <Button
           variant="outline"
           size="sm"
@@ -509,7 +509,7 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        <div className="rounded-xl border">
+        <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border">
           <Table data-qa="budget-table">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -639,7 +639,7 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
           onConfirm={() => handleDeleteGroup(deleteGroup.id)}
         />
       )}
-    </>
+    </div>
   );
 }
 
