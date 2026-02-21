@@ -109,12 +109,17 @@ const STATUS_CONFIG = {
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
-  return date.toLocaleDateString("uk-UA", {
+  const datePart = date.toLocaleDateString("uk-UA", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
   });
+  const timePart = date.toLocaleTimeString("uk-UA", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${datePart}, ${timePart}`;
 }
 
 function formatMcc(mcc: number | null | undefined): string {

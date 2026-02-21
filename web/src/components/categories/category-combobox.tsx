@@ -18,6 +18,7 @@ interface CategoryComboboxProps {
   disabled?: boolean
   className?: string
   triggerClassName?: string
+  defaultOpen?: boolean
   "data-qa"?: string
 }
 
@@ -33,6 +34,7 @@ export function CategoryCombobox({
   disabled = false,
   className,
   triggerClassName,
+  defaultOpen,
   "data-qa": dataQa,
 }: CategoryComboboxProps) {
   const options = useMemo(() => {
@@ -75,6 +77,7 @@ export function CategoryCombobox({
       disabled={disabled}
       className={className}
       triggerClassName={triggerClassName}
+      defaultOpen={defaultOpen}
       data-qa={dataQa}
     />
   )

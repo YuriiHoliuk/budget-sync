@@ -41,6 +41,7 @@ interface SearchableSelectProps {
   disabled?: boolean
   className?: string
   triggerClassName?: string
+  defaultOpen?: boolean
   "data-qa"?: string
 }
 
@@ -56,9 +57,10 @@ export function SearchableSelect({
   disabled = false,
   className,
   triggerClassName,
+  defaultOpen = false,
   "data-qa": dataQa,
 }: SearchableSelectProps) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
 
   const selectedOption = options.find((option) => option.value === value)
   const displayLabel = selectedOption?.label ?? (value === null && allowClear ? clearLabel : null)

@@ -116,11 +116,16 @@ const STATUS_CONFIG: Record<
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
-  return date.toLocaleDateString("uk-UA", {
+  const datePart = date.toLocaleDateString("uk-UA", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
+  const timePart = date.toLocaleTimeString("uk-UA", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${datePart}, ${timePart}`;
 }
 
 function filtersToGraphQL(filters: TransactionFilters): TransactionFilter {
@@ -198,6 +203,7 @@ export function TransactionsTable() {
     return Number.isFinite(parsed) && parsed >= 1 ? parsed - 1 : 0;
   });
   const [editingTransaction, setEditingTransaction] = useState<number | null>(null);
+  const [autoOpenField, setAutoOpenField] = useState<"category" | "budget" | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<number | null>(() => {
     const transactionId = searchParams.get("transactionId");
     if (!transactionId) return null;
@@ -428,8 +434,9 @@ export function TransactionsTable() {
                         categories={categories}
                         budgets={budgets}
                         isEditing={editingTransaction === transaction.id}
-                        onStartEdit={() => setEditingTransaction(transaction.id)}
-                        onCancelEdit={() => setEditingTransaction(null)}
+                        autoOpenField={editingTransaction === transaction.id ? autoOpenField : null}
+                        onStartEdit={(field) => { setEditingTransaction(transaction.id); setAutoOpenField(field); }}
+                        onCancelEdit={() => { setEditingTransaction(null); setAutoOpenField(null); }}
                         onCategoryChange={handleCategoryChange}
                         onBudgetChange={handleBudgetChange}
                         onVerify={handleVerify}
@@ -485,7 +492,8 @@ interface TransactionRowProps {
   categories: Array<{ id: number; name: string; fullPath: string }>;
   budgets: Array<{ id: number; name: string; startDate?: string | null; endDate?: string | null }>;
   isEditing: boolean;
-  onStartEdit: () => void;
+  autoOpenField: "category" | "budget" | null;
+  onStartEdit: (field: "category" | "budget") => void;
   onCancelEdit: () => void;
   onCategoryChange: (transactionId: number, categoryId: number | null) => Promise<void>;
   onBudgetChange: (transactionId: number, budgetId: number | null) => Promise<void>;
@@ -498,6 +506,7 @@ function TransactionRow({
   categories,
   budgets,
   isEditing,
+  autoOpenField,
   onStartEdit,
   onCancelEdit,
   onCategoryChange,
@@ -585,13 +594,14 @@ function TransactionRow({
             allowNone
             disabled={isUpdating}
             triggerClassName="h-8 w-full"
+            defaultOpen={autoOpenField === "category"}
           />
         ) : transaction.category ? (
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onStartEdit();
+              onStartEdit("category");
             }}
             className="flex items-center gap-1 text-left text-sm hover:underline"
           >
@@ -603,7 +613,7 @@ function TransactionRow({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onStartEdit();
+              onStartEdit("category");
             }}
             className="text-sm text-muted-foreground hover:underline"
           >
@@ -620,13 +630,14 @@ function TransactionRow({
             allowNone
             disabled={isUpdating}
             triggerClassName="h-8 w-full"
+            defaultOpen={autoOpenField === "budget"}
           />
         ) : transaction.budget ? (
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onStartEdit();
+              onStartEdit("budget");
             }}
             className="flex items-center gap-1 text-left text-sm hover:underline"
           >
@@ -638,7 +649,7 @@ function TransactionRow({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onStartEdit();
+              onStartEdit("budget");
             }}
             className="text-sm text-muted-foreground hover:underline"
           >

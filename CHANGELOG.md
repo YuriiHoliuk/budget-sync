@@ -3,6 +3,11 @@
 ## 2026-02-21
 
 ### Improved
+- Show transaction time alongside date in table and detail sidebar (UI-011)
+  - Table: "21 лют 2025, 14:35" — detail panel: "п'ятниця, 21 лютого 2025, 14:35"
+- Auto-open category/budget dropdown on first click in transaction table row (UI-012)
+  - Single click on category/budget cell opens the combobox immediately
+  - Added `defaultOpen` prop to `SearchableSelect`, `CategoryCombobox`, and `BudgetCombobox`
 - Filter budget dropdown by transaction date when editing (UI-010)
   - Budget selects in transaction detail panel and inline table edit now only show budgets whose date range covers the transaction's date
   - Currently-assigned budget always remains visible even if out of range

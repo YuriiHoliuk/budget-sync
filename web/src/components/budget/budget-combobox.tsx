@@ -19,6 +19,7 @@ interface BudgetComboboxProps {
   disabled?: boolean
   className?: string
   triggerClassName?: string
+  defaultOpen?: boolean
   "data-qa"?: string
   showBalance?: boolean
   balanceMap?: Map<number, number>
@@ -35,6 +36,7 @@ export function BudgetCombobox({
   disabled = false,
   className,
   triggerClassName,
+  defaultOpen,
   "data-qa": dataQa,
   showBalance = false,
   balanceMap,
@@ -86,6 +88,7 @@ export function BudgetCombobox({
       disabled={disabled}
       className={className}
       triggerClassName={triggerClassName}
+      defaultOpen={defaultOpen}
       data-qa={dataQa}
     />
   )

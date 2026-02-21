@@ -549,7 +549,7 @@
     "id": "UI-011",
     "phase": "UI: Small Frontend Fixes",
     "title": "Show transaction time alongside date in table and detail sidebar",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "Currently the transactions table and detail sidebar only display the date of a transaction (e.g., '21 Feb 2026') without the time. Show the time as well (e.g., '21 Feb 2026, 14:35') in both: (1) the date column in transactions-table.tsx, and (2) the date field in transaction-detail-panel.tsx. The transaction's date field already stores a full timestamp — just update the formatting to include hours and minutes.",
     "dependencies": []
@@ -559,7 +559,7 @@
     "id": "UI-012",
     "phase": "UI: Small Frontend Fixes",
     "title": "Auto-open category/budget dropdown on first click in transaction table row",
-    "status": "pending",
+    "status": "done",
     "plan": null,
     "description": "When clicking a category or budget cell in the transactions table, the first click selects the row (showing the inline dropdowns), and a second click is needed to actually open the dropdown. Instead, when the click target is the category or budget cell, auto-open the corresponding combobox/dropdown immediately after the row becomes selected — so a single click both selects the row and opens the picker. This likely requires detecting which cell was clicked during row selection and programmatically triggering the combobox open state on mount. Applies to CategoryCombobox and BudgetCombobox inline edits in transactions-table.tsx.",
     "dependencies": []

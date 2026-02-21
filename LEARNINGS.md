@@ -22,6 +22,11 @@
 - After adding new npm dependencies to `web/`, rebuild the E2E web Docker image with `docker compose -f docker-compose.e2e.yml build --no-cache web-e2e` — the cached image won't have new dependencies.
 - E2E test `data-qa` selectors for rules: `rules-section-categorization`, `rules-section-budgetization`, `btn-add-rule`, `btn-rule-actions`, `btn-edit-rule`, `btn-delete-rule`, `sheet-create-rule`, `sheet-edit-rule`, `dialog-delete-rule`, `input-rule-text`, `input-rule-priority`, `btn-rule-submit`, `btn-rule-cancel`, `btn-delete-confirm`, `btn-delete-cancel`.
 
+## Combobox Auto-Open Pattern (2026-02-21)
+- `SearchableSelect` supports `defaultOpen` prop — uses `useState(defaultOpen)` so it only applies on mount.
+- To auto-open a specific inline combobox when entering edit mode, track `autoOpenField` state alongside `editingTransaction`. Pass `defaultOpen={autoOpenField === "category"}` to the target combobox.
+- Transaction dates come as full ISO timestamps from the API (`record.date.toISOString()` in `transaction.ts` mapper), so time formatting is available on the frontend.
+
 ## UI Fixes (2026-02-15)
 - `MonthProvider` in `use-month.tsx` uses `useParams` for URL-based month on budgets page. Non-budget pages need `overrideMonth` state to change month without navigation.
 - Budget filter dropdowns use `activeOnly` param. `activeOnly: true` excludes expired (past endDate) budgets — use `false` for filter dropdowns where expired budgets may still have transactions.
