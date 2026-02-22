@@ -12,17 +12,17 @@ Project: `budget-sync-483105` | Region: `europe-central2` (Warsaw)
 
 | Service | Type | Purpose | Public |
 |---------|------|---------|--------|
-| `webhook` | Service (always-on, 0-2 instances) | HTTP endpoint for Monobank webhooks and transaction processing | Yes |
+| `webhook` | Service (always-on, 1-2 instances, CPU throttled) | HTTP endpoint for Monobank webhooks and transaction processing | Yes |
 | `web` | Service (always-on, 0-2 instances) | Next.js frontend application | Yes |
 | `sync-accounts` | Job (scheduled) | Syncs accounts and transactions from Monobank | N/A |
 
-All Cloud Run workloads run with 1 CPU / 512Mi memory and use the `budget-sync-runner` service account.
+All Cloud Run workloads run with 1 CPU / 512Mi memory and use the `budget-sync-runner` service account. The webhook service has `cpu_idle = true` (CPU deallocated when idle) and `startup_cpu_boost = true` (extra CPU during startup) to reduce costs while keeping the instance warm in memory (`minScale=1`).
 
 ### Cloud Scheduler
 
 | Job | Schedule | Target |
 |-----|----------|--------|
-| `sync-accounts-scheduler` | `0 */3 * * *` (every 3 hours) | Triggers the `sync-accounts` Cloud Run Job via HTTP |
+| `sync-accounts-scheduler` | `0 */3 * * *` (every 3 hours) | Triggers the `sync-accounts` Cloud Run Job via HTTP (also re-registers webhook) |
 
 Uses the `budget-sync-scheduler` service account with `roles/run.invoker`.
 

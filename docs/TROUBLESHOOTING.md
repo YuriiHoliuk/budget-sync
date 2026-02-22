@@ -114,6 +114,32 @@ env {
 }
 ```
 
+## Monobank Webhooks
+
+### Webhook disabled by Monobank
+
+**Symptom**: No new transactions coming in via webhooks. Monobank dashboard shows webhook as disabled.
+
+**Cause**: Monobank disables webhooks after 3 consecutive failures (5-second timeout). This can happen if the webhook service has slow cold starts or is temporarily unavailable.
+
+**Automatic recovery**: The `sync-accounts` job re-registers the webhook URL with Monobank every 3 hours. If the webhook was disabled, it will be restored within 3 hours automatically.
+
+**Manual fix** (if urgent):
+
+```bash
+# Check webhook status in Monobank personal API
+curl -s https://api.monobank.ua/personal/client-info \
+  -H "X-Token: $MONOBANK_TOKEN" | jq '.webHookUrl'
+
+# Re-register manually
+curl -X POST https://api.monobank.ua/personal/webhook \
+  -H "X-Token: $MONOBANK_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"webHookUrl": "https://webhook-<hash>.europe-central2.run.app/webhook"}'
+```
+
+**Prevention**: The webhook service uses `cpu_idle = true` with `minScale=1` to keep the instance warm in memory while reducing costs. CPU re-allocation on request arrival takes <100ms, well within Monobank's 5-second timeout.
+
 ## TSyringe / Dependency Injection
 
 ### Error: TypeInfo not known for "Object"
