@@ -2,6 +2,7 @@ import {
   TransactionTypeEnum,
   CategorizationStatusEnum,
 } from "@/graphql/generated/graphql";
+import { NONE_FILTER } from "@/components/categories/category-combobox";
 
 export function getDateRangeFromMonth(month: string): {
   dateFrom: string;
@@ -33,10 +34,10 @@ export function buildTransactionsUrl(params: TransactionsUrlParams): string {
   const searchParams = new URLSearchParams();
 
   if (params.budgetId != null) {
-    searchParams.set("budgetId", String(params.budgetId));
+    searchParams.set("budgetId", params.budgetId === NONE_FILTER ? "none" : String(params.budgetId));
   }
   if (params.categoryId != null) {
-    searchParams.set("categoryId", String(params.categoryId));
+    searchParams.set("categoryId", params.categoryId === NONE_FILTER ? "none" : String(params.categoryId));
   }
   if (params.accountId != null) {
     searchParams.set("accountId", String(params.accountId));
@@ -72,14 +73,22 @@ export function parseTransactionFiltersFromParams(searchParams: URLSearchParams)
 
   const budgetId = searchParams.get("budgetId");
   if (budgetId) {
-    const parsed = Number.parseInt(budgetId, 10);
-    if (Number.isFinite(parsed)) params.budgetId = parsed;
+    if (budgetId === "none") {
+      params.budgetId = NONE_FILTER;
+    } else {
+      const parsed = Number.parseInt(budgetId, 10);
+      if (Number.isFinite(parsed)) params.budgetId = parsed;
+    }
   }
 
   const categoryId = searchParams.get("categoryId");
   if (categoryId) {
-    const parsed = Number.parseInt(categoryId, 10);
-    if (Number.isFinite(parsed)) params.categoryId = parsed;
+    if (categoryId === "none") {
+      params.categoryId = NONE_FILTER;
+    } else {
+      const parsed = Number.parseInt(categoryId, 10);
+      if (Number.isFinite(parsed)) params.categoryId = parsed;
+    }
   }
 
   const accountId = searchParams.get("accountId");

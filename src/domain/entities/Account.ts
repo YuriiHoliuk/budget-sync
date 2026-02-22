@@ -26,9 +26,14 @@ export function parseAccountRole(
   return defaultValue;
 }
 
-export type AccountType = 'debit' | 'credit' | 'fop';
+export type AccountType = 'debit' | 'credit' | 'fop' | 'cash';
 
-const VALID_ACCOUNT_TYPES: readonly AccountType[] = ['debit', 'credit', 'fop'];
+const VALID_ACCOUNT_TYPES: readonly AccountType[] = [
+  'debit',
+  'credit',
+  'fop',
+  'cash',
+];
 
 /**
  * Type guard to check if a string is a valid AccountType.

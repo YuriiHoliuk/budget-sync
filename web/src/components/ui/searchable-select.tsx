@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { CheckIcon, ChevronsUpDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -38,6 +38,7 @@ interface SearchableSelectProps {
   emptyMessage?: string
   allowClear?: boolean
   clearLabel?: string
+  noneLabel?: string
   disabled?: boolean
   className?: string
   triggerClassName?: string
@@ -54,6 +55,7 @@ export function SearchableSelect({
   emptyMessage = "No results found.",
   allowClear = false,
   clearLabel = "None",
+  noneLabel,
   disabled = false,
   className,
   triggerClassName,
@@ -62,8 +64,19 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(defaultOpen)
 
+  // When inside a Radix Sheet/Dialog, react-remove-scroll blocks wheel events
+  // on portaled content outside the scroll-lock container. Portal the Popover
+  // into the Sheet content so it's recognized as "inside" the locked area.
+  const [triggerEl, setTriggerEl] = useState<HTMLElement | null>(null)
+  const portalContainer = useMemo(
+    () => triggerEl?.closest<HTMLElement>("[data-slot='sheet-content']") ?? undefined,
+    [triggerEl],
+  )
+
   const selectedOption = options.find((option) => option.value === value)
-  const displayLabel = selectedOption?.label ?? (value === null && allowClear ? clearLabel : null)
+  const displayLabel = selectedOption?.label
+    ?? (value === "__none__" && noneLabel ? noneLabel : null)
+    ?? (value === null && allowClear ? clearLabel : null)
 
   // Group options by their group property
   const grouped = new Map<string, SearchableSelectOption[]>()
@@ -87,6 +100,8 @@ export function SearchableSelect({
   const handleSelect = (selectedValue: string) => {
     if (selectedValue === "__clear__") {
       onValueChange(null)
+    } else if (selectedValue === "__none__") {
+      onValueChange(value === "__none__" ? null : "__none__")
     } else {
       onValueChange(selectedValue === value ? null : selectedValue)
     }
@@ -97,6 +112,7 @@ export function SearchableSelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={setTriggerEl}
           variant="outline"
           role="combobox"
           aria-expanded={open}
@@ -113,26 +129,40 @@ export function SearchableSelect({
           <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={cn("w-[--radix-popover-trigger-width] p-0", className)} align="start">
+      <PopoverContent className={cn("w-[--radix-popover-trigger-width] p-0", className)} align="start" container={portalContainer}>
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
-            {allowClear && (
+            {(allowClear || noneLabel) && (
               <CommandGroup>
-                <CommandItem
-                  value="__clear__"
-                  keywords={[clearLabel]}
-                  onSelect={handleSelect}
-                >
-                  <CheckIcon
-                    className={cn("size-4 shrink-0", value === null ? "opacity-100" : "opacity-0")}
-                  />
-                  <span className="text-muted-foreground">{clearLabel}</span>
-                </CommandItem>
+                {allowClear && (
+                  <CommandItem
+                    value="__clear__"
+                    keywords={[clearLabel]}
+                    onSelect={handleSelect}
+                  >
+                    <CheckIcon
+                      className={cn("size-4 shrink-0", value === null ? "opacity-100" : "opacity-0")}
+                    />
+                    <span className="text-muted-foreground">{clearLabel}</span>
+                  </CommandItem>
+                )}
+                {noneLabel && (
+                  <CommandItem
+                    value="__none__"
+                    keywords={[noneLabel]}
+                    onSelect={handleSelect}
+                  >
+                    <CheckIcon
+                      className={cn("size-4 shrink-0", value === "__none__" ? "opacity-100" : "opacity-0")}
+                    />
+                    <span className="text-muted-foreground">{noneLabel}</span>
+                  </CommandItem>
+                )}
               </CommandGroup>
             )}
-            {allowClear && (ungrouped.length > 0 || hasGroups) && <CommandSeparator />}
+            {(allowClear || noneLabel) && (ungrouped.length > 0 || hasGroups) && <CommandSeparator />}
             {hasGroups ? (
               <>
                 {Array.from(grouped.entries()).map(([groupName, groupOptions]) => (

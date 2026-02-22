@@ -6,6 +6,8 @@ import {
   type SearchableSelectOption,
 } from "@/components/ui/searchable-select"
 
+export const NONE_FILTER = -1
+
 interface CategoryComboboxProps {
   categories: Array<{ id: number; name: string; fullPath: string; parentName?: string | null; transactionCount?: number }>
   value: number | null
@@ -59,14 +61,20 @@ export function CategoryCombobox({
   }, [categories, excludeIds, rootOnly])
 
   const handleValueChange = (stringValue: string | null) => {
-    if (stringValue === null || stringValue === "all") {
-      onValueChange(allowAll && stringValue === "all" ? null : null)
+    if (stringValue === "__none__") {
+      onValueChange(NONE_FILTER)
+      return
+    }
+    if (stringValue === null) {
+      onValueChange(null)
       return
     }
     onValueChange(parseInt(stringValue, 10))
   }
 
-  const effectiveValue = allowAll && value === null ? null : value?.toString() ?? null
+  const effectiveValue = value === NONE_FILTER ? "__none__"
+    : allowAll && value === null ? null
+    : value?.toString() ?? null
 
   return (
     <SearchableSelect
@@ -78,6 +86,7 @@ export function CategoryCombobox({
       emptyMessage="No categories found."
       allowClear={allowNone || allowAll}
       clearLabel={allowAll ? "All categories" : "No category"}
+      noneLabel={allowAll ? "No category" : undefined}
       disabled={disabled}
       className={className}
       triggerClassName={triggerClassName}

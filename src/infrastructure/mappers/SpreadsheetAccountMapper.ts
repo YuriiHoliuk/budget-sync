@@ -47,6 +47,7 @@ const ACCOUNT_TYPE_TO_DISPLAY: Record<AccountType, string> = {
   debit: 'Дебетова',
   credit: 'Кредитка',
   fop: 'ФОП',
+  cash: 'Готівка',
 };
 
 /**
@@ -56,6 +57,7 @@ const DISPLAY_TO_ACCOUNT_TYPE: Record<string, AccountType> = {
   Дебетова: 'debit',
   Кредитка: 'credit',
   ФОП: 'fop',
+  Готівка: 'cash',
 };
 
 /**

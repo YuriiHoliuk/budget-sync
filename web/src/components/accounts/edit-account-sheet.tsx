@@ -43,6 +43,7 @@ const ACCOUNT_TYPE_OPTIONS = [
   { value: AccountType.Debit, label: "Debit Card" },
   { value: AccountType.Credit, label: "Credit Card" },
   { value: AccountType.Fop, label: "FOP (Business)" },
+  { value: AccountType.Cash, label: "Cash" },
 ];
 
 const ACCOUNT_ROLE_OPTIONS = [
@@ -224,8 +225,8 @@ function EditAccountSheetContent({
             <Label htmlFor="edit-account-balance">Balance</Label>
             <Input
               id="edit-account-balance"
-              type="number"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               value={balance}
               onChange={(event) => setBalance(event.target.value)}
               className="tabular-nums"
@@ -237,9 +238,8 @@ function EditAccountSheetContent({
               <Label htmlFor="edit-account-credit-limit">Credit Limit</Label>
               <Input
                 id="edit-account-credit-limit"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="0.00"
                 value={creditLimit}
                 onChange={(event) => setCreditLimit(event.target.value)}

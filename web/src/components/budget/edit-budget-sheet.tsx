@@ -263,9 +263,8 @@ function EditBudgetSheetContent({
             <Label htmlFor="target-amount">Target Amount ({budget.currency})</Label>
             <Input
               id="target-amount"
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               placeholder="0.00"
               value={targetAmount}
               onChange={(event) => setTargetAmount(event.target.value)}
@@ -283,9 +282,8 @@ function EditBudgetSheetContent({
             <Label htmlFor="cap">Maximum Balance / Cap (optional)</Label>
             <Input
               id="cap"
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               placeholder="Optional"
               value={cap}
               onChange={(event) => setCap(event.target.value)}

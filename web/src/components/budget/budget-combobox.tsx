@@ -7,6 +7,7 @@ import {
   SearchableSelect,
   type SearchableSelectOption,
 } from "@/components/ui/searchable-select"
+import { NONE_FILTER } from "@/components/categories/category-combobox"
 
 interface BudgetComboboxProps {
   budgets: Array<{ id: number; name: string; transactionCount?: number }>
@@ -69,14 +70,20 @@ export function BudgetCombobox({
   }, [budgets, disabledIds, showBalance, balanceMap])
 
   const handleValueChange = (stringValue: string | null) => {
-    if (stringValue === null || stringValue === "all") {
+    if (stringValue === "__none__") {
+      onValueChange(NONE_FILTER)
+      return
+    }
+    if (stringValue === null) {
       onValueChange(null)
       return
     }
     onValueChange(parseInt(stringValue, 10))
   }
 
-  const effectiveValue = allowAll && value === null ? null : value?.toString() ?? null
+  const effectiveValue = value === NONE_FILTER ? "__none__"
+    : allowAll && value === null ? null
+    : value?.toString() ?? null
 
   return (
     <SearchableSelect
@@ -88,6 +95,7 @@ export function BudgetCombobox({
       emptyMessage="No budgets found."
       allowClear={allowNone || allowAll}
       clearLabel={allowAll ? "All budgets" : "No budget"}
+      noneLabel={allowAll ? "No budget" : undefined}
       disabled={disabled}
       className={className}
       triggerClassName={triggerClassName}

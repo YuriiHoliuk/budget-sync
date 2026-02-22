@@ -182,9 +182,8 @@ export function MoveFundsDialog({
             <Label htmlFor="amount">Amount (UAH)</Label>
             <Input
               id="amount"
-              type="number"
-              min="0.01"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               placeholder="0.00"
               value={amount}
               onChange={(event) => setAmount(event.target.value)}

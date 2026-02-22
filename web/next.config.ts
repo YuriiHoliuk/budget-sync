@@ -9,6 +9,14 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Track files in parent directory for monorepo support
   outputFileTracingRoot: path.join(__dirname, ".."),
+  // Use polling for file watching to avoid partial file read errors
+  webpack: (config) => {
+    config.watchOptions = {
+      poll: 1000,
+      aggregateTimeout: 300,
+    };
+    return config;
+  },
   async rewrites() {
     return [
       {

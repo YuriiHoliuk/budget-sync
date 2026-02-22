@@ -12,6 +12,7 @@ const ACCOUNT_TYPE_TO_GQL: Record<AccountType, string> = {
   debit: 'DEBIT',
   credit: 'CREDIT',
   fop: 'FOP',
+  cash: 'CASH',
 };
 
 /**
@@ -21,6 +22,7 @@ export const GQL_TO_ACCOUNT_TYPE: Record<string, AccountType> = {
   DEBIT: 'debit',
   CREDIT: 'credit',
   FOP: 'fop',
+  CASH: 'cash',
 };
 
 /**

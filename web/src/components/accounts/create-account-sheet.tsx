@@ -48,6 +48,11 @@ const ACCOUNT_TYPE_OPTIONS = [
     label: "FOP (Business)",
     description: "Individual entrepreneur business account.",
   },
+  {
+    value: AccountType.Cash,
+    label: "Cash",
+    description: "Physical cash not tied to any bank account.",
+  },
 ];
 
 const ACCOUNT_ROLE_OPTIONS = [
@@ -251,8 +256,8 @@ export function CreateAccountSheet({
               <Label htmlFor="account-balance">Initial Balance</Label>
               <Input
                 id="account-balance"
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="0.00"
                 value={balance}
                 onChange={(event) => setBalance(event.target.value)}
@@ -268,9 +273,8 @@ export function CreateAccountSheet({
                 <Label htmlFor="account-credit-limit">Credit Limit</Label>
                 <Input
                   id="account-credit-limit"
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   placeholder="0.00"
                   value={creditLimit}
                   onChange={(event) => setCreditLimit(event.target.value)}

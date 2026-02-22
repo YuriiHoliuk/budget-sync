@@ -6,6 +6,7 @@ import {
   CreditCard,
   Building2,
   Wallet,
+  Banknote,
   MoreHorizontal,
   Pencil,
   Archive,
@@ -61,12 +62,14 @@ const TYPE_LABELS: Record<AccountType, string> = {
   [AccountType.Debit]: "Debit",
   [AccountType.Credit]: "Credit",
   [AccountType.Fop]: "FOP",
+  [AccountType.Cash]: "Cash",
 };
 
 const TYPE_ICONS: Record<AccountType, typeof CreditCard> = {
   [AccountType.Debit]: Wallet,
   [AccountType.Credit]: CreditCard,
   [AccountType.Fop]: Building2,
+  [AccountType.Cash]: Banknote,
 };
 
 function formatIban(iban: string | null | undefined): string {

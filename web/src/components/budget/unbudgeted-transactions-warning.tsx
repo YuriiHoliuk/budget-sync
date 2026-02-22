@@ -8,12 +8,15 @@ import {
   GetMonthlyOverviewDocument,
   UpdateTransactionBudgetDocument,
   GetBudgetsDocument,
+  GetCategoriesDocument,
+  UpdateTransactionCategoryDocument,
   type GetUnbudgetedTransactionsQuery,
 } from "@/graphql/generated/graphql";
 import { useMonth } from "@/hooks/use-month";
 import { formatCurrency } from "@/lib/format";
 import { getDateRangeFromMonth } from "@/lib/url-utils";
 import { BudgetCombobox } from "@/components/budget/budget-combobox";
+import { CategoryCombobox } from "@/components/categories/category-combobox";
 import {
   Table,
   TableBody,
@@ -51,6 +54,15 @@ export function UnbudgetedTransactionsWarning() {
     variables: { activeOnly: true },
   });
 
+  const { data: categoriesData } = useQuery(GetCategoriesDocument, {
+    variables: { activeOnly: true },
+  });
+
+  const categories = useMemo(
+    () => categoriesData?.categories ?? [],
+    [categoriesData?.categories]
+  );
+
   const [updateBudget] = useMutation(UpdateTransactionBudgetDocument, {
     refetchQueries: [
       { query: GetMonthlyOverviewDocument, variables: { month } },
@@ -77,9 +89,21 @@ export function UnbudgetedTransactionsWarning() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [budgets]);
 
+  const [updateCategory] = useMutation(UpdateTransactionCategoryDocument, {
+    refetchQueries: [
+      { query: GetUnbudgetedTransactionsDocument, variables: { dateFrom, dateTo, pagination: { limit: 50 } } },
+    ],
+  });
+
   const handleBudgetAssign = async (transactionId: number, budgetId: number) => {
     await updateBudget({
       variables: { input: { id: transactionId, budgetId } },
+    });
+  };
+
+  const handleCategoryAssign = async (transactionId: number, categoryId: number | null) => {
+    await updateCategory({
+      variables: { input: { id: transactionId, categoryId } },
     });
   };
 
@@ -120,6 +144,7 @@ export function UnbudgetedTransactionsWarning() {
                 <TableHead className="w-20">Date</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead className="w-32">Account</TableHead>
+                <TableHead className="w-48">Category</TableHead>
                 <TableHead className="w-24 text-right">Amount</TableHead>
                 <TableHead className="w-48">Assign Budget</TableHead>
               </TableRow>
@@ -130,7 +155,9 @@ export function UnbudgetedTransactionsWarning() {
                   key={transaction.id}
                   transaction={transaction}
                   budgets={activeBudgets}
+                  categories={categories}
                   onBudgetAssign={handleBudgetAssign}
+                  onCategoryAssign={handleCategoryAssign}
                 />
               ))}
             </TableBody>
@@ -150,13 +177,17 @@ export function UnbudgetedTransactionsWarning() {
 interface UnbudgetedTransactionRowProps {
   transaction: UnbudgetedTransaction;
   budgets: Array<{ id: number; name: string }>;
+  categories: Array<{ id: number; name: string; fullPath: string }>;
   onBudgetAssign: (transactionId: number, budgetId: number) => Promise<void>;
+  onCategoryAssign: (transactionId: number, categoryId: number | null) => Promise<void>;
 }
 
 function UnbudgetedTransactionRow({
   transaction,
   budgets,
+  categories,
   onBudgetAssign,
+  onCategoryAssign,
 }: UnbudgetedTransactionRowProps) {
   const [isAssigning, setIsAssigning] = useState(false);
 
@@ -180,17 +211,20 @@ function UnbudgetedTransactionRow({
         {formatDate(transaction.date)}
       </TableCell>
       <TableCell>
-        <div className="flex flex-col">
-          <span className="font-medium">{description}</span>
-          {transaction.category && (
-            <span className="text-xs text-muted-foreground">
-              {transaction.category.name}
-            </span>
-          )}
-        </div>
+        <span className="font-medium">{description}</span>
       </TableCell>
       <TableCell className="text-muted-foreground">
         {transaction.account?.name ?? "Unknown"}
+      </TableCell>
+      <TableCell>
+        <CategoryCombobox
+          categories={categories}
+          value={transaction.category?.id ?? null}
+          onValueChange={(categoryId) => onCategoryAssign(transaction.id, categoryId)}
+          allowNone
+          placeholder="Select category..."
+          triggerClassName="h-8 w-full"
+        />
       </TableCell>
       <TableCell className="text-right font-medium text-red-600 dark:text-red-400">
         -{formatCurrency(transaction.amount)}

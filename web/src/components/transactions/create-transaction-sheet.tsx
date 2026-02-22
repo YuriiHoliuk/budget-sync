@@ -172,9 +172,8 @@ export function CreateTransactionSheet({
               </Label>
               <Input
                 id="tx-amount"
-                type="number"
-                min="0.01"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="0.00"
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}

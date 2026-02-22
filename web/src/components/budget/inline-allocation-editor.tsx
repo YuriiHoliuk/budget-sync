@@ -58,8 +58,8 @@ export function InlineAllocationEditor({
     <div className="flex justify-end">
       <Input
         ref={inputRef}
-        type="number"
-        step="0.01"
+        type="text"
+        inputMode="decimal"
         value={value}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={handleKeyDown}
