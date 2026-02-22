@@ -637,19 +637,29 @@ export class DatabaseTransactionRepository implements TransactionRepository {
   async findSiblingTransactions(
     transactionId: number,
   ): Promise<TransactionRecord[]> {
-    // Find bank_transaction IDs linked to the source transaction
+    // Try bank_transaction links first (for bank-backed transactions)
+    const siblings = await this.findSiblingsByBankTransactions(transactionId);
+    if (siblings.length > 0) {
+      return siblings;
+    }
+
+    // Fallback: find siblings via externalId pattern (for manual transactions)
+    return this.findSiblingsByExternalId(transactionId);
+  }
+
+  private async findSiblingsByBankTransactions(
+    transactionId: number,
+  ): Promise<TransactionRecord[]> {
     const linkedBankTxIds = this.db
       .select({ bankTransactionId: transactionSources.bankTransactionId })
       .from(transactionSources)
       .where(eq(transactionSources.transactionId, transactionId));
 
-    // Find all transaction IDs linked to those bank transactions
     const siblingTxIds = this.db
       .select({ transactionId: transactionSources.transactionId })
       .from(transactionSources)
       .where(inArray(transactionSources.bankTransactionId, linkedBankTxIds));
 
-    // Fetch sibling transactions (excluding the source) with bank_transaction_count
     const rows = await this.db
       .select({
         transaction: transactions,
@@ -664,6 +674,68 @@ export class DatabaseTransactionRepository implements TransactionRepository {
         and(
           ne(transactions.id, transactionId),
           inArray(transactions.id, siblingTxIds),
+        ),
+      )
+      .groupBy(transactions.id);
+
+    return rows.map((row) =>
+      this.rowToRecord(row.transaction, row.bankTransactionCount),
+    );
+  }
+
+  private async findSiblingsByExternalId(
+    transactionId: number,
+  ): Promise<TransactionRecord[]> {
+    const txRows = await this.db
+      .select({ id: transactions.id, externalId: transactions.externalId })
+      .from(transactions)
+      .where(eq(transactions.id, transactionId))
+      .limit(1);
+
+    const tx = txRows[0];
+    if (!tx?.externalId) {
+      return [];
+    }
+
+    const splitPrefix = 'split-';
+    let sourceId: number;
+
+    if (tx.externalId.startsWith(splitPrefix)) {
+      // Split child — extract the source transaction ID from externalId
+      const rest = tx.externalId.slice(splitPrefix.length);
+      const dashIndex = rest.indexOf('-');
+      const parsed = Number.parseInt(
+        rest.slice(0, dashIndex === -1 ? undefined : dashIndex),
+        10,
+      );
+      if (Number.isNaN(parsed)) {
+        return [];
+      }
+      sourceId = parsed;
+    } else {
+      // Might be the source — look for split children
+      sourceId = transactionId;
+    }
+
+    const pattern = `split-${sourceId}-%`;
+
+    const rows = await this.db
+      .select({
+        transaction: transactions,
+        bankTransactionCount: count(transactionSources.id),
+      })
+      .from(transactions)
+      .leftJoin(
+        transactionSources,
+        eq(transactions.id, transactionSources.transactionId),
+      )
+      .where(
+        and(
+          ne(transactions.id, transactionId),
+          or(
+            sql`${transactions.externalId} LIKE ${pattern}`,
+            eq(transactions.id, sourceId),
+          ),
         ),
       )
       .groupBy(transactions.id);
