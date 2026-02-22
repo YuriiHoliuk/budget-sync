@@ -72,6 +72,10 @@ query GetTransaction($id: Int!) {
       pairedAccountName
       isRevertible
     }
+    returningInfo {
+      isRevertible
+      returningAmount
+    }
     bankTransactions {
       id
       externalId
@@ -88,6 +92,27 @@ query GetTransaction($id: Int!) {
       commission
       hold
       receiptId
+      returnHistory {
+        originalBankTransactionId
+        returningBankTransactionId
+        amount
+        createdAt
+      }
+    }
+    siblingTransactions {
+      id
+      amount
+      currency
+      description
+      category {
+        id
+        name
+        fullPath
+      }
+      budget {
+        id
+        name
+      }
     }
   }
 }

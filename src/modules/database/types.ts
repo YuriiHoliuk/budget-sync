@@ -1,6 +1,7 @@
 import type {
   accounts,
   allocations,
+  bankTransactionReturns,
   bankTransactions,
   budgetGroups,
   budgetizationRules,
@@ -23,6 +24,11 @@ export interface DatabaseConfig {
 
 export type AccountRow = typeof accounts.$inferSelect;
 export type NewAccountRow = typeof accounts.$inferInsert;
+
+export type BankTransactionReturnRow =
+  typeof bankTransactionReturns.$inferSelect;
+export type NewBankTransactionReturnRow =
+  typeof bankTransactionReturns.$inferInsert;
 
 export type BankTransactionRow = typeof bankTransactions.$inferSelect;
 export type NewBankTransactionRow = typeof bankTransactions.$inferInsert;

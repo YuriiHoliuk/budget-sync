@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CategoryCombobox } from "@/components/categories/category-combobox";
+import { CategoryCombobox, NONE_FILTER } from "@/components/categories/category-combobox";
 import { BudgetCombobox } from "@/components/budget/budget-combobox";
 import {
   Table,
@@ -51,17 +51,21 @@ import {
   UpdateTransactionCategoryDocument,
   UpdateTransactionBudgetDocument,
   VerifyTransactionDocument,
+  MarkAsReturningDocument,
   TransactionTypeEnum,
   CategorizationStatusEnum,
   AccountSource,
   type GetTransactionsQuery,
   type TransactionFilter,
 } from "@/graphql/generated/graphql";
+import { removeTransactionFromCache } from "@/lib/cache-utils";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { parseTransactionFiltersFromParams } from "@/lib/url-utils";
 import { TransactionDetailPanel } from "./transaction-detail-panel";
 import { CreateTransactionSheet } from "./create-transaction-sheet";
+import { ReturningSelectionBanner } from "./returning-selection-banner";
+import { ReturningConfirmationDialog } from "./returning-confirmation-dialog";
 import {
   TransactionFiltersSidebar,
   type TransactionFilters,
@@ -143,10 +147,18 @@ function filtersToGraphQL(filters: TransactionFilters): TransactionFilter {
     gqlFilter.accountId = filters.accountId;
   }
   if (filters.categoryId !== null) {
-    gqlFilter.categoryId = filters.categoryId;
+    if (filters.categoryId === NONE_FILTER) {
+      gqlFilter.uncategorizedOnly = true;
+    } else {
+      gqlFilter.categoryId = filters.categoryId;
+    }
   }
   if (filters.budgetId !== null) {
-    gqlFilter.budgetId = filters.budgetId;
+    if (filters.budgetId === NONE_FILTER) {
+      gqlFilter.unbudgetedOnly = true;
+    } else {
+      gqlFilter.budgetId = filters.budgetId;
+    }
   }
   if (filters.type !== null) {
     gqlFilter.type = filters.type;
@@ -168,8 +180,8 @@ function filtersToUrlParams(filters: TransactionFilters, page: number, transacti
   const params = new URLSearchParams();
   if (filters.search) params.set("search", filters.search);
   if (filters.accountId !== null) params.set("accountId", String(filters.accountId));
-  if (filters.categoryId !== null) params.set("categoryId", String(filters.categoryId));
-  if (filters.budgetId !== null) params.set("budgetId", String(filters.budgetId));
+  if (filters.categoryId !== null) params.set("categoryId", filters.categoryId === NONE_FILTER ? "none" : String(filters.categoryId));
+  if (filters.budgetId !== null) params.set("budgetId", filters.budgetId === NONE_FILTER ? "none" : String(filters.budgetId));
   if (filters.type !== null) params.set("type", filters.type);
   if (filters.status !== null) params.set("status", filters.status);
   if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
@@ -243,6 +255,37 @@ export function TransactionsTable() {
   const [filtersOpen, setFiltersOpen] = useLocalStorage(LocalStorageKey.FILTER_SIDEBAR_OPEN, true);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
 
+  // Returning selection mode
+  const [returningSelection, setReturningSelection] = useState<{
+    returningTransactionId: number;
+    returningAmount: number;
+    currency: string;
+  } | null>(null);
+  const [returningConfirmation, setReturningConfirmation] = useState<{
+    originalTransactionId: number;
+    originalAmount: number;
+  } | null>(null);
+
+  const handleStartReturningSelection = useCallback(
+    (transactionId: number, amount: number, currency: string) => {
+      setSelectedTransaction(null);
+      setReturningSelection({ returningTransactionId: transactionId, returningAmount: amount, currency });
+    },
+    [],
+  );
+
+  const handleCancelReturningSelection = useCallback(() => {
+    setReturningSelection(null);
+    setReturningConfirmation(null);
+  }, []);
+
+  const handleSelectOriginalTransaction = useCallback(
+    (originalId: number, originalAmount: number) => {
+      setReturningConfirmation({ originalTransactionId: originalId, originalAmount });
+    },
+    [],
+  );
+
   // Sync applied filters and selected transaction back to URL + persist filters to localStorage
   useEffect(() => {
     if (isInitialMount.current) {
@@ -265,7 +308,7 @@ export function TransactionsTable() {
 
   const gqlFilter = useMemo(() => filtersToGraphQL(appliedFilters), [appliedFilters]);
 
-  const { data, loading, error, refetch } = useQuery(GetTransactionsDocument, {
+  const { data, loading, error } = useQuery(GetTransactionsDocument, {
     variables: {
       filter: gqlFilter,
       pagination: { limit: PAGE_SIZE, offset: page * PAGE_SIZE },
@@ -288,17 +331,46 @@ export function TransactionsTable() {
     variables: { activeOnly: false },
   });
 
-  const [updateCategory] = useMutation(UpdateTransactionCategoryDocument, {
-    onCompleted: () => refetch(),
+  const [updateCategory] = useMutation(UpdateTransactionCategoryDocument);
+
+  const [updateBudget] = useMutation(UpdateTransactionBudgetDocument);
+
+  const [verifyTransaction] = useMutation(VerifyTransactionDocument);
+
+  const [markAsReturning, { loading: markAsReturningLoading }] = useMutation(MarkAsReturningDocument, {
+    update(cache, { data }, { variables }) {
+      if (!data?.markAsReturning || !variables?.input) return;
+      const { returningTransactionId, originalTransactionId } = variables.input;
+
+      // Returning tx is always deleted
+      removeTransactionFromCache(cache, returningTransactionId);
+
+      // For full returns, original tx is also deleted
+      if (data.markAsReturning.type === 'FULL') {
+        removeTransactionFromCache(cache, originalTransactionId);
+      }
+      // For partial returns, original tx amount + bankTransactionCount
+      // are auto-updated via normalized cache from originalTransaction in response
+    },
   });
 
-  const [updateBudget] = useMutation(UpdateTransactionBudgetDocument, {
-    onCompleted: () => refetch(),
-  });
-
-  const [verifyTransaction] = useMutation(VerifyTransactionDocument, {
-    onCompleted: () => refetch(),
-  });
+  const handleConfirmReturning = useCallback(async () => {
+    if (!returningSelection || !returningConfirmation) return;
+    try {
+      await markAsReturning({
+        variables: {
+          input: {
+            returningTransactionId: returningSelection.returningTransactionId,
+            originalTransactionId: returningConfirmation.originalTransactionId,
+          },
+        },
+      });
+      setReturningSelection(null);
+      setReturningConfirmation(null);
+    } catch {
+      // Error is handled by Apollo Client
+    }
+  }, [returningSelection, returningConfirmation, markAsReturning]);
 
   const transactions = data?.transactions.items ?? [];
   const totalCount = data?.transactions.totalCount ?? 0;
@@ -457,6 +529,15 @@ export function TransactionsTable() {
       <div className="flex min-h-0 flex-1">
         {/* Table column */}
         <div className={cn("flex min-w-0 flex-1 flex-col pt-4 pb-4 md:pb-6", filtersOpen && "lg:pr-6")}>
+          {returningSelection && (
+            <div className="mb-4">
+              <ReturningSelectionBanner
+                returningAmount={returningSelection.returningAmount}
+                currency={returningSelection.currency}
+                onCancel={handleCancelReturningSelection}
+              />
+            </div>
+          )}
           {transactions.length === 0 ? (
             <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed">
               <p className="text-sm text-muted-foreground" data-qa="text-no-transactions">
@@ -472,6 +553,7 @@ export function TransactionsTable() {
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="w-28">Date</TableHead>
+                      <TableHead>Counterparty</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead className="w-32">Account</TableHead>
                       <TableHead className="w-40">Category</TableHead>
@@ -495,7 +577,15 @@ export function TransactionsTable() {
                         onCategoryChange={handleCategoryChange}
                         onBudgetChange={handleBudgetChange}
                         onVerify={handleVerify}
-                        onViewDetails={() => setSelectedTransaction(transaction.id)}
+                        onViewDetails={() => {
+                          if (returningSelection && transaction.type === TransactionTypeEnum.Debit && transaction.amount >= returningSelection.returningAmount) {
+                            handleSelectOriginalTransaction(transaction.id, transaction.amount);
+                          } else if (!returningSelection) {
+                            setSelectedTransaction(transaction.id);
+                          }
+                        }}
+                        returningSelectionActive={returningSelection !== null}
+                        returningAmount={returningSelection?.returningAmount}
                       />
                     ))}
                   </TableBody>
@@ -537,6 +627,17 @@ export function TransactionsTable() {
       <TransactionDetailPanel
         transactionId={selectedTransaction}
         onClose={() => setSelectedTransaction(null)}
+        onStartReturningSelection={handleStartReturningSelection}
+      />
+
+      <ReturningConfirmationDialog
+        open={returningConfirmation !== null}
+        onOpenChange={(open) => { if (!open) setReturningConfirmation(null); }}
+        returningAmount={returningSelection?.returningAmount ?? 0}
+        originalAmount={returningConfirmation?.originalAmount ?? 0}
+        currency={returningSelection?.currency ?? "UAH"}
+        loading={markAsReturningLoading}
+        onConfirm={handleConfirmReturning}
       />
 
       <CreateTransactionSheet
@@ -559,6 +660,8 @@ interface TransactionRowProps {
   onBudgetChange: (transactionId: number, budgetId: number | null) => Promise<void>;
   onVerify: (transactionId: number) => Promise<void>;
   onViewDetails: () => void;
+  returningSelectionActive?: boolean;
+  returningAmount?: number;
 }
 
 function TransactionRow({
@@ -573,6 +676,8 @@ function TransactionRow({
   onBudgetChange,
   onVerify,
   onViewDetails,
+  returningSelectionActive,
+  returningAmount,
 }: TransactionRowProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const typeConfig = TYPE_CONFIG[transaction.type] ?? TYPE_CONFIG[TransactionTypeEnum.Debit];
@@ -580,10 +685,12 @@ function TransactionRow({
   const TypeIcon = typeConfig.icon;
   const StatusIcon = statusConfig.icon;
 
-  const description = transaction.counterpartyName || transaction.description || "Unknown";
+  const counterparty = transaction.counterpartyName || "—";
   const isTransfer = transaction.type === TransactionTypeEnum.Transfer;
+  const isDebitRow = transaction.type === TransactionTypeEnum.Debit;
   const isVerified = transaction.categorizationStatus === CategorizationStatusEnum.Verified;
   const isCategorized = transaction.categorizationStatus === CategorizationStatusEnum.Categorized;
+  const isSelectableForReturning = returningSelectionActive && isDebitRow && (returningAmount === undefined || transaction.amount >= returningAmount);
 
   const currentBudgetId = transaction.budget?.id ?? null;
   const filteredBudgets = useMemo(() => {
@@ -625,7 +732,14 @@ function TransactionRow({
 
   return (
     <TableRow
-      className={cn(isEditing && "bg-muted/50", "cursor-pointer")}
+      className={cn(
+        isEditing && "bg-muted/50",
+        returningSelectionActive
+          ? isSelectableForReturning
+            ? "cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20"
+            : "cursor-not-allowed opacity-50"
+          : "cursor-pointer",
+      )}
       onClick={onViewDetails}
       data-qa={`transaction-row-${transaction.id}`}
     >
@@ -635,12 +749,15 @@ function TransactionRow({
       <TableCell>
         <div className="flex items-center gap-2">
           <TypeIcon className={cn("h-4 w-4 shrink-0", typeConfig.color)} />
-          <div className="min-w-0">
-            <div className="truncate font-medium">{description}</div>
-            {transaction.notes && (
-              <div className="truncate text-xs text-muted-foreground">{transaction.notes}</div>
-            )}
-          </div>
+          <span className="truncate font-medium">{counterparty}</span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="min-w-0">
+          <div className="truncate text-sm">{transaction.description || "—"}</div>
+          {transaction.notes && (
+            <div className="truncate text-xs text-muted-foreground">{transaction.notes}</div>
+          )}
         </div>
       </TableCell>
       <TableCell className="text-muted-foreground">

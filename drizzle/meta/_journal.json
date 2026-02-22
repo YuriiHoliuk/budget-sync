@@ -85,6 +85,13 @@
       "when": 1771459200000,
       "tag": "0011_transactions_v2_swap",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1771545600000,
+      "tag": "0012_bank_transaction_returns",
+      "breakpoints": true
     }
   ]
 }

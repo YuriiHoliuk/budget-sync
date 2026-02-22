@@ -514,4 +514,31 @@ export class SpreadsheetTransactionRepository
       'updateTransactionAmount is not supported by SpreadsheetTransactionRepository',
     );
   }
+
+  createSplitRecord(_params: {
+    sourceTransactionId: number;
+    amount: number;
+    description: string | null;
+    categoryId: number | null;
+    budgetId: number | null;
+    notes: string | null;
+  }): Promise<DomainTransactionRecord> {
+    throw new Error(
+      'createSplitRecord is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  findSiblingTransactions(
+    _transactionId: number,
+  ): Promise<DomainTransactionRecord[]> {
+    throw new Error(
+      'findSiblingTransactions is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
+  deleteByDbId(_dbId: number): Promise<void> {
+    throw new Error(
+      'deleteByDbId is not supported by SpreadsheetTransactionRepository',
+    );
+  }
 }

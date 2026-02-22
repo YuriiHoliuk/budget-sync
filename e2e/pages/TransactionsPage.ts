@@ -360,6 +360,185 @@ export class TransactionsPage extends BasePage {
     await this.createTransactionSheet.waitFor({ state: 'hidden' });
   }
 
+  // ========== DETAIL PANEL ==========
+
+  /**
+   * Wait for the transaction detail panel (sheet) to open
+   */
+  async waitForDetailPanel(): Promise<void> {
+    await this.page.locator('[role="dialog"]').first().waitFor({ state: 'visible' });
+  }
+
+  /**
+   * Wait for the transaction detail panel (sheet) to close
+   */
+  async waitForDetailPanelClosed(): Promise<void> {
+    await this.page.locator('[role="dialog"]').first().waitFor({ state: 'hidden' });
+  }
+
+  // ========== RETURNING FLOW ==========
+
+  /**
+   * Click "Mark as Returning" button in the detail panel.
+   * The detail panel must already be open on a credit transaction.
+   */
+  async clickMarkAsReturning(): Promise<void> {
+    await this.byQa('btn-mark-as-returning').click();
+  }
+
+  /**
+   * Get the returning selection banner element
+   */
+  get returningSelectionBanner(): Locator {
+    return this.byQa('returning-selection-banner');
+  }
+
+  /**
+   * Cancel the returning selection via the banner's Cancel button
+   */
+  async cancelReturningSelection(): Promise<void> {
+    await this.byQa('btn-cancel-returning-selection').click();
+  }
+
+  /**
+   * Get the returning confirmation dialog element
+   */
+  get returningConfirmationDialog(): Locator {
+    return this.byQa('dialog-returning-confirmation');
+  }
+
+  /**
+   * Confirm the returning in the confirmation dialog
+   */
+  async confirmReturning(): Promise<void> {
+    await this.byQa('btn-returning-confirm').click();
+  }
+
+  /**
+   * Cancel the returning in the confirmation dialog
+   */
+  async cancelReturningConfirmation(): Promise<void> {
+    await this.byQa('btn-returning-cancel').click();
+  }
+
+  // ========== SPLIT FLOW ==========
+
+  /**
+   * Click the "Split Transaction" button in the detail panel.
+   * The detail panel must already be open.
+   */
+  async clickSplitButton(): Promise<void> {
+    await this.byQa('btn-split-transaction').click();
+  }
+
+  /**
+   * Get the split transaction form locator
+   */
+  get splitForm(): Locator {
+    return this.byQa('split-transaction-form');
+  }
+
+  /**
+   * Fill a split part row in the split form
+   */
+  async fillSplitPart(
+    index: number,
+    options: { amount?: string; description?: string },
+  ): Promise<void> {
+    if (options.amount !== undefined) {
+      await this.byQa(`input-split-amount-${index}`).fill(options.amount);
+    }
+    if (options.description !== undefined) {
+      await this.byQa(`input-split-description-${index}`).fill(options.description);
+    }
+  }
+
+  /**
+   * Click "Add another split" button
+   */
+  async addSplitPart(): Promise<void> {
+    await this.byQa('btn-add-split-part').click();
+  }
+
+  /**
+   * Submit the split form
+   */
+  async submitSplit(): Promise<void> {
+    await this.byQa('btn-split-submit').click();
+  }
+
+  /**
+   * Cancel the split form
+   */
+  async cancelSplit(): Promise<void> {
+    await this.byQa('btn-split-cancel').click();
+  }
+
+  /**
+   * Get the split group section locator (visible when transaction has siblings)
+   */
+  get splitGroup(): Locator {
+    return this.byQa('split-group');
+  }
+
+  /**
+   * Get sibling transaction items in the split group section
+   */
+  getSiblingItem(index: number): Locator {
+    return this.byQa(`sibling-item-${index}`);
+  }
+
+  /**
+   * Get the description text of a sibling item
+   */
+  async getSiblingDescription(index: number): Promise<string> {
+    return (await this.byQa(`sibling-description-${index}`).textContent()) ?? '';
+  }
+
+  /**
+   * Get the amount text of a sibling item
+   */
+  async getSiblingAmount(index: number): Promise<string> {
+    return (await this.byQa(`sibling-amount-${index}`).textContent()) ?? '';
+  }
+
+  /**
+   * Click "Join" button on a specific sibling item
+   */
+  async clickJoinOnSibling(index: number): Promise<void> {
+    await this.byQa(`btn-join-sibling-${index}`).click();
+  }
+
+  // ========== JOIN FLOW ==========
+
+  /**
+   * Get the join confirmation dialog locator
+   */
+  get joinConfirmationDialog(): Locator {
+    return this.byQa('dialog-join-confirmation');
+  }
+
+  /**
+   * Confirm the join in the confirmation dialog
+   */
+  async confirmJoin(): Promise<void> {
+    await this.byQa('btn-join-confirm').click();
+  }
+
+  /**
+   * Cancel the join in the confirmation dialog
+   */
+  async cancelJoin(): Promise<void> {
+    await this.byQa('btn-join-cancel').click();
+  }
+
+  /**
+   * Get the detail panel amount text
+   */
+  async getDetailPanelAmount(): Promise<string> {
+    return (await this.byQa('detail-panel-amount').textContent()) ?? '';
+  }
+
   // ========== ASSERTIONS ==========
 
   /**

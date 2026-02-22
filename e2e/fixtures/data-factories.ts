@@ -815,3 +815,56 @@ export async function getBudgetsWithOrder(): Promise<BudgetWithOrder[]> {
 
   return result.data?.budgets ?? [];
 }
+
+/**
+ * Split a transaction into multiple parts via GraphQL
+ */
+interface SplitPartInput {
+  amount: number;
+  description?: string;
+  categoryId?: number;
+  budgetId?: number;
+  notes?: string;
+}
+
+interface SplitTransactionResult {
+  sourceTransaction: Transaction;
+  splitTransactions: Transaction[];
+}
+
+export async function splitTransaction(
+  transactionId: number,
+  parts: SplitPartInput[],
+): Promise<SplitTransactionResult> {
+  const mutation = `
+    mutation SplitTransaction($input: SplitTransactionInput!) {
+      splitTransaction(input: $input) {
+        sourceTransaction {
+          id
+          amount
+          description
+        }
+        splitTransactions {
+          id
+          amount
+          description
+        }
+      }
+    }
+  `;
+
+  const result = await executeGraphQL<{ splitTransaction: SplitTransactionResult }>(
+    mutation,
+    { input: { transactionId, parts } },
+  );
+
+  if (result.errors) {
+    throw new Error(`Failed to split transaction: ${result.errors[0].message}`);
+  }
+
+  if (!result.data?.splitTransaction) {
+    throw new Error('No result returned from split transaction mutation');
+  }
+
+  return result.data.splitTransaction;
+}

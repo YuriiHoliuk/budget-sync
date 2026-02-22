@@ -33,6 +33,32 @@ export interface TransactionGql {
   bankTransactionCount: number;
 }
 
+export interface SiblingTransactionGql {
+  id: number;
+  amount: number;
+  currency: string;
+  description: string;
+  categoryId: number | null;
+  budgetId: number | null;
+  category: null;
+  budget: null;
+}
+
+export function mapTransactionRecordToSiblingGql(
+  record: TransactionRecord,
+): SiblingTransactionGql {
+  return {
+    id: record.id,
+    amount: toMajorUnits(record.amount),
+    currency: record.currency,
+    description: record.bankDescription ?? '',
+    categoryId: record.categoryId,
+    budgetId: record.budgetId,
+    category: null,
+    budget: null,
+  };
+}
+
 export function mapTransactionRecordToGql(
   record: TransactionRecord,
 ): TransactionGql {

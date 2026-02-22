@@ -64,6 +64,31 @@ extend type Mutation {
   """
   revertTransfer(transactionId: Int!): Transaction!
 
+  """
+  Mark a credit transaction as a return of an original debit transaction.
+  Partial return: reduces original amount, links bank transactions, deletes returning.
+  Full return: deletes both transactions.
+  """
+  markAsReturning(input: MarkAsReturningInput!): MarkAsReturningResult!
+
+  """
+  Revert a partial return. Unlinks credit bank transactions from the original,
+  re-creates credit transactions, and restores the original amount.
+  """
+  revertReturning(transactionId: Int!): RevertReturningResult!
+
+  """
+  Split a transaction into multiple parts. The original transaction is replaced
+  by the split parts, which must sum to the original amount.
+  """
+  splitTransaction(input: SplitTransactionInput!): SplitTransactionResult!
+
+  """
+  Join a split transaction back into its parent. Merges the source transaction
+  back into the target transaction.
+  """
+  joinTransactions(input: JoinTransactionsInput!): Transaction!
+
 }
 
 input TransactionFilter {
@@ -76,6 +101,12 @@ input TransactionFilter {
   Filter by category database ID.
   """
   categoryId: Int
+
+  """
+  If true, filter for transactions with no category assigned (categoryId IS NULL).
+  Takes precedence over categoryId filter.
+  """
+  uncategorizedOnly: Boolean
 
   """
   Filter by budget database ID.
@@ -267,6 +298,16 @@ type Transaction {
   Transfer pair info (null if not a transfer).
   """
   transferPair: TransferPairInfo
+
+  """
+  Returning/refund info (null if no returns linked to this debit transaction).
+  """
+  returningInfo: ReturningInfo
+
+  """
+  Sibling transactions from the same split group (empty if not a split transaction).
+  """
+  siblingTransactions: [SiblingTransaction!]!
 }
 
 enum TransactionTypeEnum {
@@ -291,6 +332,14 @@ type BankTransaction {
   commission: Float
   hold: Boolean
   receiptId: String
+  returnHistory: [BankTransactionReturn!]!
+}
+
+type BankTransactionReturn {
+  originalBankTransactionId: Int!
+  returningBankTransactionId: Int!
+  amount: Float!
+  createdAt: String!
 }
 
 enum CategorizationStatusEnum {
@@ -331,4 +380,153 @@ type TransferPairInfo {
   Whether this transfer can be reverted (only manually-converted transfers).
   """
   isRevertible: Boolean!
+}
+
+input MarkAsReturningInput {
+  """
+  Database ID of the credit (returning) transaction.
+  """
+  returningTransactionId: Int!
+
+  """
+  Database ID of the debit (original) transaction.
+  """
+  originalTransactionId: Int!
+}
+
+type MarkAsReturningResult {
+  """
+  Whether this was a partial or full return.
+  """
+  type: ReturningType!
+
+  """
+  The original transaction after update (null for full returns — deleted).
+  """
+  originalTransaction: Transaction
+
+  """
+  Returning amount in major units.
+  """
+  returningAmount: Float!
+
+  """
+  Original amount in major units (before return).
+  """
+  originalAmount: Float!
+
+  """
+  New original amount in major units (null for full returns).
+  """
+  newOriginalAmount: Float
+}
+
+enum ReturningType {
+  PARTIAL
+  FULL
+}
+
+"""
+Info about returning/refund bank transactions linked to a debit transaction.
+"""
+type ReturningInfo {
+  """
+  Whether this return can be reverted (partial returns only).
+  """
+  isRevertible: Boolean!
+
+  """
+  Total returning amount in major units.
+  """
+  returningAmount: Float!
+}
+
+type RevertReturningResult {
+  """
+  The original transaction with restored amount.
+  """
+  transaction: Transaction!
+
+  """
+  Newly created credit transactions (one per unlinked returning bank transaction).
+  """
+  createdTransactions: [Transaction!]!
+}
+
+input SplitTransactionInput {
+  """
+  Database ID of the transaction to split.
+  """
+  transactionId: Int!
+
+  """
+  Parts to split the transaction into. Amounts must sum to the original.
+  """
+  parts: [SplitPartInput!]!
+}
+
+input SplitPartInput {
+  """
+  Amount in major units (e.g., 100.50). Always positive.
+  """
+  amount: Float!
+
+  """
+  Optional description for the split part.
+  """
+  description: String
+
+  """
+  Optional category database ID.
+  """
+  categoryId: Int
+
+  """
+  Optional budget database ID.
+  """
+  budgetId: Int
+
+  """
+  Optional notes for the split part.
+  """
+  notes: String
+}
+
+input JoinTransactionsInput {
+  """
+  Database ID of the target transaction to merge into.
+  """
+  targetTransactionId: Int!
+
+  """
+  Database ID of the source transaction to merge from.
+  """
+  sourceTransactionId: Int!
+}
+
+type SplitTransactionResult {
+  """
+  The original transaction that was split (updated with reduced amount).
+  """
+  sourceTransaction: Transaction!
+
+  """
+  The newly created split transactions.
+  """
+  splitTransactions: [Transaction!]!
+}
+
+"""
+A sibling transaction within the same split group.
+"""
+type SiblingTransaction {
+  id: Int!
+  """
+  Amount in major units (always positive).
+  """
+  amount: Float!
+  currency: String!
+  description: String!
+  category: Category
+  budget: Budget
 }

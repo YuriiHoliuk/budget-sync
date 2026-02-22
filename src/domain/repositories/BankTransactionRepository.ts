@@ -8,6 +8,14 @@ export const BANK_TRANSACTION_REPOSITORY_TOKEN = Symbol(
   'BankTransactionRepository',
 );
 
+export interface BankTransactionReturnRecord {
+  id: number;
+  originalBankTransactionId: number;
+  returningBankTransactionId: number;
+  amount: number;
+  createdAt: Date;
+}
+
 /**
  * Repository for raw bank transaction data.
  * Manages the bank_transactions table which stores original, unmodified bank records.
@@ -38,4 +46,19 @@ export abstract class BankTransactionRepository {
   abstract linkTransactionSources(
     links: Array<{ transactionId: number; bankTransactionId: number }>,
   ): Promise<void>;
+  abstract unlinkTransactionSource(
+    transactionId: number,
+    bankTransactionId: number,
+  ): Promise<void>;
+  abstract saveReturn(params: {
+    originalBankTransactionId: number;
+    returningBankTransactionId: number;
+    amount: number;
+  }): Promise<void>;
+  abstract deleteReturnsByReturningBankTransactionId(
+    returningBankTransactionId: number,
+  ): Promise<void>;
+  abstract findReturnsByBankTransactionIds(
+    bankTransactionIds: number[],
+  ): Promise<BankTransactionReturnRecord[]>;
 }

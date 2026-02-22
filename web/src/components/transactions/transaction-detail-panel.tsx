@@ -22,8 +22,11 @@ import {
   ChevronDown,
   ChevronUp,
   Database,
+  RotateCcw,
   Undo2,
   X,
+  Scissors,
+  Merge,
 } from "lucide-react";
 import {
   Sheet,
@@ -32,6 +35,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -43,7 +54,6 @@ import {
   GetTransactionDocument,
   GetCategoriesDocument,
   GetBudgetsDocument,
-  GetTransactionsDocument,
   GetAccountsDocument,
   UpdateTransactionCategoryDocument,
   UpdateTransactionBudgetDocument,
@@ -51,12 +61,16 @@ import {
   VerifyTransactionDocument,
   ConvertToTransferDocument,
   RevertTransferDocument,
+  RevertReturningDocument,
+  JoinTransactionsDocument,
   TransactionTypeEnum,
   CategorizationStatusEnum,
   AccountSource,
   type GetTransactionQuery,
   type BankTransaction,
 } from "@/graphql/generated/graphql";
+import { SplitTransactionForm } from "@/components/transactions/split-transaction-form";
+import { addTransactionsToCache, removeTransactionFromCache, evictSiblingTransactions } from "@/lib/cache-utils";
 import {
   Select,
   SelectContent,
@@ -68,10 +82,12 @@ import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type Transaction = NonNullable<GetTransactionQuery["transaction"]>;
+type TransactionSibling = Transaction["siblingTransactions"][number];
 
 interface TransactionDetailPanelProps {
   transactionId: number | null;
   onClose: () => void;
+  onStartReturningSelection?: (transactionId: number, amount: number, currency: string) => void;
 }
 
 const TYPE_CONFIG: Record<string, { icon: typeof ArrowDownCircle; color: string; bgColor: string; label: string }> = {
@@ -142,6 +158,7 @@ function formatMcc(mcc: number | null | undefined): string {
 export function TransactionDetailPanel({
   transactionId,
   onClose,
+  onStartReturningSelection,
 }: TransactionDetailPanelProps) {
   const isOpen = transactionId !== null;
 
@@ -185,6 +202,7 @@ export function TransactionDetailPanel({
             transaction={data.transaction}
             categories={categories}
             budgets={budgets}
+            onStartReturningSelection={onStartReturningSelection}
           />
         ) : (
           <div className="flex h-full items-center justify-center">
@@ -200,12 +218,14 @@ interface TransactionDetailContentProps {
   transaction: Transaction;
   categories: Array<{ id: number; name: string; fullPath: string }>;
   budgets: Array<{ id: number; name: string; startDate?: string | null; endDate?: string | null }>;
+  onStartReturningSelection?: (transactionId: number, amount: number, currency: string) => void;
 }
 
 function TransactionDetailContent({
   transaction,
   categories,
   budgets,
+  onStartReturningSelection,
 }: TransactionDetailContentProps) {
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -217,38 +237,64 @@ function TransactionDetailContent({
   const StatusIcon = statusConfig.icon;
 
   const isTransfer = transaction.type === TransactionTypeEnum.Transfer;
+  const isCredit = transaction.type === TransactionTypeEnum.Credit;
+  const isDebit = transaction.type === TransactionTypeEnum.Debit;
   const isVerified =
     transaction.categorizationStatus === CategorizationStatusEnum.Verified;
   const isCategorized =
     transaction.categorizationStatus === CategorizationStatusEnum.Categorized;
   const isManualAccount = transaction.account?.source === AccountSource.Manual;
 
-  const [updateCategory] = useMutation(UpdateTransactionCategoryDocument, {
-    refetchQueries: [{ query: GetTransactionsDocument }],
-  });
+  const [updateCategory] = useMutation(UpdateTransactionCategoryDocument);
 
-  const [updateBudget] = useMutation(UpdateTransactionBudgetDocument, {
-    refetchQueries: [{ query: GetTransactionsDocument }],
-  });
+  const [updateBudget] = useMutation(UpdateTransactionBudgetDocument);
 
   const [updateNotes] = useMutation(UpdateTransactionNotesDocument);
 
-  const [verifyTransaction] = useMutation(VerifyTransactionDocument, {
-    refetchQueries: [{ query: GetTransactionsDocument }],
-  });
+  const [verifyTransaction] = useMutation(VerifyTransactionDocument);
 
   const [convertToTransfer] = useMutation(ConvertToTransferDocument, {
-    refetchQueries: [
-      { query: GetTransactionsDocument },
-      { query: GetAccountsDocument, variables: { activeOnly: true } },
-    ],
+    update(cache, { data }) {
+      if (!data?.convertToTransfer) return;
+      addTransactionsToCache(cache, [data.convertToTransfer.counterpartTransaction]);
+    },
   });
 
+  const pairedTransactionId = transaction.transferPair?.pairedTransactionId ?? null;
+
   const [revertTransfer] = useMutation(RevertTransferDocument, {
-    refetchQueries: [
-      { query: GetTransactionsDocument },
-      { query: GetAccountsDocument, variables: { activeOnly: true } },
-    ],
+    update(cache) {
+      if (pairedTransactionId) {
+        removeTransactionFromCache(cache, pairedTransactionId);
+      }
+    },
+  });
+
+  const [revertReturning] = useMutation(RevertReturningDocument, {
+    update(cache, { data }) {
+      if (!data?.revertReturning) return;
+      addTransactionsToCache(cache, data.revertReturning.createdTransactions);
+    },
+  });
+
+  const [joinTransactions, { loading: joinLoading }] = useMutation(JoinTransactionsDocument, {
+    update(cache, { data }, { variables }) {
+      if (!data?.joinTransactions || !variables?.input) return;
+
+      const sourceTransactionId = variables.input.sourceTransactionId;
+
+      // Remove the absorbed transaction from the transactions list
+      removeTransactionFromCache(cache, sourceTransactionId);
+
+      // Evict stale siblingTransactions from remaining siblings
+      const remainingSiblingIds = data.joinTransactions.siblingTransactions
+        .map((s) => s.id)
+        .filter((id) => id !== data.joinTransactions.id);
+
+      if (remainingSiblingIds.length > 0) {
+        evictSiblingTransactions(cache, remainingSiblingIds);
+      }
+    },
   });
 
   const { data: accountsData } = useQuery(GetAccountsDocument, {
@@ -267,6 +313,8 @@ function TransactionDetailContent({
 
   const [showTransferForm, setShowTransferForm] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+  const [showSplitForm, setShowSplitForm] = useState(false);
+  const [joinTargetSibling, setJoinTargetSibling] = useState<TransactionSibling | null>(null);
 
   const [notesValue, setNotesValue] = useState(transaction.notes ?? "");
   const [notesSaved, setNotesSaved] = useState(false);
@@ -344,11 +392,6 @@ function TransactionDetailContent({
             destinationAccountId: Number.parseInt(selectedAccountId, 10),
           },
         },
-        refetchQueries: [
-          { query: GetTransactionsDocument },
-          { query: GetTransactionDocument, variables: { id: transaction.id } },
-          { query: GetAccountsDocument, variables: { activeOnly: true } },
-        ],
       });
       setShowTransferForm(false);
       setSelectedAccountId("");
@@ -362,16 +405,45 @@ function TransactionDetailContent({
     try {
       await revertTransfer({
         variables: { transactionId: transaction.id },
-        refetchQueries: [
-          { query: GetTransactionsDocument },
-          { query: GetTransactionDocument, variables: { id: transaction.id } },
-          { query: GetAccountsDocument, variables: { activeOnly: true } },
-        ],
       });
     } finally {
       setIsUpdating(false);
     }
   };
+
+  const handleMarkAsReturning = () => {
+    onStartReturningSelection?.(transaction.id, transaction.amount, transaction.currency);
+  };
+
+  const handleRevertReturning = async () => {
+    setIsUpdating(true);
+    try {
+      await revertReturning({
+        variables: { transactionId: transaction.id },
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleJoinTransaction = async (sourceTransactionId: number) => {
+    setIsUpdating(true);
+    try {
+      await joinTransactions({
+        variables: {
+          input: {
+            targetTransactionId: transaction.id,
+            sourceTransactionId,
+          },
+        },
+      });
+      setJoinTargetSibling(null);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const hasSiblings = transaction.siblingTransactions.length > 0;
 
   const description =
     transaction.counterpartyName || transaction.description || "Unknown";
@@ -408,6 +480,7 @@ function TransactionDetailContent({
               typeConfig.bgColor,
               typeConfig.color
             )}
+            data-qa="detail-panel-amount"
           >
             <TypeIcon className="h-4 w-4" />
             {transaction.type === TransactionTypeEnum.Debit ? "-" : "+"}
@@ -464,22 +537,51 @@ function TransactionDetailContent({
           </>
         )}
 
-        {!isTransfer && !showTransferForm && manualAccounts.length > 0 && (
+        {!isTransfer && !showTransferForm && !showSplitForm && (
           <>
-            <Button
-              onClick={() => setShowTransferForm(true)}
-              disabled={isUpdating}
-              variant="outline"
-              className="w-full gap-2"
-            >
-              <ArrowLeftRight className="h-4 w-4" />
-              Mark as Transfer
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {manualAccounts.length > 0 && (
+                <Button
+                  onClick={() => setShowTransferForm(true)}
+                  disabled={isUpdating}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                >
+                  <ArrowLeftRight className="h-3.5 w-3.5" />
+                  Transfer
+                </Button>
+              )}
+              {isCredit && (
+                <Button
+                  onClick={handleMarkAsReturning}
+                  disabled={isUpdating}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  data-qa="btn-mark-as-returning"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Returning
+                </Button>
+              )}
+              <Button
+                onClick={() => setShowSplitForm(true)}
+                disabled={isUpdating}
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                data-qa="btn-split-transaction"
+              >
+                <Scissors className="h-3.5 w-3.5" />
+                Split
+              </Button>
+            </div>
             <Separator />
           </>
         )}
 
-        {!isTransfer && showTransferForm && (
+        {!isTransfer && showTransferForm && !showSplitForm && (
           <>
             <div className="space-y-3">
               <h3 className="text-sm font-medium text-muted-foreground">
@@ -534,7 +636,105 @@ function TransactionDetailContent({
           </>
         )}
 
-        {!isTransfer && (
+        {isDebit && transaction.returningInfo && (
+          <>
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Return Info
+              </h3>
+              <div className="rounded-lg border bg-amber-50/50 p-3 dark:bg-amber-900/10">
+                <p className="text-sm">
+                  This transaction has a return of{" "}
+                  <span className="font-medium">
+                    {formatCurrency(transaction.returningInfo.returningAmount)} {transaction.currency}
+                  </span>
+                </p>
+              </div>
+              {transaction.returningInfo.isRevertible && (
+                <Button
+                  onClick={handleRevertReturning}
+                  disabled={isUpdating}
+                  variant="outline"
+                  className="w-full"
+                  data-qa="btn-revert-returning"
+                >
+                  {isUpdating ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Undo2 className="mr-2 h-4 w-4" />
+                  )}
+                  Revert Return
+                </Button>
+              )}
+            </div>
+            <Separator />
+          </>
+        )}
+
+        {!isTransfer && showSplitForm && (
+          <>
+            <SplitTransactionForm
+              transactionId={transaction.id}
+              transactionAmount={transaction.amount}
+              currency={transaction.currency}
+              onComplete={() => setShowSplitForm(false)}
+              onCancel={() => setShowSplitForm(false)}
+            />
+            <Separator />
+          </>
+        )}
+
+        {hasSiblings && (
+          <>
+            <div className="space-y-3" data-qa="split-group">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Split Group
+              </h3>
+              <div className="space-y-2">
+                {transaction.siblingTransactions.map((sibling, siblingIndex) => (
+                  <div
+                    key={sibling.id}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                    data-qa={`sibling-item-${siblingIndex}`}
+                  >
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium" data-qa={`sibling-description-${siblingIndex}`}>
+                          {sibling.description}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="tabular-nums font-medium" data-qa={`sibling-amount-${siblingIndex}`}>
+                          {formatCurrency(sibling.amount)} {sibling.currency}
+                        </span>
+                        {sibling.category && (
+                          <>
+                            <span>·</span>
+                            <span>{sibling.category.name}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-2 shrink-0 gap-1 text-xs"
+                      onClick={() => setJoinTargetSibling(sibling)}
+                      disabled={isUpdating}
+                      data-qa={`btn-join-sibling-${siblingIndex}`}
+                    >
+                      <Merge className="h-3.5 w-3.5" />
+                      Join
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <Separator />
+          </>
+        )}
+
+        {!isTransfer && !showSplitForm && (
           <>
             <div className="space-y-4">
               <h3 className="text-sm font-medium text-muted-foreground">
@@ -722,6 +922,67 @@ function TransactionDetailContent({
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={joinTargetSibling !== null}
+        onOpenChange={(open) => {
+          if (!open) setJoinTargetSibling(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[400px]" data-qa="dialog-join-confirmation">
+          <DialogHeader>
+            <DialogTitle>Join Transactions</DialogTitle>
+            <DialogDescription>
+              Merge a sibling transaction into this one.
+            </DialogDescription>
+          </DialogHeader>
+
+          {joinTargetSibling && (
+            <div className="py-4">
+              <p className="text-sm text-muted-foreground">
+                This will merge{" "}
+                <span className="font-medium text-foreground">
+                  {joinTargetSibling.description}
+                </span>{" "}
+                ({formatCurrency(joinTargetSibling.amount)} {joinTargetSibling.currency})
+                into this transaction, keeping this transaction&apos;s category and budget.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setJoinTargetSibling(null)}
+              disabled={joinLoading}
+              data-qa="btn-join-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (joinTargetSibling) {
+                  handleJoinTransaction(joinTargetSibling.id);
+                }
+              }}
+              disabled={joinLoading}
+              data-qa="btn-join-confirm"
+            >
+              {joinLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Joining...
+                </>
+              ) : (
+                <>
+                  <Merge className="mr-2 h-4 w-4" />
+                  Confirm Join
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -792,6 +1053,27 @@ function BankTransactionCard({ bankTransaction }: BankTransactionCardProps) {
           </div>
         )}
       </div>
+
+      {bankTransaction.returnHistory.length > 0 && (
+        <div className="space-y-1 border-t pt-2">
+          {bankTransaction.returnHistory.map((returnRecord) => {
+            const isOriginalSide = returnRecord.originalBankTransactionId === bankTransaction.id;
+            return (
+              <div
+                key={`${returnRecord.originalBankTransactionId}-${returnRecord.returningBankTransactionId}`}
+                className="flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400"
+              >
+                <RotateCcw className="h-3 w-3 shrink-0" />
+                <span>
+                  {isOriginalSide
+                    ? `${formatCurrency(returnRecord.amount)} ${bankTransaction.currency} returned`
+                    : `Return of ${formatCurrency(returnRecord.amount)} ${bankTransaction.currency}`}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

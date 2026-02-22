@@ -43,6 +43,8 @@ export interface TransactionFilterParams {
   accountId?: number;
   categoryId?: number;
   budgetId?: number;
+  /** If true, filter for transactions with no category assigned */
+  uncategorizedOnly?: boolean;
   /** If true, filter for transactions with no budget assigned */
   unbudgetedOnly?: boolean;
   /** Filter by account role (operational or savings) */

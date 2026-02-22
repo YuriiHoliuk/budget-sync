@@ -1,11 +1,15 @@
 import type { BankTransaction } from '@domain/entities/BankTransaction.ts';
-import type { BankTransactionRepository } from '@domain/repositories/BankTransactionRepository.ts';
+import type {
+  BankTransactionRepository,
+  BankTransactionReturnRecord,
+} from '@domain/repositories/BankTransactionRepository.ts';
 import type { DatabaseClient } from '@modules/database/DatabaseClient.ts';
 import {
+  bankTransactionReturns,
   bankTransactions,
   transactionSources,
 } from '@modules/database/schema/index.ts';
-import { and, between, eq, inArray } from 'drizzle-orm';
+import { and, between, eq, inArray, or } from 'drizzle-orm';
 import { inject, injectable } from 'tsyringe';
 import { DatabaseBankTransactionMapper } from '../../mappers/DatabaseBankTransactionMapper.ts';
 import { DATABASE_CLIENT_TOKEN } from './tokens.ts';
@@ -130,5 +134,73 @@ export class DatabaseBankTransactionRepository
       .insert(transactionSources)
       .values(links)
       .onConflictDoNothing();
+  }
+
+  async unlinkTransactionSource(
+    transactionId: number,
+    bankTransactionId: number,
+  ): Promise<void> {
+    await this.db
+      .delete(transactionSources)
+      .where(
+        and(
+          eq(transactionSources.transactionId, transactionId),
+          eq(transactionSources.bankTransactionId, bankTransactionId),
+        ),
+      );
+  }
+
+  async saveReturn(params: {
+    originalBankTransactionId: number;
+    returningBankTransactionId: number;
+    amount: number;
+  }): Promise<void> {
+    await this.db
+      .insert(bankTransactionReturns)
+      .values(params)
+      .onConflictDoNothing();
+  }
+
+  async deleteReturnsByReturningBankTransactionId(
+    returningBankTransactionId: number,
+  ): Promise<void> {
+    await this.db
+      .delete(bankTransactionReturns)
+      .where(
+        eq(
+          bankTransactionReturns.returningBankTransactionId,
+          returningBankTransactionId,
+        ),
+      );
+  }
+
+  async findReturnsByBankTransactionIds(
+    bankTransactionIds: number[],
+  ): Promise<BankTransactionReturnRecord[]> {
+    if (bankTransactionIds.length === 0) {
+      return [];
+    }
+    const rows = await this.db
+      .select()
+      .from(bankTransactionReturns)
+      .where(
+        or(
+          inArray(
+            bankTransactionReturns.originalBankTransactionId,
+            bankTransactionIds,
+          ),
+          inArray(
+            bankTransactionReturns.returningBankTransactionId,
+            bankTransactionIds,
+          ),
+        ),
+      );
+    return rows.map((row) => ({
+      id: row.id,
+      originalBankTransactionId: row.originalBankTransactionId,
+      returningBankTransactionId: row.returningBankTransactionId,
+      amount: row.amount,
+      createdAt: row.createdAt ?? new Date(),
+    }));
   }
 }

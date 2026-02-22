@@ -47,6 +47,8 @@ export {
 export {
   CATEGORIZATION_STATUS_TO_GQL,
   mapTransactionRecordToGql,
+  mapTransactionRecordToSiblingGql,
+  type SiblingTransactionGql,
   TRANSACTION_TYPE_TO_GQL,
   type TransactionGql,
 } from './transaction.ts';

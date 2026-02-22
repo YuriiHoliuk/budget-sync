@@ -211,3 +211,158 @@ export class TransferRevertNotAllowedError extends DomainError {
     );
   }
 }
+
+/**
+ * Thrown when the returning transaction is not a credit transaction.
+ */
+export class ReturningTransactionNotCreditError extends DomainError {
+  constructor(public readonly transactionId: number) {
+    super(
+      `Transaction ${transactionId} must be a credit transaction to mark as returning`,
+    );
+  }
+}
+
+/**
+ * Thrown when the original transaction is not a debit transaction.
+ */
+export class OriginalTransactionNotDebitError extends DomainError {
+  constructor(public readonly transactionId: number) {
+    super(
+      `Transaction ${transactionId} must be a debit transaction to be the original expense`,
+    );
+  }
+}
+
+/**
+ * Thrown when the returning amount exceeds the original transaction amount.
+ */
+export class ReturningAmountExceedsOriginalError extends DomainError {
+  constructor(
+    public readonly returningAmount: number,
+    public readonly originalAmount: number,
+  ) {
+    super(
+      `Returning amount (${returningAmount}) exceeds original amount (${originalAmount})`,
+    );
+  }
+}
+
+/**
+ * Thrown when attempting to mark a transfer transaction as returning.
+ */
+export class TransactionIsTransferError extends DomainError {
+  constructor(public readonly transactionId: number) {
+    super(
+      `Transaction ${transactionId} is a transfer and cannot be marked as returning`,
+    );
+  }
+}
+
+/**
+ * Thrown when the returning and original transactions belong to different accounts.
+ */
+export class ReturningAccountMismatchError extends DomainError {
+  constructor(
+    public readonly returningAccountId: number,
+    public readonly originalAccountId: number,
+  ) {
+    super(
+      `Returning transaction (account ${returningAccountId}) and original transaction (account ${originalAccountId}) must belong to the same account`,
+    );
+  }
+}
+
+/**
+ * Thrown when trying to revert a return that has no credit bank transactions linked.
+ */
+export class NoReturningBankTransactionsError extends DomainError {
+  constructor(public readonly transactionId: number) {
+    super(
+      `Transaction ${transactionId} has no returning bank transactions to revert`,
+    );
+  }
+}
+
+/**
+ * Thrown when the total amount of split parts exceeds the original transaction amount.
+ */
+export class SplitAmountExceedsOriginalError extends DomainError {
+  constructor(
+    public readonly splitTotal: number,
+    public readonly originalAmount: number,
+  ) {
+    super(
+      `Total split amount (${splitTotal}) exceeds the original transaction amount (${originalAmount})`,
+    );
+  }
+}
+
+/**
+ * Thrown when a split part has an amount that is zero or negative.
+ */
+export class SplitAmountMustBePositiveError extends DomainError {
+  constructor(public readonly amount: number) {
+    super(`Split amount must be positive, but got ${amount}`);
+  }
+}
+
+/**
+ * Thrown when splitting a transaction would leave a remainder that is zero or negative.
+ */
+export class SplitRemainderMustBePositiveError extends DomainError {
+  constructor(
+    public readonly remainder: number,
+    public readonly originalAmount: number,
+  ) {
+    super(
+      `Remainder after split (${remainder}) must be positive for original transaction amount (${originalAmount})`,
+    );
+  }
+}
+
+/**
+ * Thrown when attempting to split a transfer transaction.
+ * Transfers cannot be split because they represent linked movements between accounts.
+ */
+export class TransactionCannotBeSplitError extends DomainError {
+  constructor(public readonly transactionId: number) {
+    super(`Transaction ${transactionId} is a transfer and cannot be split`);
+  }
+}
+
+/**
+ * Thrown when attempting to join transactions that do not share the same bank transaction.
+ * Only sibling transactions (originating from the same bank transaction) can be joined.
+ */
+export class JoinTransactionsNotSiblingsError extends DomainError {
+  constructor(
+    public readonly sourceTransactionId: number,
+    public readonly targetTransactionId: number,
+  ) {
+    super(
+      `Transactions ${sourceTransactionId} and ${targetTransactionId} cannot be joined because they do not share the same bank transaction`,
+    );
+  }
+}
+
+/**
+ * Thrown when attempting to join a transaction with itself.
+ */
+export class JoinTransactionCannotBeSelfError extends DomainError {
+  constructor(public readonly transactionId: number) {
+    super(`Transaction ${transactionId} cannot be joined with itself`);
+  }
+}
+
+/**
+ * Thrown when attempting to join into a target transaction that is a transfer.
+ * Transfer transactions cannot be the target of a join operation.
+ */
+export class JoinTargetIsTransferError extends DomainError {
+  constructor(public readonly targetTransactionId: number) {
+    super(
+      `Cannot join into transaction ${targetTransactionId} because it is a transfer`,
+    );
+  }
+}

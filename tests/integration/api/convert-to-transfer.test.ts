@@ -63,6 +63,22 @@ const GET_ACCOUNT = `
   }
 `;
 
+const GET_TRANSACTIONS = `
+  query GetTransactions {
+    transactions(pagination: { limit: 50 }) {
+      items {
+        id
+        type
+        account {
+          id
+          name
+        }
+      }
+      totalCount
+    }
+  }
+`;
+
 describe('Mutation: convertToTransfer', () => {
   beforeAll(async () => {
     await harness.setup();
@@ -253,6 +269,65 @@ describe('Mutation: convertToTransfer', () => {
 
     expect(result.errors).toBeDefined();
     expect(result.errors?.[0]?.message).toContain('not allowed');
+  });
+
+  test('counterpart transaction should appear in transactions list', async () => {
+    const sourceAccount = await createTestAccount(harness.getDb(), {
+      name: 'Monobank Card',
+      source: 'bank_sync',
+    });
+    const manualAccount = await createTestAccount(harness.getDb(), {
+      name: 'Cash',
+      source: 'manual',
+      balance: 50000,
+    });
+
+    const transaction = await createTestTransaction(harness.getDb(), {
+      accountId: sourceAccount.id,
+      accountExternalId: sourceAccount.externalId,
+      type: 'debit',
+      amount: -10000,
+    });
+
+    const convertResult = await harness.executeQuery<{
+      convertToTransfer: {
+        sourceTransaction: { id: number; type: string };
+        counterpartTransaction: { id: number; type: string };
+      };
+    }>(CONVERT_TO_TRANSFER, {
+      input: {
+        transactionId: transaction.id,
+        destinationAccountId: manualAccount.id,
+      },
+    });
+
+    expect(convertResult.errors).toBeUndefined();
+    const counterpartId =
+      convertResult.data?.convertToTransfer.counterpartTransaction.id;
+
+    // Query the full transactions list — counterpart should be included
+    const listResult = await harness.executeQuery<{
+      transactions: {
+        items: Array<{
+          id: number;
+          type: string;
+          account: { id: number; name: string } | null;
+        }>;
+        totalCount: number;
+      };
+    }>(GET_TRANSACTIONS, {});
+
+    expect(listResult.errors).toBeUndefined();
+    expect(listResult.data?.transactions.totalCount).toBe(2);
+    const ids = listResult.data?.transactions.items.map((item) => item.id);
+    expect(ids).toContain(transaction.id);
+    expect(ids).toContain(counterpartId);
+
+    // Counterpart should have the manual account
+    const counterpartItem = listResult.data?.transactions.items.find(
+      (item) => item.id === counterpartId,
+    );
+    expect(counterpartItem?.account?.name).toBe('Cash');
   });
 
   test('should reject conversion with currency mismatch', async () => {

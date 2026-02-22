@@ -4,6 +4,7 @@ mutation UpdateTransactionCategory($input: UpdateTransactionCategoryInput!) {
     category {
       id
       name
+      fullPath
     }
     categorizationStatus
   }
@@ -65,7 +66,32 @@ mutation ConvertToTransfer($input: ConvertToTransferInput!) {
     }
     counterpartTransaction {
       id
+      date
+      amount
+      currency
       type
+      description
+      counterpartyName
+      counterpartyIban
+      mcc
+      categorizationStatus
+      categoryReason
+      budgetReason
+      notes
+      bankTransactionCount
+      category {
+        id
+        name
+        fullPath
+      }
+      budget {
+        id
+        name
+      }
+      account {
+        id
+        name
+      }
     }
   }
 }
@@ -74,5 +100,204 @@ mutation RevertTransfer($transactionId: Int!) {
   revertTransfer(transactionId: $transactionId) {
     id
     type
+  }
+}
+
+mutation MarkAsReturning($input: MarkAsReturningInput!) {
+  markAsReturning(input: $input) {
+    type
+    originalTransaction {
+      id
+      amount
+      type
+      bankTransactionCount
+    }
+    returningAmount
+    originalAmount
+    newOriginalAmount
+  }
+}
+
+mutation RevertReturning($transactionId: Int!) {
+  revertReturning(transactionId: $transactionId) {
+    transaction {
+      id
+      amount
+      type
+      bankTransactionCount
+      returningInfo {
+        isRevertible
+        returningAmount
+      }
+    }
+    createdTransactions {
+      id
+      date
+      amount
+      currency
+      type
+      description
+      counterpartyName
+      counterpartyIban
+      mcc
+      categorizationStatus
+      categoryReason
+      budgetReason
+      notes
+      bankTransactionCount
+      category {
+        id
+        name
+        fullPath
+      }
+      budget {
+        id
+        name
+      }
+      account {
+        id
+        name
+      }
+    }
+  }
+}
+
+mutation SplitTransaction($input: SplitTransactionInput!) {
+  splitTransaction(input: $input) {
+    sourceTransaction {
+      id
+      date
+      amount
+      currency
+      type
+      description
+      counterpartyName
+      counterpartyIban
+      mcc
+      categorizationStatus
+      categoryReason
+      budgetReason
+      notes
+      bankTransactionCount
+      category {
+        id
+        name
+        fullPath
+      }
+      budget {
+        id
+        name
+      }
+      account {
+        id
+        name
+      }
+      siblingTransactions {
+        id
+        amount
+        currency
+        description
+        category {
+          id
+          name
+          fullPath
+        }
+        budget {
+          id
+          name
+        }
+      }
+    }
+    splitTransactions {
+      id
+      date
+      amount
+      currency
+      type
+      description
+      counterpartyName
+      counterpartyIban
+      mcc
+      categorizationStatus
+      categoryReason
+      budgetReason
+      notes
+      bankTransactionCount
+      category {
+        id
+        name
+        fullPath
+      }
+      budget {
+        id
+        name
+      }
+      account {
+        id
+        name
+      }
+      siblingTransactions {
+        id
+        amount
+        currency
+        description
+        category {
+          id
+          name
+          fullPath
+        }
+        budget {
+          id
+          name
+        }
+      }
+    }
+  }
+}
+
+mutation JoinTransactions($input: JoinTransactionsInput!) {
+  joinTransactions(input: $input) {
+    id
+    date
+    amount
+    currency
+    type
+    description
+    counterpartyName
+    counterpartyIban
+    mcc
+    categorizationStatus
+    categoryReason
+    budgetReason
+    notes
+    bankTransactionCount
+    category {
+      id
+      name
+      fullPath
+    }
+    budget {
+      id
+      name
+    }
+    account {
+      id
+      name
+    }
+    siblingTransactions {
+      id
+      amount
+      currency
+      description
+      category {
+        id
+        name
+        fullPath
+      }
+      budget {
+        id
+        name
+      }
+    }
   }
 }

@@ -345,7 +345,7 @@ export async function createTestTransferPair(
 
 export async function clearAllTestData(db: Db): Promise<void> {
   await db.execute(
-    sql`TRUNCATE TABLE transfer_pairs, transaction_sources, bank_transactions, allocations, transactions, budget_targets, budgets, budget_groups, categories, accounts, categorization_rules, budgetization_rules RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE transfer_pairs, transaction_sources, bank_transaction_returns, bank_transactions, allocations, transactions, budget_targets, budgets, budget_groups, categories, accounts, categorization_rules, budgetization_rules RESTART IDENTITY CASCADE`,
   );
 }
 

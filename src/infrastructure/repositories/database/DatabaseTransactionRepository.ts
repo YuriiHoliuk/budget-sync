@@ -572,6 +572,111 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       .where(eq(transactions.id, dbId));
   }
 
+  async createSplitRecord(params: {
+    sourceTransactionId: number;
+    amount: number;
+    description: string | null;
+    categoryId: number | null;
+    budgetId: number | null;
+    notes: string | null;
+  }): Promise<TransactionRecord> {
+    const sourceRows = await this.db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.id, params.sourceTransactionId))
+      .limit(1);
+    const source = sourceRows[0];
+    if (!source) {
+      throw new Error(
+        `Source transaction not found: ${params.sourceTransactionId}`,
+      );
+    }
+
+    const externalId = `split-${params.sourceTransactionId}-${Date.now()}-0`;
+
+    const rows = await this.db
+      .insert(transactions)
+      .values({
+        externalId,
+        date: source.date,
+        amount: params.amount,
+        currency: source.currency,
+        type: source.type,
+        accountId: source.accountId,
+        accountExternalId: source.accountExternalId,
+        categoryId: params.categoryId,
+        budgetId: params.budgetId,
+        categorizationStatus: 'verified',
+        categoryReason: null,
+        budgetReason: null,
+        mcc: source.mcc,
+        bankDescription: params.description,
+        counterparty: source.counterparty,
+        counterpartyIban: source.counterpartyIban,
+        cashback: 0,
+        commission: 0,
+        hold: false,
+        receiptId: null,
+        tags: null,
+        notes: params.notes,
+      })
+      .returning();
+
+    const inserted = rows[0];
+    if (!inserted) {
+      throw new Error('Failed to insert split transaction');
+    }
+
+    const record = await this.findRecordById(inserted.id);
+    if (!record) {
+      throw new Error('Failed to find inserted split transaction');
+    }
+    return record;
+  }
+
+  async findSiblingTransactions(
+    transactionId: number,
+  ): Promise<TransactionRecord[]> {
+    // Find bank_transaction IDs linked to the source transaction
+    const linkedBankTxIds = this.db
+      .select({ bankTransactionId: transactionSources.bankTransactionId })
+      .from(transactionSources)
+      .where(eq(transactionSources.transactionId, transactionId));
+
+    // Find all transaction IDs linked to those bank transactions
+    const siblingTxIds = this.db
+      .select({ transactionId: transactionSources.transactionId })
+      .from(transactionSources)
+      .where(inArray(transactionSources.bankTransactionId, linkedBankTxIds));
+
+    // Fetch sibling transactions (excluding the source) with bank_transaction_count
+    const rows = await this.db
+      .select({
+        transaction: transactions,
+        bankTransactionCount: count(transactionSources.id),
+      })
+      .from(transactions)
+      .leftJoin(
+        transactionSources,
+        eq(transactions.id, transactionSources.transactionId),
+      )
+      .where(
+        and(
+          ne(transactions.id, transactionId),
+          inArray(transactions.id, siblingTxIds),
+        ),
+      )
+      .groupBy(transactions.id);
+
+    return rows.map((row) =>
+      this.rowToRecord(row.transaction, row.bankTransactionCount),
+    );
+  }
+
+  async deleteByDbId(dbId: number): Promise<void> {
+    await this.db.delete(transactions).where(eq(transactions.id, dbId));
+  }
+
   private rowToRecord(
     row: TransactionRow,
     bankTransactionCount = 0,
@@ -609,15 +714,8 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     if (filter.accountId !== undefined) {
       conditions.push(eq(transactions.accountId, filter.accountId));
     }
-    if (filter.categoryId !== undefined) {
-      conditions.push(eq(transactions.categoryId, filter.categoryId));
-    }
-    // unbudgetedOnly takes precedence over budgetId filter
-    if (filter.unbudgetedOnly) {
-      conditions.push(isNull(transactions.budgetId));
-    } else if (filter.budgetId !== undefined) {
-      conditions.push(eq(transactions.budgetId, filter.budgetId));
-    }
+    this.addCategoryCondition(conditions, filter);
+    this.addBudgetCondition(conditions, filter);
     // accountRole filter needs to reference the joined accounts table
     if (filter.accountRole) {
       conditions.push(eq(accounts.role, filter.accountRole));
@@ -649,6 +747,30 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       );
     }
     return conditions;
+  }
+
+  /** uncategorizedOnly takes precedence over categoryId filter */
+  private addCategoryCondition(
+    conditions: SQL[],
+    filter: TransactionFilterParams,
+  ): void {
+    if (filter.uncategorizedOnly) {
+      conditions.push(isNull(transactions.categoryId));
+    } else if (filter.categoryId !== undefined) {
+      conditions.push(eq(transactions.categoryId, filter.categoryId));
+    }
+  }
+
+  /** unbudgetedOnly takes precedence over budgetId filter */
+  private addBudgetCondition(
+    conditions: SQL[],
+    filter: TransactionFilterParams,
+  ): void {
+    if (filter.unbudgetedOnly) {
+      conditions.push(isNull(transactions.budgetId));
+    } else if (filter.budgetId !== undefined) {
+      conditions.push(eq(transactions.budgetId, filter.budgetId));
+    }
   }
 
   async countByBudgetId(): Promise<Map<number, number>> {

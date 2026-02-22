@@ -1,4 +1,4 @@
-import type { ApolloCache } from "@apollo/client";
+import type { ApolloCache, Reference } from "@apollo/client";
 import { arrayMove } from "@dnd-kit/sortable";
 import {
   GetMonthlyOverviewDocument,
@@ -168,4 +168,103 @@ export function reorderBudgetInCache(
       },
     },
   });
+}
+
+/**
+ * Adds new transactions to all cached `transactions` query results.
+ * Inserts in sorted position (descending by date, then by id) to match the table order.
+ * Used after split/revertReturning/convertToTransfer to insert newly created transactions.
+ */
+export function addTransactionsToCache(
+  cache: ApolloCache,
+  newTransactions: Array<{ id: number }>,
+): void {
+  cache.modify({
+    fields: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cache.modify field modifiers are loosely typed
+      transactions(existing: any, { toReference, readField }: any) {
+        if (!existing?.items) return existing;
+
+        const newRefs = newTransactions
+          .map((transaction) =>
+            toReference({ __typename: "Transaction", id: transaction.id }),
+          )
+          .filter((ref: unknown): ref is Reference => ref != null);
+
+        if (newRefs.length === 0) return existing;
+
+        const merged = [...existing.items, ...newRefs];
+        merged.sort((refA: Reference, refB: Reference) => {
+          const dateA = String(readField("date", refA) ?? "");
+          const dateB = String(readField("date", refB) ?? "");
+          if (dateA !== dateB) return dateB.localeCompare(dateA);
+          const idA = Number(readField("id", refA) ?? 0);
+          const idB = Number(readField("id", refB) ?? 0);
+          return idB - idA;
+        });
+
+        return {
+          ...existing,
+          items: merged,
+          totalCount: existing.totalCount + newRefs.length,
+        };
+      },
+    },
+  });
+}
+
+/**
+ * Removes a transaction from all cached `transactions` query results and evicts it from the cache.
+ * Used after join to remove the absorbed transaction from the table.
+ */
+export function removeTransactionFromCache(
+  cache: ApolloCache,
+  transactionId: number,
+): void {
+  cache.modify({
+    fields: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cache.modify field modifiers are loosely typed
+      transactions(existing: any, { readField }: any) {
+        if (!existing?.items) return existing;
+
+        return {
+          ...existing,
+          items: existing.items.filter(
+            (ref: Reference) => readField("id", ref) !== transactionId,
+          ),
+          totalCount: existing.totalCount - 1,
+        };
+      },
+    },
+  });
+
+  const cacheId = cache.identify({
+    __typename: "Transaction",
+    id: transactionId,
+  });
+  if (cacheId) {
+    cache.evict({ id: cacheId });
+    cache.gc();
+  }
+}
+
+/**
+ * Evicts the `siblingTransactions` field from specific transactions in the cache.
+ * Forces Apollo to re-fetch sibling data when those transactions are viewed.
+ * Used to invalidate stale sibling lists after split/join operations.
+ */
+export function evictSiblingTransactions(
+  cache: ApolloCache,
+  transactionIds: number[],
+): void {
+  for (const transactionId of transactionIds) {
+    const cacheId = cache.identify({
+      __typename: "Transaction",
+      id: transactionId,
+    });
+    if (cacheId) {
+      cache.evict({ id: cacheId, fieldName: "siblingTransactions" });
+    }
+  }
+  cache.gc();
 }

@@ -3,7 +3,14 @@ import {
   type CreateTransactionRequestDTO,
   CreateTransactionUseCase,
 } from '@application/use-cases/CreateTransaction.ts';
+import { JoinTransactionsUseCase } from '@application/use-cases/JoinTransactions.ts';
+import { MarkAsReturningUseCase } from '@application/use-cases/MarkAsReturning.ts';
+import { RevertReturningUseCase } from '@application/use-cases/RevertReturning.ts';
 import { RevertTransferUseCase } from '@application/use-cases/RevertTransfer.ts';
+import {
+  type SplitTransactionRequestDTO,
+  SplitTransactionUseCase,
+} from '@application/use-cases/SplitTransaction.ts';
 import {
   ACCOUNT_REPOSITORY_TOKEN,
   type AccountRepository,
@@ -32,6 +39,8 @@ import {
   mapBudgetToGql,
   mapCategoryToGql,
   mapTransactionRecordToGql,
+  mapTransactionRecordToSiblingGql,
+  type SiblingTransactionGql,
   type TransactionGql,
   toMajorUnits,
   toMajorUnitsOrNull,
@@ -42,6 +51,7 @@ interface TransactionFilter {
   accountId?: number;
   categoryId?: number;
   budgetId?: number;
+  uncategorizedOnly?: boolean;
   unbudgetedOnly?: boolean;
   accountRole?: 'OPERATIONAL' | 'SAVINGS';
   type?: string;
@@ -102,6 +112,10 @@ export class TransactionsResolver extends Resolver {
     private createTransactionUseCase: CreateTransactionUseCase,
     private convertToTransferUseCase: ConvertToTransferUseCase,
     private revertTransferUseCase: RevertTransferUseCase,
+    private markAsReturningUseCase: MarkAsReturningUseCase,
+    private revertReturningUseCase: RevertReturningUseCase,
+    private splitTransactionUseCase: SplitTransactionUseCase,
+    private joinTransactionsUseCase: JoinTransactionsUseCase,
   ) {
     super();
   }
@@ -165,6 +179,41 @@ export class TransactionsResolver extends Resolver {
         ) => this.convertToTransfer(args.input),
         revertTransfer: (_parent: unknown, args: { transactionId: number }) =>
           this.revertTransfer(args.transactionId),
+        markAsReturning: (
+          _parent: unknown,
+          args: {
+            input: {
+              returningTransactionId: number;
+              originalTransactionId: number;
+            };
+          },
+        ) => this.markAsReturning(args.input),
+        revertReturning: (_parent: unknown, args: { transactionId: number }) =>
+          this.revertReturning(args.transactionId),
+        splitTransaction: (
+          _parent: unknown,
+          args: {
+            input: {
+              transactionId: number;
+              parts: Array<{
+                amount: number;
+                description?: string | null;
+                categoryId?: number | null;
+                budgetId?: number | null;
+                notes?: string | null;
+              }>;
+            };
+          },
+        ) => this.splitTransaction(args.input),
+        joinTransactions: (
+          _parent: unknown,
+          args: {
+            input: {
+              targetTransactionId: number;
+              sourceTransactionId: number;
+            };
+          },
+        ) => this.joinTransactions(args.input),
       },
       Transaction: {
         account: (parent: TransactionGql) =>
@@ -177,6 +226,16 @@ export class TransactionsResolver extends Resolver {
           this.getBankTransactions(parent.id),
         transferPair: (parent: TransactionGql) =>
           this.getTransferPairInfo(parent.id),
+        returningInfo: (parent: TransactionGql) =>
+          this.getReturningInfo(parent.id, parent.type),
+        siblingTransactions: (parent: TransactionGql) =>
+          this.getSiblingTransactions(parent.id),
+      },
+      SiblingTransaction: {
+        category: (parent: SiblingTransactionGql) =>
+          this.getTransactionCategory(parent.categoryId),
+        budget: (parent: SiblingTransactionGql) =>
+          this.getTransactionBudget(parent.budgetId),
       },
     };
   }
@@ -328,6 +387,15 @@ export class TransactionsResolver extends Resolver {
   private async getBankTransactions(transactionId: number) {
     const bankTxns =
       await this.bankTransactionRepository.findByTransactionId(transactionId);
+
+    const bankTxnIds = bankTxns.map((bankTxn) => bankTxn.id);
+    const allReturns =
+      bankTxnIds.length > 0
+        ? await this.bankTransactionRepository.findReturnsByBankTransactionIds(
+            bankTxnIds,
+          )
+        : [];
+
     return bankTxns.map((bankTxn) => ({
       id: bankTxn.id,
       externalId: bankTxn.externalId,
@@ -344,6 +412,18 @@ export class TransactionsResolver extends Resolver {
       commission: toMajorUnitsOrNull(bankTxn.commission?.amount ?? null),
       hold: bankTxn.hold,
       receiptId: bankTxn.receiptId ?? null,
+      returnHistory: allReturns
+        .filter(
+          (returnRecord) =>
+            returnRecord.originalBankTransactionId === bankTxn.id ||
+            returnRecord.returningBankTransactionId === bankTxn.id,
+        )
+        .map((returnRecord) => ({
+          originalBankTransactionId: returnRecord.originalBankTransactionId,
+          returningBankTransactionId: returnRecord.returningBankTransactionId,
+          amount: toMajorUnits(returnRecord.amount),
+          createdAt: returnRecord.createdAt.toISOString(),
+        })),
     }));
   }
 
@@ -423,6 +503,152 @@ export class TransactionsResolver extends Resolver {
     return mapTransactionRecordToGql(record);
   }
 
+  private async markAsReturning(input: {
+    returningTransactionId: number;
+    originalTransactionId: number;
+  }) {
+    const result = await this.markAsReturningUseCase.execute(input);
+
+    let originalTransaction = null;
+    if (result.type === 'partial') {
+      const record = await this.transactionRepository.findRecordById(
+        result.originalTransactionId,
+      );
+      if (record) {
+        originalTransaction = mapTransactionRecordToGql(record);
+      }
+    }
+
+    return {
+      type: result.type === 'partial' ? 'PARTIAL' : 'FULL',
+      originalTransaction,
+      returningAmount: toMajorUnits(result.returningAmount),
+      originalAmount: toMajorUnits(result.originalAmount),
+      newOriginalAmount:
+        result.newOriginalAmount !== null
+          ? toMajorUnits(result.newOriginalAmount)
+          : null,
+    };
+  }
+
+  private async revertReturning(transactionId: number) {
+    const result = await this.revertReturningUseCase.execute({ transactionId });
+
+    const [originalRecord, ...createdRecords] = await Promise.all([
+      this.transactionRepository.findRecordById(result.originalTransactionId),
+      ...result.createdTransactionIds.map((id) =>
+        this.transactionRepository.findRecordById(id),
+      ),
+    ]);
+
+    if (!originalRecord) {
+      throw new Error(`Transaction not found with id: ${transactionId}`);
+    }
+
+    return {
+      transaction: mapTransactionRecordToGql(originalRecord),
+      createdTransactions: createdRecords
+        .filter(
+          (record): record is NonNullable<typeof record> => record !== null,
+        )
+        .map(mapTransactionRecordToGql),
+    };
+  }
+
+  private async splitTransaction(input: {
+    transactionId: number;
+    parts: Array<{
+      amount: number;
+      description?: string | null;
+      categoryId?: number | null;
+      budgetId?: number | null;
+      notes?: string | null;
+    }>;
+  }) {
+    const dto: SplitTransactionRequestDTO = {
+      transactionId: input.transactionId,
+      parts: input.parts.map((part) => ({
+        amount: part.amount,
+        description: part.description ?? null,
+        categoryId: part.categoryId ?? null,
+        budgetId: part.budgetId ?? null,
+        notes: part.notes ?? null,
+      })),
+    };
+
+    const result = await this.splitTransactionUseCase.execute(dto);
+
+    const [sourceRecord, ...splitRecords] = await Promise.all([
+      this.transactionRepository.findRecordById(result.sourceTransactionId),
+      ...result.splitTransactionIds.map((id) =>
+        this.transactionRepository.findRecordById(id),
+      ),
+    ]);
+
+    if (!sourceRecord) {
+      throw new Error(
+        `Failed to retrieve source transaction: ${result.sourceTransactionId}`,
+      );
+    }
+
+    const validSplitRecords = splitRecords.filter(
+      (record): record is NonNullable<typeof record> => record !== null,
+    );
+
+    return {
+      sourceTransaction: mapTransactionRecordToGql(sourceRecord),
+      splitTransactions: validSplitRecords.map(mapTransactionRecordToGql),
+    };
+  }
+
+  private async joinTransactions(input: {
+    targetTransactionId: number;
+    sourceTransactionId: number;
+  }) {
+    const result = await this.joinTransactionsUseCase.execute(input);
+
+    const record = await this.transactionRepository.findRecordById(
+      result.targetTransactionId,
+    );
+    if (!record) {
+      throw new Error(
+        `Failed to retrieve target transaction: ${result.targetTransactionId}`,
+      );
+    }
+
+    return mapTransactionRecordToGql(record);
+  }
+
+  private async getSiblingTransactions(transactionId: number) {
+    const siblings =
+      await this.transactionRepository.findSiblingTransactions(transactionId);
+    return siblings.map(mapTransactionRecordToSiblingGql);
+  }
+
+  private async getReturningInfo(transactionId: number, type: string) {
+    if (type !== 'DEBIT') {
+      return null;
+    }
+
+    const bankTxs =
+      await this.bankTransactionRepository.findByTransactionId(transactionId);
+    const creditBankTxs = bankTxs.filter((bankTx) => bankTx.isCredit);
+
+    if (creditBankTxs.length === 0) {
+      return null;
+    }
+
+    const returningAmount = creditBankTxs.reduce(
+      (sum, bankTx) => sum + Math.abs(bankTx.amount.amount),
+      0,
+    );
+
+    return {
+      isRevertible: true,
+      returningAmount: toMajorUnits(returningAmount),
+    };
+  }
+
   private async getTransferPairInfo(transactionId: number) {
     const pair =
       await this.transactionRepository.findTransferPairByTransactionId(
@@ -464,16 +690,32 @@ export class TransactionsResolver extends Resolver {
       return {};
     }
     return {
-      accountId: filter.accountId ?? undefined,
-      categoryId: filter.categoryId ?? undefined,
-      budgetId: filter.budgetId ?? undefined,
-      unbudgetedOnly: filter.unbudgetedOnly ?? undefined,
+      ...this.mapCoreFilters(filter),
       accountRole: this.mapAccountRole(filter.accountRole),
       type: filter.type ?? undefined,
       categorizationStatus: filter.categorizationStatus ?? undefined,
       dateFrom: filter.dateFrom ?? undefined,
       dateTo: filter.dateTo ?? undefined,
       search: filter.search ?? undefined,
+    };
+  }
+
+  private mapCoreFilters(
+    filter: TransactionFilter,
+  ): Pick<
+    TransactionFilterParams,
+    | 'accountId'
+    | 'categoryId'
+    | 'uncategorizedOnly'
+    | 'budgetId'
+    | 'unbudgetedOnly'
+  > {
+    return {
+      accountId: filter.accountId ?? undefined,
+      categoryId: filter.categoryId ?? undefined,
+      uncategorizedOnly: filter.uncategorizedOnly ?? undefined,
+      budgetId: filter.budgetId ?? undefined,
+      unbudgetedOnly: filter.unbudgetedOnly ?? undefined,
     };
   }
 

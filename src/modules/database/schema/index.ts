@@ -1,5 +1,6 @@
 export { accounts } from './accounts.ts';
 export { allocations } from './allocations.ts';
+export { bankTransactionReturns } from './bankTransactionReturns.ts';
 export { bankTransactions } from './bankTransactions.ts';
 export { budgetGroups } from './budgetGroups.ts';
 export { budgetizationRules } from './budgetizationRules.ts';

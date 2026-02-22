@@ -128,6 +128,20 @@ export abstract class TransactionRepository extends Repository<
   } | null>;
   abstract updateTransactionAmount(dbId: number, amount: number): Promise<void>;
 
+  // Split/join transaction methods
+  abstract createSplitRecord(params: {
+    sourceTransactionId: number;
+    amount: number;
+    description: string | null;
+    categoryId: number | null;
+    budgetId: number | null;
+    notes: string | null;
+  }): Promise<TransactionRecord>;
+  abstract findSiblingTransactions(
+    transactionId: number,
+  ): Promise<TransactionRecord[]>;
+  abstract deleteByDbId(dbId: number): Promise<void>;
+
   // Summary methods for budget calculations
   abstract findTransactionSummaries(): Promise<TransactionSummary[]>;
 
