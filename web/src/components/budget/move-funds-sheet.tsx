@@ -16,11 +16,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BudgetCombobox } from "@/components/budget/budget-combobox";
 import {
+  CreateAllocationDocument,
   MoveFundsDocument,
   type BudgetSummary,
 } from "@/graphql/generated/graphql";
 import { useMonth } from "@/hooks/use-month";
-import { updateMonthlyOverviewCacheForMoveFunds } from "@/lib/cache-utils";
+import {
+  updateMonthlyOverviewCache,
+  updateMonthlyOverviewCacheForMoveFunds,
+} from "@/lib/cache-utils";
 import { formatCurrency } from "@/lib/format";
 
 interface MoveFundsSheetProps {
@@ -44,7 +48,11 @@ export function MoveFundsSheet({
   const [amount, setAmount] = useState<string>("");
   const [error, setError] = useState<string>("");
 
-  const [moveFunds, { loading }] = useMutation(MoveFundsDocument);
+  const [moveFunds, { loading: moveFundsLoading }] = useMutation(MoveFundsDocument);
+  const [createAllocation, { loading: createAllocationLoading }] = useMutation(CreateAllocationDocument);
+  const loading = moveFundsLoading || createAllocationLoading;
+
+  const isUnallocateMode = destBudgetId === null;
 
   const budgets = useMemo(
     () => budgetSummaries.map((summary) => ({ id: summary.budgetId, name: summary.name })),
@@ -67,43 +75,58 @@ export function MoveFundsSheet({
   const isValidAmount = !Number.isNaN(parsedAmount) && parsedAmount > 0;
   const canSubmit =
     sourceBudgetId !== null &&
-    destBudgetId !== null &&
-    sourceBudgetId !== destBudgetId &&
     isValidAmount &&
-    !loading;
+    !loading &&
+    (destBudgetId === null || destBudgetId !== sourceBudgetId);
 
   const handleSubmit = async () => {
-    if (!canSubmit || sourceBudgetId === null || destBudgetId === null) return;
+    if (!canSubmit || sourceBudgetId === null) return;
 
     setError("");
 
     try {
-      await moveFunds({
-        variables: {
-          input: {
-            sourceBudgetId,
-            destBudgetId,
-            amount: parsedAmount,
-            currency: "UAH",
-            period: month,
+      if (destBudgetId !== null) {
+        await moveFunds({
+          variables: {
+            input: {
+              sourceBudgetId,
+              destBudgetId,
+              amount: parsedAmount,
+              currency: "UAH",
+              period: month,
+            },
           },
-        },
-        update: (cache) => {
-          updateMonthlyOverviewCacheForMoveFunds(
-            cache,
-            month,
-            sourceBudgetId,
-            destBudgetId,
-            parsedAmount,
-          );
-        },
-      });
+          update: (cache) => {
+            updateMonthlyOverviewCacheForMoveFunds(
+              cache,
+              month,
+              sourceBudgetId,
+              destBudgetId,
+              parsedAmount,
+            );
+          },
+        });
+      } else {
+        await createAllocation({
+          variables: {
+            input: {
+              budgetId: sourceBudgetId,
+              amount: -parsedAmount,
+              currency: "UAH",
+              period: month,
+            },
+          },
+          update: (cache) => {
+            updateMonthlyOverviewCache(cache, month, sourceBudgetId, -parsedAmount);
+          },
+        });
+      }
       handleClose();
     } catch (mutationError) {
       const message =
         mutationError instanceof Error
           ? mutationError.message
-          : "Failed to move funds";
+          : isUnallocateMode ? "Failed to unallocate funds" : "Failed to move funds";
       setError(message);
     }
   };
@@ -120,6 +143,10 @@ export function MoveFundsSheet({
     if (!nextOpen) {
       handleClose();
     } else {
+      setSourceBudgetId(initialSourceBudgetId ?? null);
+      setDestBudgetId(null);
+      setAmount("");
+      setError("");
       onOpenChange(true);
     }
   };
@@ -128,10 +155,11 @@ export function MoveFundsSheet({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side="right" className="sm:max-w-md" data-qa="sheet-move-funds">
         <SheetHeader>
-          <SheetTitle>Move Funds</SheetTitle>
+          <SheetTitle>{isUnallocateMode ? "Unallocate Funds" : "Move Funds"}</SheetTitle>
           <SheetDescription>
-            Transfer money between budget envelopes. Ready to Assign stays
-            unchanged.
+            {isUnallocateMode
+              ? "Return money from a budget envelope back to Ready to Assign."
+              : "Transfer money between budget envelopes. Ready to Assign stays unchanged."}
           </SheetDescription>
         </SheetHeader>
 
@@ -172,11 +200,15 @@ export function MoveFundsSheet({
                 balanceMap={balanceMap}
                 data-qa="select-dest-budget"
               />
-              {destBudget && (
+              {destBudget ? (
                 <p className="text-xs text-muted-foreground">
                   Available: {formatCurrency(destBudget.available)}
                 </p>
-              )}
+              ) : sourceBudgetId !== null ? (
+                <p className="text-xs text-muted-foreground">
+                  Leave empty to return funds to Ready to Assign
+                </p>
+              ) : null}
             </div>
 
             <div className="grid gap-2">
@@ -214,7 +246,9 @@ export function MoveFundsSheet({
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={!canSubmit} data-qa="btn-move-submit">
-            {loading ? "Moving..." : "Move Funds"}
+            {loading
+              ? (isUnallocateMode ? "Unallocating..." : "Moving...")
+              : (isUnallocateMode ? "Unallocate" : "Move Funds")}
           </Button>
         </SheetFooter>
       </SheetContent>

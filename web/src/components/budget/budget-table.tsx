@@ -744,12 +744,24 @@ function GroupHeaderRow({
 }: GroupHeaderRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(group.name);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const pendingActionRef = useRef<"rename" | null>(null);
 
   const handleStartEdit = () => {
     setEditName(group.name);
     setIsEditing(true);
-    setTimeout(() => inputRef.current?.select(), 0);
+    setTimeout(() => {
+      inputRef.current?.select();
+    }, 0);
+  };
+
+  const handleMenuOpenChange = (open: boolean) => {
+    setIsMenuOpen(open);
+    if (!open && pendingActionRef.current === "rename") {
+      pendingActionRef.current = null;
+      handleStartEdit();
+    }
   };
 
   const handleSave = () => {
@@ -854,7 +866,7 @@ function GroupHeaderRow({
       </TableCell>
       <TableCell />
       <TableCell>
-        <DropdownMenu>
+        <DropdownMenu open={isMenuOpen} onOpenChange={handleMenuOpenChange}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
@@ -866,7 +878,7 @@ function GroupHeaderRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleStartEdit}>
+            <DropdownMenuItem onClick={() => { pendingActionRef.current = "rename"; }}>
               <Pencil className="mr-2 h-4 w-4" />
               Rename
             </DropdownMenuItem>
