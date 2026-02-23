@@ -760,7 +760,10 @@ function GroupHeaderRow({
     setIsMenuOpen(open);
     if (!open && pendingActionRef.current === "rename") {
       pendingActionRef.current = null;
-      handleStartEdit();
+      // Defer until after Radix restores focus to the trigger button
+      requestAnimationFrame(() => {
+        handleStartEdit();
+      });
     }
   };
 
