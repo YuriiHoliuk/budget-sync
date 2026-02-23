@@ -866,7 +866,7 @@ function GroupHeaderRow({
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" onCloseAutoFocus={(event) => event.preventDefault()}>
             <DropdownMenuItem onClick={handleStartEdit}>
               <Pencil className="mr-2 h-4 w-4" />
               Rename
