@@ -744,9 +744,7 @@ function GroupHeaderRow({
 }: GroupHeaderRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(group.name);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const pendingActionRef = useRef<"rename" | null>(null);
 
   const handleStartEdit = () => {
     setEditName(group.name);
@@ -754,17 +752,6 @@ function GroupHeaderRow({
     setTimeout(() => {
       inputRef.current?.select();
     }, 0);
-  };
-
-  const handleMenuOpenChange = (open: boolean) => {
-    setIsMenuOpen(open);
-    if (!open && pendingActionRef.current === "rename") {
-      pendingActionRef.current = null;
-      // Defer until after Radix restores focus to the trigger button
-      requestAnimationFrame(() => {
-        handleStartEdit();
-      });
-    }
   };
 
   const handleSave = () => {
@@ -813,7 +800,6 @@ function GroupHeaderRow({
                 value={editName}
                 onChange={(event) => setEditName(event.target.value)}
                 onKeyDown={handleKeyDown}
-                onBlur={handleSave}
                 className="h-7 w-40 text-sm font-semibold"
                 data-qa={`group-name-input-${group.id}`}
                 autoFocus
@@ -869,7 +855,7 @@ function GroupHeaderRow({
       </TableCell>
       <TableCell />
       <TableCell>
-        <DropdownMenu open={isMenuOpen} onOpenChange={handleMenuOpenChange}>
+        <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
@@ -881,7 +867,7 @@ function GroupHeaderRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => { pendingActionRef.current = "rename"; }}>
+            <DropdownMenuItem onClick={handleStartEdit}>
               <Pencil className="mr-2 h-4 w-4" />
               Rename
             </DropdownMenuItem>
