@@ -28,15 +28,13 @@ import {
 import { formatCurrency } from "@/lib/format";
 
 interface MoveFundsSheetProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
   budgetSummaries: BudgetSummary[];
   initialSourceBudgetId?: number;
 }
 
 export function MoveFundsSheet({
-  open,
-  onOpenChange,
+  onClose,
   budgetSummaries,
   initialSourceBudgetId,
 }: MoveFundsSheetProps) {
@@ -121,7 +119,7 @@ export function MoveFundsSheet({
           },
         });
       }
-      handleClose();
+      onClose();
     } catch (mutationError) {
       const message =
         mutationError instanceof Error
@@ -131,28 +129,8 @@ export function MoveFundsSheet({
     }
   };
 
-  const handleClose = () => {
-    setSourceBudgetId(initialSourceBudgetId ?? null);
-    setDestBudgetId(null);
-    setAmount("");
-    setError("");
-    onOpenChange(false);
-  };
-
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      handleClose();
-    } else {
-      setSourceBudgetId(initialSourceBudgetId ?? null);
-      setDestBudgetId(null);
-      setAmount("");
-      setError("");
-      onOpenChange(true);
-    }
-  };
-
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
+    <Sheet open onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
       <SheetContent side="right" className="sm:max-w-md" data-qa="sheet-move-funds">
         <SheetHeader>
           <SheetTitle>{isUnallocateMode ? "Unallocate Funds" : "Move Funds"}</SheetTitle>
@@ -242,7 +220,7 @@ export function MoveFundsSheet({
         </div>
 
         <SheetFooter>
-          <Button variant="outline" onClick={handleClose} disabled={loading} data-qa="btn-move-cancel">
+          <Button variant="outline" onClick={onClose} disabled={loading} data-qa="btn-move-cancel">
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={!canSubmit} data-qa="btn-move-submit">

@@ -590,12 +590,13 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
           ) : null}
         </DragOverlay>
       </DndContext>
-      <MoveFundsSheet
-        open={moveFundsOpen}
-        onOpenChange={setMoveFundsOpen}
-        budgetSummaries={budgetSummaries}
-        initialSourceBudgetId={moveFundsSourceId}
-      />
+      {moveFundsOpen && (
+        <MoveFundsSheet
+          onClose={() => setMoveFundsOpen(false)}
+          budgetSummaries={budgetSummaries}
+          initialSourceBudgetId={moveFundsSourceId}
+        />
+      )}
       <CreateBudgetSheet
         open={createBudgetOpen}
         onOpenChange={setCreateBudgetOpen}
