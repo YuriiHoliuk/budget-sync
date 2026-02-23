@@ -1,5 +1,4 @@
 import type { ApolloCache, Reference } from "@apollo/client";
-import { arrayMove } from "@dnd-kit/sortable";
 import {
   GetMonthlyOverviewDocument,
   type GetMonthlyOverviewQuery,
@@ -152,20 +151,24 @@ export function moveBudgetToGroupInCache(
 
 /**
  * Updates the monthly overview cache after a budget reorder.
- * Moves the budget from oldIndex to newIndex in the summaries array.
- * Optionally updates the budgetGroupId for cross-group moves.
+ * Removes the dragged budget from its current position and inserts it
+ * relative to the drop target budget. Uses budget IDs for lookup
+ * instead of indices to avoid mismatches between the grouped display
+ * order and the raw cache array order.
  *
  * @param cache - Apollo cache instance
  * @param month - The period in YYYY-MM format
- * @param oldIndex - The original index of the budget
- * @param newIndex - The new index of the budget
+ * @param activeBudgetId - The budget being dragged
+ * @param overBudgetId - The budget it was dropped onto
+ * @param isMovingDown - Whether the budget moved down in the visual list
  * @param targetGroupId - Optional new group ID for cross-group moves
  */
 export function reorderBudgetInCache(
   cache: ApolloCache,
   month: string,
-  oldIndex: number,
-  newIndex: number,
+  activeBudgetId: number,
+  overBudgetId: number,
+  isMovingDown: boolean,
   targetGroupId?: number | null,
 ): void {
   const existingData = cache.readQuery<GetMonthlyOverviewQuery>({
@@ -178,21 +181,30 @@ export function reorderBudgetInCache(
   }
 
   const overview = existingData.monthlyOverview;
-  const reorderedSummaries = arrayMove(
-    [...overview.budgetSummaries],
-    oldIndex,
-    newIndex,
-  );
+  const summaries = [...overview.budgetSummaries];
 
-  // Update budgetGroupId if moving to a different group
+  // Find and remove the dragged budget
+  const activeIdx = summaries.findIndex(
+    (summary) => summary.budgetId === activeBudgetId,
+  );
+  if (activeIdx === -1) return;
+
+  let [activeBudget] = summaries.splice(activeIdx, 1);
+
+  // Update group if cross-group move
   if (targetGroupId !== undefined) {
-    const movedBudget = reorderedSummaries[newIndex];
-    if (movedBudget) {
-      reorderedSummaries[newIndex] = {
-        ...movedBudget,
-        budgetGroupId: targetGroupId,
-      };
-    }
+    activeBudget = { ...activeBudget, budgetGroupId: targetGroupId };
+  }
+
+  // Find the drop target and insert relative to it
+  const overIdx = summaries.findIndex(
+    (summary) => summary.budgetId === overBudgetId,
+  );
+  if (overIdx === -1) {
+    summaries.push(activeBudget);
+  } else {
+    const insertIdx = isMovingDown ? overIdx + 1 : overIdx;
+    summaries.splice(insertIdx, 0, activeBudget);
   }
 
   cache.writeQuery<GetMonthlyOverviewQuery>({
@@ -201,7 +213,7 @@ export function reorderBudgetInCache(
     data: {
       monthlyOverview: {
         ...overview,
-        budgetSummaries: reorderedSummaries,
+        budgetSummaries: summaries,
       },
     },
   });

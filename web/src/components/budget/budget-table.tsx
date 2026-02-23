@@ -344,8 +344,9 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
         reorderBudgetInCache(
           cache,
           month,
-          oldIndex,
-          newIndex,
+          activeId,
+          overId as number,
+          isMovingDown,
           crossGroupMove ? targetGroupId : undefined,
         );
       },
