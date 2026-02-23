@@ -114,6 +114,43 @@ export function updateMonthlyOverviewCacheForMoveFunds(
 }
 
 /**
+ * Updates the monthly overview cache when a budget is moved to a different group
+ * without reordering (e.g., dropping into an empty group).
+ * Only updates the budgetGroupId on the target budget summary.
+ */
+export function moveBudgetToGroupInCache(
+  cache: ApolloCache,
+  month: string,
+  budgetId: number,
+  targetGroupId: number | null,
+): void {
+  const existingData = cache.readQuery<GetMonthlyOverviewQuery>({
+    query: GetMonthlyOverviewDocument,
+    variables: { month },
+  });
+
+  if (!existingData?.monthlyOverview) {
+    return;
+  }
+
+  const overview = existingData.monthlyOverview;
+
+  cache.writeQuery<GetMonthlyOverviewQuery>({
+    query: GetMonthlyOverviewDocument,
+    variables: { month },
+    data: {
+      monthlyOverview: {
+        ...overview,
+        budgetSummaries: overview.budgetSummaries.map((summary) => {
+          if (summary.budgetId !== budgetId) return summary;
+          return { ...summary, budgetGroupId: targetGroupId };
+        }),
+      },
+    },
+  });
+}
+
+/**
  * Updates the monthly overview cache after a budget reorder.
  * Moves the budget from oldIndex to newIndex in the summaries array.
  * Optionally updates the budgetGroupId for cross-group moves.

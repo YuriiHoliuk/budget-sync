@@ -9,6 +9,7 @@ import {
   PointerSensor,
   KeyboardSensor,
   closestCenter,
+  useDroppable,
   useSensor,
   useSensors,
   type DragStartEvent,
@@ -79,6 +80,7 @@ import { getDateRangeFromMonth, buildTransactionsUrl } from "@/lib/url-utils";
 import {
   updateMonthlyOverviewCache,
   reorderBudgetInCache,
+  moveBudgetToGroupInCache,
 } from "@/lib/cache-utils";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -258,7 +260,27 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
     }
 
     const activeId = active.id as number;
-    const overId = over.id as number;
+    const overId = over.id;
+
+    // Handle drop onto empty group placeholder
+    if (typeof overId === "string" && overId.startsWith("group-")) {
+      const targetGroupId = Number.parseInt(overId.replace("group-", ""), 10);
+
+      reorderBudget({
+        variables: {
+          input: {
+            budgetId: activeId,
+            afterBudgetId: null,
+            beforeBudgetId: null,
+            budgetGroupId: targetGroupId,
+          },
+        },
+        update: (cache) => {
+          moveBudgetToGroupInCache(cache, month, activeId, targetGroupId);
+        },
+      });
+      return;
+    }
 
     // Build a flat ordered list of all visible budgets
     const flatBudgets: BudgetSummary[] = [];
@@ -539,6 +561,7 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
                       key={groupData.group?.id ?? "ungrouped"}
                       groupData={groupData}
                       isCollapsed={isCollapsed}
+                      isDragActive={activeDragId !== null}
                       getTransactionsUrl={getTransactionsUrl}
                       onToggle={
                         groupData.group
@@ -649,6 +672,7 @@ export function BudgetTable({ budgetSummaries, budgetGroups }: BudgetTableProps)
 interface GroupSectionProps {
   groupData: GroupedBudgets;
   isCollapsed: boolean;
+  isDragActive: boolean;
   getTransactionsUrl: (budgetId: number) => string;
   onToggle?: () => void;
   onRename?: (newName: string) => void;
@@ -665,6 +689,7 @@ interface GroupSectionProps {
 function GroupSection({
   groupData,
   isCollapsed,
+  isDragActive,
   getTransactionsUrl,
   onToggle,
   onRename,
@@ -702,6 +727,11 @@ function GroupSection({
         </TableRow>
       )}
       {!isCollapsed &&
+        groupData.budgets.length === 0 &&
+        groupData.group && (
+          <EmptyGroupDropZone groupId={groupData.group.id} isDragActive={isDragActive} />
+        )}
+      {!isCollapsed &&
         groupData.budgets.map((summary) => (
           <SortableBudgetRow
             key={summary.budgetId}
@@ -719,6 +749,35 @@ function GroupSection({
           />
         ))}
     </>
+  );
+}
+
+// --- Empty Group Drop Zone ---
+
+function EmptyGroupDropZone({ groupId, isDragActive }: { groupId: number; isDragActive: boolean }) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `group-${groupId}`,
+  });
+
+  return (
+    <TableRow
+      ref={setNodeRef}
+      className={cn(
+        "transition-colors",
+        isOver ? "bg-primary/10" : "hover:bg-transparent",
+      )}
+    >
+      <TableCell />
+      <TableCell
+        colSpan={8}
+        className={cn(
+          "py-3 text-center text-xs text-muted-foreground",
+          isDragActive && "border-2 border-dashed border-muted-foreground/30 rounded",
+        )}
+      >
+        {isDragActive ? "Drop budget here" : "No budgets"}
+      </TableCell>
+    </TableRow>
   );
 }
 
