@@ -350,8 +350,8 @@ docs-detail name='':
 #   just ralph "-p TODO.md --model sonnet"  # Custom prompt file and model
 #   just ralph "--mock"                     # Test with mock Claude
 ralph args='':
-    cd tools/ralph && bun run src/index.ts -p "{{justfile_directory()}}/PROMPT.md" --cwd "{{justfile_directory()}}" {{args}}
+    bunx ralph-steering -p "{{justfile_directory()}}/PROMPT.md" --cwd "{{justfile_directory()}}" {{args}}
 
 # Run Ralph Loop in legacy console mode
 ralph-legacy args='':
-    cd tools/ralph && bun run src/legacy.ts -p "{{justfile_directory()}}/PROMPT.md" --cwd "{{justfile_directory()}}" {{args}}
+    bunx ralph-legacy -p "{{justfile_directory()}}/PROMPT.md" --cwd "{{justfile_directory()}}" {{args}}
