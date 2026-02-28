@@ -1,200 +1,160 @@
 # Budget Sync Roadmap
 
-## Phase 1: Cloud Deployment `completed`
-
-> Deployed Jan 3-4, 2026
-
-- [x] Set up CI/CD pipeline (GitHub Actions → Google Cloud)
-- [x] Deploy system to Google Cloud Run
-- [x] Manage infrastructure with Terraform (service accounts, IAM, secrets, scheduler)
-- [x] Configure Cloud Scheduler for transaction polling every 3 hours
+Items are independent and can be implemented in any order.
 
 ---
 
-## Phase 2: Data Model `completed`
+## Planned
 
-> Started as Google Sheets (Jan 2), migrated to PostgreSQL (Feb 1, 2026)
+### Users & Shared Plans
 
-- [x] Categories — hierarchical with parent categories and status tracking
-- [x] Categorization rules — deterministic pattern → category mapping
-- [x] Budgetization rules — deterministic pattern → budget mapping
-- [x] Budget allocations — monthly amounts per budget, allocated vs spent tracking
+Users with real authentication and shared "Plans" — the unit that owns budgets, accounts, categories, and transactions. Partners/families share a Plan to collaborate on a single budget. Brainstorm and data model design in progress: [`claude_plans/users-and-plans-brainstorm.md`](claude_plans/users-and-plans-brainstorm.md). Needs to finish brainstorming and get plan approval before implementation.
 
-Originally implemented as spreadsheet sheets, then migrated to Neon PostgreSQL with Drizzle ORM during Phase 8.
+- [ ] Finalize data model (user-scoped vs plan-scoped, account ownership, open questions)
+- [ ] Schema changes — users, plans, plan_members tables + plan_id on existing tables
+- [ ] Migration for existing data (default user + default plan)
+- [ ] Domain layer — User, Plan, PlanMember entities and repositories
+- [ ] Query scoping — all queries filter by plan_id
+- [ ] User registration and login (replace basic auth gate)
+- [ ] OAuth providers (Google, Apple, etc.)
+- [ ] Session management and token refresh
+- [ ] Plan management UI — create, invite, accept
+- [ ] Per-member permissions (owner, editor, viewer)
+- [ ] Bank connections — move token to DB, associate with user + plan
 
----
+### Mobile App
 
-## Phase 3: Transaction Categorization `completed`
+Standalone mobile app for transaction management on the go.
 
-> Jan 8-24, 2026
+- [ ] Core transaction list and detail views
+- [ ] Quick-add spending
+- [ ] Push notifications (new transactions, uncategorized alerts)
+- [ ] Budget overview
 
-- [x] Rule-based categorization engine with priority ordering
-- [x] Auto-apply rules during transaction sync
-- [x] LLM fallback via Google Gemini for unmatched transactions
-- [x] Separate LLM calls for category and budget inference
-- [x] Batch categorize CLI command for uncategorized transactions
+### Deterministic Categorization Rules Builder
 
----
+Visual rule builder on the frontend for creating deterministic categorization rules.
 
-## Phase 4: Real-time Sync `completed`
+- [ ] Condition editor — build conditions on transaction fields (description contains, amount >, MCC equals, etc.)
+- [ ] AND/OR logic for combining conditions
+- [ ] Assign category and/or budget when conditions match
+- [ ] Priority ordering — rules evaluated before LLM
+- [ ] Test rules against existing transactions before saving
 
-> Jan 6, 2026
+### Telegram Bot
 
-- [x] Monobank webhook integration for instant transaction updates
-- [x] HTTP endpoints for webhook validation and processing
-- [x] Pub/Sub async processing with dead letter queue
-- [x] Polling job kept as fallback (every 3 hours)
+Telegram-based interface for notifications and quick actions.
 
----
+- [ ] Push notifications (new transactions, uncategorized alerts)
+- [ ] Record spendings for manual accounts via chat
+- [ ] Transaction review and approval (approve, categorize, reject)
+- [ ] Quick natural language commands ("Spent 500 on groceries", "Show uncategorized")
 
-## Phase 5: Chat Interface `not started` → merged into Phase 11
+### AI-Native Interface
 
-~~Originally planned as standalone phase. Now part of Phase 11 (Telegram Bot).~~
+Natural language interface for all app operations.
 
----
+- [ ] Text field + voice dictation on web UI
+- [ ] Agent with tools that interprets user intent and performs operations (record transactions, categorize, query summaries, etc.)
+- [ ] Tool/action confirmation before execution
 
-## Phase 6: Review System `not started` → merged into Phase 10
+### Custom Dashboard
 
-~~Originally planned as standalone phase. Review/approval workflows now part of Phase 10 (Rules UI) and Phase 11 (Telegram Bot).~~
+User-configurable analytics dashboard.
 
----
+- [ ] Chart builder — create charts from available data (transactions, budgets, categories, accounts)
+- [ ] Supported chart types: column, pie, Sankey, line, etc.
+- [ ] Drag-and-drop layout
+- [ ] Save/load dashboards
 
-## Phase 7: Spreadsheet Dashboard `superseded`
+### Smart Rule Suggestions
 
-> Jan 24, 2026 — Dashboard scripts created, then superseded by web UI
+Auto-detect categorization patterns and suggest rules.
 
-- [x] Dashboard sheet setup scripts
-- ~~Format and style data sheets~~ — replaced by web UI
-- ~~Dashboard with summary formulas~~ — replaced by web UI
-
-Spreadsheet is no longer the primary interface. Web UI (Phase 8) replaced this.
-
----
-
-## Phase 8: Platform Migration `completed`
-
-> Jan 31 – Feb 6, 2026
-
-- [x] Replace Google Sheets with PostgreSQL (Neon) + Drizzle ORM
-- [x] GraphQL API with Apollo Server (accounts, budgets, categories, allocations, transactions)
-- [x] Next.js 15 web UI with ShadCN, Tailwind, Apollo Client
-- [x] Budget page with inline editing, move funds, CRUD dialogs
-- [x] Accounts page with CRUD for manual accounts
-- [x] Categories management page
-- [x] Transaction detail/edit panel with auto-verify on edit
-- [x] Basic auth gate for single-user access
-- [x] E2E tests with Playwright, Page Object Model
-- [x] Deploy web frontend to Cloud Run
-
----
-
-## Phase 9: Transaction UI Improvements & Data Correctness `not started`
-
-> Backend context: [`claude_plans/split-bank-transactions-and-transactions.md`](claude_plans/split-bank-transactions-and-transactions.md) (implemented)
-
-The bank_transactions / transactions split is implemented and working. This phase covers UI improvements and ensuring all production data is correctly processed.
-
-### Problem 1: Fee + main transaction display
-
-When a bank transaction has a commission (e.g., transfer fee), it creates two logical transactions: the main payment and a fee. On the UI, the fee row shows as "Bank" with no category or budget — it needs auto-categorization or additional context sent to the LLM for categorization.
-
-**Example:** "Bank" row (fee) next to "Марія тренерка Соломії" (main) — fee has no category/budget, requires manual assignment.
-
-### Problem 2: Returnings rendered as separate rows
-
-A partial return (e.g., "Скасування. ОККО") creates a returning transaction linked to the original. Currently both show as independent rows on the UI. Should be **one row** showing the original transaction with a "partially returned" indicator, the returned amount, and both bank transactions visible in the detail panel.
-
-**Example:** "Скасування. ОККО" (+268.12) and "ОККО" (-3519.45) show as two rows. Should be one row with net amount and a return indicator.
-
-### Problem 3: Transfers need better display and no categorization
-
-Transfer pairs show as two rows with mismatched names ("Переказ на картку" vs "З Білої картки"), both prompting for category and budget. Transfers should have consistent naming, no category/budget prompts, and no verification needed. The "Categorized" warning badge should not appear on transfers.
-
-**Example:** Two transfer rows both showing "Add category", "Add budget", and a "Categorized" warning badge despite being correctly detected as transfers.
-
-### Tasks
-
-- [ ] **Audit production data** — check all prod transactions for edge cases beyond the three examples above, verify detection rules and backfill handled everything correctly
-- [ ] **Fee transactions** — auto-categorize fee transactions or provide better context to LLM for categorization
-- [ ] **Returnings UI** — render returning + original as a single row, show return amount and indicator, show both bank transactions in detail panel
-- [ ] **Transfers UI** — consistent naming for both sides, hide category/budget prompts, remove "Categorized" warning badge, skip verification
-- [ ] **Type filter** — add TRANSFER and RETURNING options to transaction filter sidebar
-
----
-
-## Phase 10: Categorization Rules & Verification UI `not started`
-
-> Previously Phase 9
-
-### Verification panel
-- [ ] Quick-verify panel for categorized transactions — review queue with one-click approve or inline edit (category, budget)
-- [ ] Quick-categorize panel for uncategorized transactions — same UI, assign category/budget or skip
-- [ ] Batch actions — verify all, filter by date/account/status
-
-### Rules management
-- [ ] Deterministic rules form builder — visual condition editor on UI:
-  - Build conditions on transaction fields (description contains, amount >, MCC equals, etc.)
-  - Combine conditions with AND/OR logic
-  - Assign category and/or budget when conditions match
-  - Priority ordering — rules evaluated before LLM
-- [ ] AI rules editor — plaintext prompt editing for LLM-based rules (categories and budgets)
-- [ ] Unified rules management UI — single place to view/edit both deterministic and AI rules
-
-### Smart rule suggestions `future`
 - [ ] Detect patterns when user overrides categorization (e.g., always re-assigns a certain description)
 - [ ] Auto-generate suggested deterministic rules from these patterns
 - [ ] Present suggestions for user approval before adding to active rules
 
----
+### Manual Transaction UI
 
-## Phase 11: Telegram Bot `not started`
+- [ ] Form on web UI to create transactions for manual (non-synced) accounts
 
-- [ ] Telegram bot for push notifications (new transactions, uncategorized alerts)
-- [ ] Record spendings for manual accounts via chat
-- [ ] Transaction review and approval via chat (approve, categorize, reject)
-- [ ] Quick natural language commands ("Spent 500 on groceries", "Show uncategorized")
+### Spreadsheet Cleanup
 
----
+- [ ] Remove Google Sheets dependency (code, modules, scripts, credentials) now that PostgreSQL is primary
 
-## Phase 12: AI-Native Interface `not started`
+### Runtime Env Vars & Production E2E
 
-- [ ] Natural language input on web UI (text field + voice dictation)
-- [ ] Agent with tools that interprets user intent and performs operations:
-  - Record cash transactions
-  - Bulk-update transaction statuses
-  - Categorize/re-categorize transactions
-  - Query spending summaries
-  - Any operation available through the app
-- [ ] Tool/action confirmation before execution
+- [ ] Remove `NEXT_PUBLIC_*` bundled env vars in favor of runtime configuration (12-factor app)
+- [ ] Build a single Docker image and run E2E tests against it instead of dev mode
+- [ ] Same image for dev/staging/prod with different env vars
 
 ---
 
-## Phase 13: Custom Dashboard `not started`
+### Silpo Receipt Integration
 
-- [ ] Chart builder — create charts from available data (transactions, budgets, categories, accounts)
-- [ ] Supported chart types: column, pie, flow/river (Sankey), line, etc.
-- [ ] Drag-and-drop layout — user arranges charts freely on a canvas
-- [ ] Save/load dashboards — persist custom layouts per user
-- [ ] New chart types added in code, instantly available to users in the builder
+Connect to Silpo API to fetch itemized receipts for Silpo transactions. Use item-level data for better categorization and potential transaction splitting.
 
----
-
-## Short-term Tasks
-
-Small but important items, not tied to a specific phase:
-
-- [ ] **Audit budget fund movement** — validate month-to-month fund transfers work correctly for all budget types (spending, savings, debt). Investigate and fix if needed.
-- [ ] **Manual transaction UI** — add form on web UI to create transactions for manual (non-synced) accounts
-- [ ] **Spreadsheet cleanup** — remove Google Sheets dependency (code, modules, scripts, credentials) now that PostgreSQL is primary
-- [x] **Database migration US → EU** — migrated Neon database from New York (`aws-us-west-2`) to Frankfurt (`aws-eu-central-1`), closer to Cloud Run in Warsaw. Data copied via pg_dump/restore, GCP secret updated, services redeployed.
-- [ ] **Runtime env vars & production E2E** — remove `NEXT_PUBLIC_*` bundled env vars in favor of runtime configuration (follow 12-factor app). Build a single Docker image and run E2E tests against it instead of dev mode. Enables: same image for dev/staging/prod with different env vars, eliminates dev-server warm-up hacks in CI, makes E2E closer to production behavior.
+- [ ] Silpo API connector (reference: [pysilpo](https://github.com/iYasha/pysilpo))
+- [ ] Match Silpo receipts to bank transactions by amount/date
+- [ ] Fetch and store item-level data (product name, quantity, price)
+- [ ] Split transactions into per-item categories (e.g., groceries vs household)
+- [ ] Use item details as context for LLM categorization
 
 ---
 
-## Future / Deferred
+### Persistent Server & WebSockets
+
+Move from Cloud Run (request-based) to an always-running self-hosted or cheap server. Enables WebSocket connections for real-time features.
+
+- [ ] Migrate to a persistent server (VPS, Fly.io, Railway, etc.)
+- [ ] Apollo subscriptions for real-time UI updates (new transactions, budget changes)
+- [ ] Live collaboration in shared workspaces
+
+---
+
+## Ideas / Deferred
 
 Low priority or blocked by other work:
 
-- [ ] **Move database to GCP** — self-hosted or Cloud SQL PostgreSQL (postponed — cost consideration)
-- [ ] **WebSocket subscriptions** — Apollo subscriptions for real-time UI updates (blocked: Cloud Run is request-based; needs migration to persistent server)
-- [ ] **Mobile app** — standalone mobile app for transaction management
+- [ ] **Move database to GCP** — self-hosted or Cloud SQL PostgreSQL (cost consideration)
+
+---
+
+## Completed
+
+### Cloud Deployment (Jan 2026)
+
+CI/CD pipeline (GitHub Actions → Google Cloud Run), Terraform-managed infrastructure, Cloud Scheduler for polling.
+
+### Data Model (Jan–Feb 2026)
+
+Hierarchical categories, categorization/budgetization rules, budget allocations. Started as Google Sheets, migrated to Neon PostgreSQL with Drizzle ORM.
+
+### Transaction Categorization (Jan 2026)
+
+Rule-based engine with priority ordering, auto-apply during sync, LLM fallback via Google Gemini, batch categorize CLI.
+
+### Real-time Sync (Jan 2026)
+
+Monobank webhook integration, Pub/Sub async processing with dead letter queue, polling fallback.
+
+### Platform Migration (Jan–Feb 2026)
+
+PostgreSQL + GraphQL API + Next.js 15 web UI. Budget page, accounts page, categories page, transaction detail panel. E2E tests with Playwright. Deployed to Cloud Run.
+
+### Transaction UI Improvements (Feb 2026)
+
+Fee transaction display, returnings rendered as single rows, transfer display cleanup, type filter (transfer/returning).
+
+### Verification & Rules UI (Feb 2026)
+
+Quick-verify/categorize panels with batch actions. AI rules editor with plaintext prompt editing. Unified rules management UI.
+
+### Database Migration US → EU (Feb 2026)
+
+Migrated Neon database from `aws-us-west-2` to `aws-eu-central-1` (Frankfurt), closer to Cloud Run in Warsaw.
+
+### Budget Fund Movement Audit (Feb 2026)
+
+Validated and fixed month-to-month fund transfers for all budget types (spending, savings, debt).
