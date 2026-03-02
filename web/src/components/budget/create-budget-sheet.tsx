@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import {
   CreateBudgetDocument,
+  GetBudgetsDocument,
   GetMonthlyOverviewDocument,
   CadenceUnit,
   type BudgetGroup,
@@ -64,6 +65,7 @@ export function CreateBudgetSheet({
   const [createBudget, { loading }] = useMutation(CreateBudgetDocument, {
     refetchQueries: [
       { query: GetMonthlyOverviewDocument, variables: { month } },
+      { query: GetBudgetsDocument, variables: { activeOnly: false } },
     ],
   });
 

@@ -70,7 +70,7 @@ import {
   type BankTransaction,
 } from "@/graphql/generated/graphql";
 import { SplitTransactionForm } from "@/components/transactions/split-transaction-form";
-import { addTransactionsToCache, removeTransactionFromCache, evictSiblingTransactions } from "@/lib/cache-utils";
+import { addTransactionsToCache, removeTransactionFromCache, evictSiblingTransactions, invalidateBudgetRelatedCache } from "@/lib/cache-utils";
 import {
   Select,
   SelectContent,
@@ -247,7 +247,11 @@ function TransactionDetailContent({
 
   const [updateCategory] = useMutation(UpdateTransactionCategoryDocument);
 
-  const [updateBudget] = useMutation(UpdateTransactionBudgetDocument);
+  const [updateBudget] = useMutation(UpdateTransactionBudgetDocument, {
+    update(cache) {
+      invalidateBudgetRelatedCache(cache);
+    },
+  });
 
   const [updateNotes] = useMutation(UpdateTransactionNotesDocument);
 

@@ -58,7 +58,7 @@ import {
   type GetTransactionsQuery,
   type TransactionFilter,
 } from "@/graphql/generated/graphql";
-import { removeTransactionFromCache } from "@/lib/cache-utils";
+import { removeTransactionFromCache, invalidateBudgetRelatedCache } from "@/lib/cache-utils";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { parseTransactionFiltersFromParams } from "@/lib/url-utils";
@@ -333,7 +333,11 @@ export function TransactionsTable() {
 
   const [updateCategory] = useMutation(UpdateTransactionCategoryDocument);
 
-  const [updateBudget] = useMutation(UpdateTransactionBudgetDocument);
+  const [updateBudget] = useMutation(UpdateTransactionBudgetDocument, {
+    update(cache) {
+      invalidateBudgetRelatedCache(cache);
+    },
+  });
 
   const [verifyTransaction] = useMutation(VerifyTransactionDocument);
 

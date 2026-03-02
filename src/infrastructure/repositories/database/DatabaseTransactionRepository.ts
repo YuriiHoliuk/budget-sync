@@ -30,6 +30,7 @@ import {
   inArray,
   isNotNull,
   isNull,
+  lt,
   lte,
   ne,
   or,
@@ -807,7 +808,9 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       conditions.push(gte(transactions.date, new Date(filter.dateFrom)));
     }
     if (filter.dateTo) {
-      conditions.push(lte(transactions.date, new Date(filter.dateTo)));
+      const nextDay = new Date(filter.dateTo);
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      conditions.push(lt(transactions.date, nextDay));
     }
     if (filter.search) {
       const searchPattern = `%${filter.search}%`;

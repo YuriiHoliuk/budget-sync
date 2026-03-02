@@ -298,6 +298,32 @@ export function removeTransactionFromCache(
 }
 
 /**
+ * Invalidates budget-related cache data after a transaction's budget assignment changes.
+ * Evicts `monthlyOverview` and unbudgeted `transactions` queries so they refetch
+ * when the user navigates to the budget page.
+ *
+ * Selectively removes only `transactions` entries with `unbudgetedOnly` filter,
+ * leaving the main transactions table data intact.
+ */
+export function invalidateBudgetRelatedCache(cache: ApolloCache): void {
+  cache.modify({
+    fields: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cache.modify field modifiers are loosely typed
+      transactions(value: any, { storeFieldName, DELETE }: any) {
+        if (storeFieldName.includes('"unbudgetedOnly":true')) {
+          return DELETE;
+        }
+        return value;
+      },
+      monthlyOverview(_, { DELETE }) {
+        return DELETE;
+      },
+    },
+  });
+  cache.gc();
+}
+
+/**
  * Evicts the `siblingTransactions` field from specific transactions in the cache.
  * Forces Apollo to re-fetch sibling data when those transactions are viewed.
  * Used to invalidate stale sibling lists after split/join operations.

@@ -71,9 +71,11 @@ describe('CreateAllocationUseCase', () => {
     expect(result.amount.isNegative()).toBe(true);
   });
 
-  test('should default date to today when not provided', async () => {
+  test('should default date to today when not provided for current period', async () => {
+    const currentPeriod = new Date().toISOString().slice(0, 7);
     const request: CreateAllocationRequestDTO = {
       ...validRequest,
+      period: currentPeriod,
       date: undefined,
     };
 
@@ -81,6 +83,18 @@ describe('CreateAllocationUseCase', () => {
 
     const today = new Date().toISOString().slice(0, 10);
     expect(result.date.toISOString().slice(0, 10)).toBe(today);
+  });
+
+  test('should default date to last day of period when period is in the past', async () => {
+    const request: CreateAllocationRequestDTO = {
+      ...validRequest,
+      period: '2025-06',
+      date: undefined,
+    };
+
+    const result = await useCase.execute(request);
+
+    expect(result.date.toISOString().slice(0, 10)).toBe('2025-06-30');
   });
 
   test('should create allocation with null notes', async () => {

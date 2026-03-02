@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@apollo/client/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,10 +21,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CategoryCombobox } from "@/components/categories/category-combobox";
+import { BudgetCombobox } from "@/components/budget/budget-combobox";
 import {
   CreateTransactionDocument,
   GetTransactionsDocument,
   GetAccountsDocument,
+  GetCategoriesDocument,
+  GetBudgetsDocument,
+  UpdateTransactionCategoryDocument,
+  UpdateTransactionBudgetDocument,
   AccountSource,
   TransactionTypeEnum,
 } from "@/graphql/generated/graphql";
@@ -45,19 +51,35 @@ export function CreateTransactionSheet({
   const [description, setDescription] = useState("");
   const [counterpartyName, setCounterpartyName] = useState("");
   const [notes, setNotes] = useState("");
+  const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [budgetId, setBudgetId] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   const { data: accountsData } = useQuery(GetAccountsDocument, {
     variables: { activeOnly: true },
   });
 
+  const { data: categoriesData } = useQuery(GetCategoriesDocument, {
+    variables: { activeOnly: true },
+  });
+  const { data: budgetsData } = useQuery(GetBudgetsDocument, {
+    variables: { activeOnly: false },
+  });
+
   const manualAccounts = accountsData?.accounts.filter(
     (account) => account.source === AccountSource.Manual,
   ) ?? [];
+  const categories = useMemo(() => categoriesData?.categories ?? [], [categoriesData]);
+  const budgets = useMemo(
+    () => (budgetsData?.budgets ?? []).filter((budget) => !budget.isArchived),
+    [budgetsData],
+  );
 
   const [createTransaction, { loading }] = useMutation(CreateTransactionDocument, {
     refetchQueries: [{ query: GetTransactionsDocument }],
   });
+  const [updateCategory] = useMutation(UpdateTransactionCategoryDocument);
+  const [updateBudget] = useMutation(UpdateTransactionBudgetDocument);
 
   const parsedAmount = Number.parseFloat(amount);
   const isValidAmount = !Number.isNaN(parsedAmount) && parsedAmount > 0;
@@ -79,7 +101,7 @@ export function CreateTransactionSheet({
     setError("");
 
     try {
-      await createTransaction({
+      const { data } = await createTransaction({
         variables: {
           input: {
             accountId: Number.parseInt(accountId, 10),
@@ -92,6 +114,19 @@ export function CreateTransactionSheet({
           },
         },
       });
+
+      const createdId = data?.createTransaction.id;
+      if (createdId && (categoryId !== null || budgetId !== null)) {
+        const updates: Promise<unknown>[] = [];
+        if (categoryId !== null) {
+          updates.push(updateCategory({ variables: { input: { id: createdId, categoryId } } }));
+        }
+        if (budgetId !== null) {
+          updates.push(updateBudget({ variables: { input: { id: createdId, budgetId } } }));
+        }
+        await Promise.all(updates);
+      }
+
       handleClose();
     } catch (mutationError) {
       const message =
@@ -107,6 +142,8 @@ export function CreateTransactionSheet({
     setDate(new Date().toISOString().slice(0, 10));
     setAmount("");
     setType(TransactionTypeEnum.Debit);
+    setCategoryId(null);
+    setBudgetId(null);
     setDescription("");
     setCounterpartyName("");
     setNotes("");
@@ -200,6 +237,30 @@ export function CreateTransactionSheet({
                   </SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Category (Optional)</Label>
+              <CategoryCombobox
+                categories={categories}
+                value={categoryId}
+                onValueChange={setCategoryId}
+                allowNone
+                triggerClassName="w-full"
+                data-qa="select-tx-category"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Budget (Optional)</Label>
+              <BudgetCombobox
+                budgets={budgets}
+                value={budgetId}
+                onValueChange={setBudgetId}
+                allowNone
+                triggerClassName="w-full"
+                data-qa="select-tx-budget"
+              />
             </div>
 
             <div className="grid gap-2">
