@@ -40,6 +40,7 @@ interface UpdateBudgetInput {
   month: string;
   name?: string | null;
   targetAmount?: number | null;
+  targetDate?: string | null;
   endDate?: string | null;
   cap?: number | null;
   budgetGroupId?: number | null;
@@ -160,6 +161,7 @@ export class BudgetsResolver extends Resolver {
         input.targetAmount != null
           ? toMinorUnits(input.targetAmount)
           : undefined,
+      targetDate: input.targetDate,
       endDate: input.endDate,
       cap: this.mapOptionalMoney(input.cap),
       budgetGroupId: input.budgetGroupId,

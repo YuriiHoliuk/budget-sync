@@ -23,6 +23,7 @@ export interface UpdateBudgetRequestDTO {
   month: string;
   name?: string;
   targetAmount?: number;
+  targetDate?: string | null;
   endDate?: string | null;
   cap?: number | null;
   budgetGroupId?: number | null;
@@ -89,6 +90,13 @@ export class UpdateBudgetUseCase extends UseCase<
       endDate,
       cap,
     };
+
+    // Update targetDate if explicitly provided (undefined means don't change)
+    if (request.targetDate !== undefined) {
+      updates.targetDate = request.targetDate
+        ? new Date(request.targetDate)
+        : null;
+    }
 
     // Update group if explicitly provided (undefined means don't change)
     if (request.budgetGroupId !== undefined) {

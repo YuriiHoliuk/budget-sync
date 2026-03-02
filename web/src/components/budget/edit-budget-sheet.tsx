@@ -120,6 +120,7 @@ function EditBudgetSheetContent({
   const [targetAmount, setTargetAmount] = useState(
     budget.targetAmount.toString(),
   );
+  const [targetDate, setTargetDate] = useState(budget.targetDate ?? "");
   const [endDate, setEndDate] = useState(budget.endDate ?? "");
   const [cap, setCap] = useState(budget.cap?.toString() ?? "");
   const [budgetGroupId, setBudgetGroupId] = useState<string>(
@@ -156,6 +157,7 @@ function EditBudgetSheetContent({
             name: name.trim(),
             targetAmount: parsedTargetAmount,
             ...(cap !== "" ? { cap: Number.parseFloat(cap) } : { cap: null }),
+            targetDate: targetDate !== "" ? targetDate : null,
             endDate: endDate !== "" ? endDate : null,
             budgetGroupId:
               budgetGroupId !== NONE_GROUP_VALUE
@@ -209,14 +211,6 @@ function EditBudgetSheetContent({
                   {formatDate(budget.startDate)}
                 </span>
               </div>
-              {budget.targetDate && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Target Date:</span>
-                  <span className="font-medium">
-                    {formatDate(budget.targetDate)}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -292,6 +286,20 @@ function EditBudgetSheetContent({
             />
             <p className="text-xs text-muted-foreground">
               Stop suggesting allocations when balance reaches this amount
+            </p>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="target-date">Target Date (optional)</Label>
+            <Input
+              id="target-date"
+              type="date"
+              value={targetDate}
+              onChange={(event) => setTargetDate(event.target.value)}
+              data-qa="input-target-date"
+            />
+            <p className="text-xs text-muted-foreground">
+              Date by which the target amount should be fully funded.
             </p>
           </div>
 

@@ -55,6 +55,8 @@ input UpdateBudgetInput {
   name: String
   """Target amount in major currency units."""
   targetAmount: Float
+  """Target date (YYYY-MM-DD). Set to null to clear."""
+  targetDate: String
   """End date (YYYY-MM-DD). Must be >= first day of month. Set to null to clear."""
   endDate: String
   """Maximum balance cap in major currency units."""
