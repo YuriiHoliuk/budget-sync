@@ -87,7 +87,12 @@ type TransactionSibling = Transaction["siblingTransactions"][number];
 interface TransactionDetailPanelProps {
   transactionId: number | null;
   onClose: () => void;
-  onStartReturningSelection?: (transactionId: number, amount: number, currency: string) => void;
+  onStartReturningSelection?: (
+    direction: "pick-debit" | "pick-credit",
+    transactionId: number,
+    amount: number,
+    currency: string,
+  ) => void;
 }
 
 const TYPE_CONFIG: Record<string, { icon: typeof ArrowDownCircle; color: string; bgColor: string; label: string }> = {
@@ -218,7 +223,12 @@ interface TransactionDetailContentProps {
   transaction: Transaction;
   categories: Array<{ id: number; name: string; fullPath: string }>;
   budgets: Array<{ id: number; name: string; startDate?: string | null; endDate?: string | null }>;
-  onStartReturningSelection?: (transactionId: number, amount: number, currency: string) => void;
+  onStartReturningSelection?: (
+    direction: "pick-debit" | "pick-credit",
+    transactionId: number,
+    amount: number,
+    currency: string,
+  ) => void;
 }
 
 function TransactionDetailContent({
@@ -416,7 +426,21 @@ function TransactionDetailContent({
   };
 
   const handleMarkAsReturning = () => {
-    onStartReturningSelection?.(transaction.id, transaction.amount, transaction.currency);
+    onStartReturningSelection?.(
+      "pick-debit",
+      transaction.id,
+      transaction.amount,
+      transaction.currency,
+    );
+  };
+
+  const handleMarkAsHasReturning = () => {
+    onStartReturningSelection?.(
+      "pick-credit",
+      transaction.id,
+      transaction.amount,
+      transaction.currency,
+    );
   };
 
   const handleRevertReturning = async () => {
@@ -567,6 +591,19 @@ function TransactionDetailContent({
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   Returning
+                </Button>
+              )}
+              {isDebit && !transaction.returningInfo && (
+                <Button
+                  onClick={handleMarkAsHasReturning}
+                  disabled={isUpdating}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  data-qa="btn-mark-as-has-returning"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Has Returning
                 </Button>
               )}
               <Button

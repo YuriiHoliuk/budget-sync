@@ -281,6 +281,7 @@ export async function createTestBudgetTarget(
 interface TestBankTransactionData {
   externalId?: string;
   accountId: number;
+  accountExternalId?: string | null;
   date?: Date;
   amount?: number;
   currency?: string;
@@ -291,13 +292,11 @@ interface TestBankTransactionData {
   commission?: number;
 }
 
-export async function createTestBankTransaction(
-  db: Db,
-  data: TestBankTransactionData,
-) {
-  const values = {
+function buildBankTransactionValues(data: TestBankTransactionData) {
+  return {
     externalId: data.externalId ?? `test-btx-${Date.now()}-${Math.random()}`,
     accountId: data.accountId,
+    accountExternalId: data.accountExternalId ?? null,
     date: data.date ?? new Date(),
     amount: data.amount ?? -15000,
     currency: data.currency ?? 'UAH',
@@ -307,7 +306,13 @@ export async function createTestBankTransaction(
     mcc: data.mcc ?? 5411,
     commission: data.commission ?? 0,
   };
+}
 
+export async function createTestBankTransaction(
+  db: Db,
+  data: TestBankTransactionData,
+) {
+  const values = buildBankTransactionValues(data);
   const [result] = await db.insert(bankTransactions).values(values).returning();
   if (!result) {
     throw new Error('Failed to create test bank transaction');

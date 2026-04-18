@@ -106,15 +106,15 @@ mutation RevertTransfer($transactionId: Int!) {
 mutation MarkAsReturning($input: MarkAsReturningInput!) {
   markAsReturning(input: $input) {
     type
-    originalTransaction {
+    survivingTransaction {
       id
       amount
       type
       bankTransactionCount
     }
-    returningAmount
-    originalAmount
-    newOriginalAmount
+    newSurvivingAmount
+    totalDebitAmount
+    totalCreditAmount
   }
 }
 

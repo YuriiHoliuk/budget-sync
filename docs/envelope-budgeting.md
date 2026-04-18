@@ -167,3 +167,15 @@ When a budget is archived, leftover funds are handled automatically:
 
 - **Positive available balance** (`available > 0`): a negative allocation is created to release the remaining funds back to Ready to Assign. This ensures no money is trapped in a deactivated envelope.
 - **Zero or negative available balance** (`available <= 0`): the budget is archived without creating an allocation. Any overspending debt is forgiven.
+
+### Returning (Refund / Compensation) Pairing
+
+When a credit (refund/compensation) is linked to a debit (expense) via the "mark as returning" flow, the two transactions are merged into a single **surviving** transaction whose `accountId` points at the surviving side's account. Outcomes:
+
+- `|credit| == |debit|` → both deleted.
+- `|credit| < |debit|` → credit deleted, debit reduced, credit's bank transactions re-linked to the debit.
+- `|credit| > |debit|` → debit deleted, credit reduced, debit's bank transactions re-linked to the credit.
+
+Pairing works **across accounts**: the friend who refunds you on a different card still reduces the original expense. The absorbed side's bank transactions keep their true `account_id`, so per-account bank balances remain correct.
+
+**Budget-calculation consequence.** `findTransactionSummaries` resolves `accountRole` via the surviving transaction's `accountId`. For a cross-account refund where the two accounts have different roles (e.g. operational expense refunded to a savings account), the refund amount is absorbed into the surviving expense and no longer counted as independent operational income. This is intentional — the refund isn't really income — but means cross-account pairings can silently move an income signal out of the operational bucket. If you later revert the pairing, the credit is resurrected on its original account with its original role, restoring the income signal.

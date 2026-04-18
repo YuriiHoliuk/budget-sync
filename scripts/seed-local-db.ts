@@ -1362,6 +1362,49 @@ async function seedReturningExamples(
   }
 
   console.log('  Inserted partial refund (1 tx, 2 bank_txs) + full refund (0 txs, 2 orphaned bank_txs)');
+
+  // --- Example 3: Cross-account returning candidates (unpaired) ---
+  // Two unpaired transactions on different accounts that the user can manually
+  // pair via the "mark as returning" flow to demonstrate cross-account support.
+  // Scenario: pub dinner paid from Mono Black, friend reimbursed to Mono White.
+  const otherAccount = seedAccounts.find((acc) => acc.name === 'Mono White UAH');
+  const diningCategory = seedCategories.find((cat) => cat.name === 'Ресторани');
+
+  if (otherAccount) {
+    const pubDate = timestamps.unique(new Date(2026, 2, 3, 20, 15, 0));
+    await db.insert(transactions).values({
+      externalId: 'seed-cross-account-pub',
+      date: pubDate,
+      amount: 120000, // 1200 UAH — user paid the full bill
+      currency: 'UAH',
+      type: 'debit',
+      accountId: account.id,
+      accountExternalId: account.externalId!,
+      bankDescription: 'Pub Pravda',
+      counterparty: 'Pub Pravda',
+      mcc: 5812,
+      categoryId: diningCategory?.id ?? null,
+      categorizationStatus: 'verified',
+    });
+
+    const friendDate = timestamps.unique(new Date(2026, 2, 3, 22, 30, 0));
+    await db.insert(transactions).values({
+      externalId: 'seed-cross-account-friend-refund',
+      date: friendDate,
+      amount: 40000, // 400 UAH — friend's share on a different card
+      currency: 'UAH',
+      type: 'credit',
+      accountId: otherAccount.id,
+      accountExternalId: otherAccount.externalId!,
+      bankDescription: 'P2P Refund',
+      counterparty: 'Friend',
+      categorizationStatus: 'verified',
+    });
+
+    console.log(
+      '  Inserted cross-account returning candidates (1 debit on Mono Black, 1 credit on Mono White) — pair manually in UI to demo',
+    );
+  }
 }
 
 // ============================================================================

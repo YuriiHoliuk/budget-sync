@@ -1,5 +1,11 @@
 # Plan: Mark as Returning Feature
 
+> **Status note (2026-04-18):** This original plan baked in a same-account
+> constraint and a credit-must-be-smaller-than-debit rule. Both were lifted by
+> the follow-up plan in `tingly-gliding-hollerith.md`, which added cross-account
+> pairing, bidirectional entry, and the `credit_reduced` outcome. See that file
+> for the current model; the notes below are kept for historical context.
+
 ## Context
 
 Automatic return detection works via "Скасування. " prefix in bank descriptions. When banks use different naming, the auto-detection fails and credit transactions remain visible as regular income. This feature lets users manually mark a credit transaction as a return of an original debit transaction.

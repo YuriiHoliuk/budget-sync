@@ -65,15 +65,19 @@ extend type Mutation {
   revertTransfer(transactionId: Int!): Transaction!
 
   """
-  Mark a credit transaction as a return of an original debit transaction.
-  Partial return: reduces original amount, links bank transactions, deletes returning.
-  Full return: deletes both transactions.
+  Pair a credit (refund/compensation) with a debit (expense) to cancel or reduce them.
+  Works across accounts. Outcomes based on amount comparison:
+    - credit == debit → both deleted (full_cancel)
+    - credit < debit → credit deleted, debit reduced (debit_reduced)
+    - credit > debit → debit deleted, credit reduced (credit_reduced)
+  Deleted side's bank transactions are re-linked to the surviving transaction.
   """
   markAsReturning(input: MarkAsReturningInput!): MarkAsReturningResult!
 
   """
-  Revert a partial return. Unlinks credit bank transactions from the original,
-  re-creates credit transactions, and restores the original amount.
+  Revert a reduction. Unlinks foreign bank transactions from the surviving transaction,
+  re-creates them as standalone transactions on their origin accounts, and restores
+  the surviving transaction's amount. Works for both debit_reduced and credit_reduced.
   """
   revertReturning(transactionId: Int!): RevertReturningResult!
 
@@ -384,71 +388,78 @@ type TransferPairInfo {
 
 input MarkAsReturningInput {
   """
-  Database ID of the credit (returning) transaction.
+  Database IDs of the credit (refund/compensation) transactions. One of the
+  two sides must have exactly one entry (the "anchor" that survives); the
+  other may have one or more. Passing arrays with more than one entry on
+  both sides is rejected.
   """
-  returningTransactionId: Int!
+  creditTransactionIds: [Int!]!
 
   """
-  Database ID of the debit (original) transaction.
+  Database IDs of the debit (expense) transactions. See creditTransactionIds.
   """
-  originalTransactionId: Int!
+  debitTransactionIds: [Int!]!
 }
 
 type MarkAsReturningResult {
   """
-  Whether this was a partial or full return.
+  Which outcome was produced by the pairing.
   """
   type: ReturningType!
 
   """
-  The original transaction after update (null for full returns — deleted).
+  The surviving transaction after update (null for full_cancel — both deleted).
   """
-  originalTransaction: Transaction
+  survivingTransaction: Transaction
 
   """
-  Returning amount in major units.
+  New amount in major units on the surviving transaction (null for full_cancel).
   """
-  returningAmount: Float!
+  newSurvivingAmount: Float
 
   """
-  Original amount in major units (before return).
+  Sum of debit transactions in major units (before pairing).
   """
-  originalAmount: Float!
+  totalDebitAmount: Float!
 
   """
-  New original amount in major units (null for full returns).
+  Sum of credit transactions in major units (before pairing).
   """
-  newOriginalAmount: Float
+  totalCreditAmount: Float!
 }
 
 enum ReturningType {
-  PARTIAL
-  FULL
+  FULL_CANCEL
+  DEBIT_REDUCED
+  CREDIT_REDUCED
 }
 
 """
-Info about returning/refund bank transactions linked to a debit transaction.
+Info about foreign bank transactions (opposite-type) linked to this transaction.
+Present for both debit_reduced survivors (credit bank_txs linked to a debit) and
+credit_reduced survivors (debit bank_txs linked to a credit).
 """
 type ReturningInfo {
   """
-  Whether this return can be reverted (partial returns only).
+  Whether this pairing can be reverted (always true when this info is present).
   """
   isRevertible: Boolean!
 
   """
-  Total returning amount in major units.
+  Total absolute amount of foreign bank transactions in major units.
   """
   returningAmount: Float!
 }
 
 type RevertReturningResult {
   """
-  The original transaction with restored amount.
+  The surviving transaction with restored amount.
   """
   transaction: Transaction!
 
   """
-  Newly created credit transactions (one per unlinked returning bank transaction).
+  Newly created transactions (one per unlinked foreign bank transaction),
+  resurrected on their original accounts.
   """
   createdTransactions: [Transaction!]!
 }

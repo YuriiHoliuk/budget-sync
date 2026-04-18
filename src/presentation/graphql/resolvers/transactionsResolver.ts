@@ -183,8 +183,8 @@ export class TransactionsResolver extends Resolver {
           _parent: unknown,
           args: {
             input: {
-              returningTransactionId: number;
-              originalTransactionId: number;
+              creditTransactionIds: number[];
+              debitTransactionIds: number[];
             };
           },
         ) => this.markAsReturning(args.input),
@@ -504,30 +504,30 @@ export class TransactionsResolver extends Resolver {
   }
 
   private async markAsReturning(input: {
-    returningTransactionId: number;
-    originalTransactionId: number;
+    creditTransactionIds: number[];
+    debitTransactionIds: number[];
   }) {
     const result = await this.markAsReturningUseCase.execute(input);
 
-    let originalTransaction = null;
-    if (result.type === 'partial') {
+    let survivingTransaction = null;
+    if (result.survivingTransactionId !== null) {
       const record = await this.transactionRepository.findRecordById(
-        result.originalTransactionId,
+        result.survivingTransactionId,
       );
       if (record) {
-        originalTransaction = mapTransactionRecordToGql(record);
+        survivingTransaction = mapTransactionRecordToGql(record);
       }
     }
 
     return {
-      type: result.type === 'partial' ? 'PARTIAL' : 'FULL',
-      originalTransaction,
-      returningAmount: toMajorUnits(result.returningAmount),
-      originalAmount: toMajorUnits(result.originalAmount),
-      newOriginalAmount:
-        result.newOriginalAmount !== null
-          ? toMajorUnits(result.newOriginalAmount)
+      type: result.type.toUpperCase(),
+      survivingTransaction,
+      newSurvivingAmount:
+        result.newSurvivingAmount !== null
+          ? toMajorUnits(result.newSurvivingAmount)
           : null,
+      totalDebitAmount: toMajorUnits(result.totalDebitAmount),
+      totalCreditAmount: toMajorUnits(result.totalCreditAmount),
     };
   }
 
@@ -626,19 +626,23 @@ export class TransactionsResolver extends Resolver {
   }
 
   private async getReturningInfo(transactionId: number, type: string) {
-    if (type !== 'DEBIT') {
+    if (type === 'TRANSFER') {
       return null;
     }
 
     const bankTxs =
       await this.bankTransactionRepository.findByTransactionId(transactionId);
-    const creditBankTxs = bankTxs.filter((bankTx) => bankTx.isCredit);
 
-    if (creditBankTxs.length === 0) {
+    const foreignBankTxs =
+      type === 'DEBIT'
+        ? bankTxs.filter((bankTx) => bankTx.isCredit)
+        : bankTxs.filter((bankTx) => bankTx.isDebit);
+
+    if (foreignBankTxs.length === 0) {
       return null;
     }
 
-    const returningAmount = creditBankTxs.reduce(
+    const returningAmount = foreignBankTxs.reduce(
       (sum, bankTx) => sum + Math.abs(bankTx.amount.amount),
       0,
     );

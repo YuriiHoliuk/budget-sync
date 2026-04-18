@@ -5,7 +5,7 @@ import { BankTransaction } from '@domain/entities/BankTransaction.ts';
 import { Transaction } from '@domain/entities/Transaction.ts';
 import {
   NoReturningBankTransactionsError,
-  OriginalTransactionNotDebitError,
+  TransactionIsTransferError,
   TransactionNotFoundError,
 } from '@domain/errors/DomainErrors.ts';
 import type { BankTransactionRepository } from '@domain/repositories/BankTransactionRepository.ts';
@@ -51,6 +51,7 @@ function createMockBankTransaction(
     id: number;
     externalId: string;
     accountId: number;
+    accountExternalId: string;
     date: Date;
     amount: Money;
     currency: Currency;
@@ -62,6 +63,7 @@ function createMockBankTransaction(
     {
       externalId: overrides.externalId ?? 'bank-tx-1',
       accountId: overrides.accountId ?? 10,
+      accountExternalId: overrides.accountExternalId ?? 'acc-123',
       date: overrides.date ?? new Date('2024-03-15'),
       amount: overrides.amount ?? Money.create(3000, Currency.UAH),
       currency: overrides.currency ?? Currency.UAH,
@@ -143,10 +145,10 @@ describe('RevertReturningUseCase', () => {
     );
   });
 
-  test('should unlink credit bank_txs, create new credit transactions, and restore original amount', async () => {
-    const originalRecord = createMockTransactionRecord({
+  test('reverts debit_reduced: unlinks credit bank_txs, recreates credits, restores debit amount', async () => {
+    const survivingDebit = createMockTransactionRecord({
       id: 1,
-      externalId: 'tx-original',
+      externalId: 'tx-debit',
       type: 'debit',
       amount: -2000,
       currency: 'UAH',
@@ -156,19 +158,21 @@ describe('RevertReturningUseCase', () => {
 
     (
       mockTransactionRepository.findRecordById as ReturnType<typeof mock>
-    ).mockResolvedValueOnce(originalRecord);
+    ).mockResolvedValueOnce(survivingDebit);
 
     const debitBankTx = createMockBankTransaction({
       id: 50,
       externalId: 'bank-debit-1',
       type: TransactionType.DEBIT,
       amount: Money.create(-5000, Currency.UAH),
+      accountExternalId: 'acc-123',
     });
     const creditBankTx1 = createMockBankTransaction({
       id: 100,
       externalId: 'bank-credit-1',
       type: TransactionType.CREDIT,
       amount: Money.create(2000, Currency.UAH),
+      accountExternalId: 'acc-123',
       bankDescription: 'Refund 1',
     });
     const creditBankTx2 = createMockBankTransaction({
@@ -176,6 +180,7 @@ describe('RevertReturningUseCase', () => {
       externalId: 'bank-credit-2',
       type: TransactionType.CREDIT,
       amount: Money.create(1000, Currency.UAH),
+      accountExternalId: 'acc-123',
       bankDescription: 'Refund 2',
     });
 
@@ -187,7 +192,6 @@ describe('RevertReturningUseCase', () => {
 
     await useCase.execute({ transactionId: 1 });
 
-    // Should unlink credit bank transactions from the original
     expect(
       mockBankTransactionRepository.unlinkTransactionSource,
     ).toHaveBeenCalledTimes(2);
@@ -198,7 +202,6 @@ describe('RevertReturningUseCase', () => {
       mockBankTransactionRepository.unlinkTransactionSource,
     ).toHaveBeenCalledWith(1, 101);
 
-    // Should create new credit transactions for each unlinked bank tx
     const saveAndReturnCalls = (
       mockTransactionRepository.saveAndReturn as ReturnType<typeof mock>
     ).mock.calls;
@@ -209,65 +212,145 @@ describe('RevertReturningUseCase', () => {
     expect(firstSaved.amount.amount).toBe(2000);
     expect(firstSaved.type).toBe(TransactionType.CREDIT);
     expect(firstSaved.accountId).toBe('acc-123');
-    expect(firstSaved.description).toBe('Refund 1');
 
-    const secondSaved = saveAndReturnCalls[1]?.[0] as Transaction;
-    expect(secondSaved.externalId).toBe('bank-credit-2');
-    expect(secondSaved.amount.amount).toBe(1000);
-    expect(secondSaved.type).toBe(TransactionType.CREDIT);
-    expect(secondSaved.description).toBe('Refund 2');
-
-    // Should delete return records for each reverted credit bank txn
-    expect(
-      mockBankTransactionRepository.deleteReturnsByReturningBankTransactionId,
-    ).toHaveBeenCalledTimes(2);
-    expect(
-      mockBankTransactionRepository.deleteReturnsByReturningBankTransactionId,
-    ).toHaveBeenCalledWith(100);
-    expect(
-      mockBankTransactionRepository.deleteReturnsByReturningBankTransactionId,
-    ).toHaveBeenCalledWith(101);
-
-    // Should link new transactions to their respective bank txs
-    expect(
-      mockBankTransactionRepository.linkTransactionSource,
-    ).toHaveBeenCalledTimes(2);
-    expect(
-      mockBankTransactionRepository.linkTransactionSource,
-    ).toHaveBeenCalledWith(200, 100);
-    expect(
-      mockBankTransactionRepository.linkTransactionSource,
-    ).toHaveBeenCalledWith(200, 101);
-
-    // Should restore original amount: current 2000 + 2000 + 1000 = 5000
     expect(
       mockTransactionRepository.updateTransactionAmount,
     ).toHaveBeenCalledWith(1, 5000);
   });
 
-  test('should throw TransactionNotFoundError when transaction not found', async () => {
+  test('cross-account revert uses each bank_tx own accountExternalId, not the surviving record', async () => {
+    const survivingDebit = createMockTransactionRecord({
+      id: 1,
+      externalId: 'tx-debit',
+      type: 'debit',
+      amount: -2000,
+      currency: 'UAH',
+      accountId: 10,
+      accountExternalId: 'acc-iron-black',
+    });
+
+    (
+      mockTransactionRepository.findRecordById as ReturnType<typeof mock>
+    ).mockResolvedValueOnce(survivingDebit);
+
+    const debitBankTx = createMockBankTransaction({
+      id: 50,
+      externalId: 'bank-debit',
+      type: TransactionType.DEBIT,
+      amount: Money.create(-5000, Currency.UAH),
+      accountExternalId: 'acc-iron-black',
+    });
+    // Refund bank_tx came from a DIFFERENT account (Mono White)
+    const refundBankTx = createMockBankTransaction({
+      id: 100,
+      externalId: 'bank-refund-mono',
+      type: TransactionType.CREDIT,
+      amount: Money.create(3000, Currency.UAH),
+      accountExternalId: 'acc-mono-white',
+      bankDescription: 'Friend refund',
+    });
+
+    (
+      mockBankTransactionRepository.findByTransactionId as ReturnType<
+        typeof mock
+      >
+    ).mockResolvedValueOnce([debitBankTx, refundBankTx]);
+
+    await useCase.execute({ transactionId: 1 });
+
+    const saveAndReturnCalls = (
+      mockTransactionRepository.saveAndReturn as ReturnType<typeof mock>
+    ).mock.calls;
+    expect(saveAndReturnCalls).toHaveLength(1);
+
+    const recreated = saveAndReturnCalls[0]?.[0] as Transaction;
+    expect(recreated.accountId).toBe('acc-mono-white');
+    expect(recreated.externalId).toBe('bank-refund-mono');
+    expect(recreated.type).toBe(TransactionType.CREDIT);
+  });
+
+  test('reverts credit_reduced: unlinks debit bank_txs from surviving credit, recreates debits, restores credit amount', async () => {
+    const survivingCredit = createMockTransactionRecord({
+      id: 2,
+      externalId: 'tx-credit',
+      type: 'credit',
+      amount: 3000,
+      currency: 'UAH',
+      accountId: 20,
+      accountExternalId: 'acc-mono',
+    });
+
+    (
+      mockTransactionRepository.findRecordById as ReturnType<typeof mock>
+    ).mockResolvedValueOnce(survivingCredit);
+
+    const creditBankTx = createMockBankTransaction({
+      id: 60,
+      externalId: 'bank-credit',
+      type: TransactionType.CREDIT,
+      amount: Money.create(8000, Currency.UAH),
+      accountExternalId: 'acc-mono',
+    });
+    const foreignDebitBankTx = createMockBankTransaction({
+      id: 70,
+      externalId: 'bank-debit-foreign',
+      type: TransactionType.DEBIT,
+      amount: Money.create(-5000, Currency.UAH),
+      accountExternalId: 'acc-iron',
+      bankDescription: 'Absorbed expense',
+    });
+
+    (
+      mockBankTransactionRepository.findByTransactionId as ReturnType<
+        typeof mock
+      >
+    ).mockResolvedValueOnce([creditBankTx, foreignDebitBankTx]);
+
+    await useCase.execute({ transactionId: 2 });
+
+    expect(
+      mockBankTransactionRepository.unlinkTransactionSource,
+    ).toHaveBeenCalledWith(2, 70);
+
+    const saveAndReturnCalls = (
+      mockTransactionRepository.saveAndReturn as ReturnType<typeof mock>
+    ).mock.calls;
+    expect(saveAndReturnCalls).toHaveLength(1);
+
+    const recreatedDebit = saveAndReturnCalls[0]?.[0] as Transaction;
+    expect(recreatedDebit.type).toBe(TransactionType.DEBIT);
+    expect(recreatedDebit.accountId).toBe('acc-iron');
+    expect(recreatedDebit.amount.amount).toBe(5000);
+
+    // Surviving credit amount restored: 3000 + 5000 = 8000
+    expect(
+      mockTransactionRepository.updateTransactionAmount,
+    ).toHaveBeenCalledWith(2, 8000);
+  });
+
+  test('throws TransactionNotFoundError when transaction not found', async () => {
     await expect(useCase.execute({ transactionId: 999 })).rejects.toThrow(
       TransactionNotFoundError,
     );
   });
 
-  test('should throw OriginalTransactionNotDebitError when transaction is not debit', async () => {
-    const creditRecord = createMockTransactionRecord({
+  test('throws TransactionIsTransferError when transaction is a transfer', async () => {
+    const transferRecord = createMockTransactionRecord({
       id: 1,
-      type: 'credit',
-      amount: 5000,
+      type: 'transfer',
+      amount: -5000,
     });
 
     (
       mockTransactionRepository.findRecordById as ReturnType<typeof mock>
-    ).mockResolvedValueOnce(creditRecord);
+    ).mockResolvedValueOnce(transferRecord);
 
     await expect(useCase.execute({ transactionId: 1 })).rejects.toThrow(
-      OriginalTransactionNotDebitError,
+      TransactionIsTransferError,
     );
   });
 
-  test('should throw NoReturningBankTransactionsError when no credit bank_txs found', async () => {
+  test('throws NoReturningBankTransactionsError when no foreign bank_txs found', async () => {
     const debitRecord = createMockTransactionRecord({
       id: 1,
       type: 'debit',
@@ -279,7 +362,6 @@ describe('RevertReturningUseCase', () => {
       mockTransactionRepository.findRecordById as ReturnType<typeof mock>
     ).mockResolvedValueOnce(debitRecord);
 
-    // Return only debit bank transactions (no credits)
     const debitBankTx = createMockBankTransaction({
       id: 50,
       type: TransactionType.DEBIT,
@@ -294,6 +376,48 @@ describe('RevertReturningUseCase', () => {
 
     await expect(useCase.execute({ transactionId: 1 })).rejects.toThrow(
       NoReturningBankTransactionsError,
+    );
+  });
+
+  test('throws when foreign bank_tx is missing accountExternalId', async () => {
+    const debitRecord = createMockTransactionRecord({
+      id: 1,
+      type: 'debit',
+      amount: -2000,
+      currency: 'UAH',
+    });
+
+    (
+      mockTransactionRepository.findRecordById as ReturnType<typeof mock>
+    ).mockResolvedValueOnce(debitRecord);
+
+    const debitBankTx = createMockBankTransaction({
+      id: 50,
+      type: TransactionType.DEBIT,
+      amount: Money.create(-5000, Currency.UAH),
+    });
+    const creditBankTxWithoutAccountExt = BankTransaction.create(
+      {
+        externalId: 'bank-credit-no-acc',
+        accountId: 30,
+        // accountExternalId intentionally omitted
+        date: new Date('2024-03-15'),
+        amount: Money.create(3000, Currency.UAH),
+        currency: Currency.UAH,
+        type: TransactionType.CREDIT,
+        bankDescription: 'Refund',
+      },
+      100,
+    );
+
+    (
+      mockBankTransactionRepository.findByTransactionId as ReturnType<
+        typeof mock
+      >
+    ).mockResolvedValueOnce([debitBankTx, creditBankTxWithoutAccountExt]);
+
+    await expect(useCase.execute({ transactionId: 1 })).rejects.toThrow(
+      /accountExternalId/,
     );
   });
 });

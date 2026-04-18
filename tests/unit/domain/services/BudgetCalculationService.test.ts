@@ -200,6 +200,37 @@ describe('BudgetCalculationService', () => {
       // totalInflows = 0 (no initial) + 1000000 (income) = 1000000
       expect(result.readyToAssign).toBe(1000000);
     });
+
+    // Pinning test for cross-account returning semantics.
+    // When a credit on account B (savings) is absorbed into a debit on account A
+    // (operational) via mark-as-returning, the surviving transaction carries the
+    // DEBIT's accountRole ('operational'), and the credit row no longer exists.
+    // Consequence: operational income is NOT inflated by the refund.
+    test('cross-account refund: absorbed credit is not counted as operational income', () => {
+      const accounts = makeAccounts([
+        { balance: 5000000, role: 'operational', initialBalance: 3000000 },
+        { balance: 2000000, role: 'savings', initialBalance: 2000000 },
+      ]);
+      // After mark-as-returning on operational expense 5000 with savings refund 2000:
+      //   surviving debit on operational: amount 3000 (5000 - 2000)
+      //   credit row: deleted
+      // BudgetCalculationService sees only the reduced debit; no credit counted.
+      const transactions = [
+        makeTransaction({
+          amount: 3000,
+          type: 'debit',
+          accountRole: 'operational',
+        }),
+      ];
+
+      const result = service.compute(MONTH, [], [], transactions, accounts);
+
+      // totalInflows = initial operational only (3000000); refund is not income.
+      expect(result.readyToAssign).toBe(3000000);
+      expect(result.totalSpent).toBe(3000);
+      // savingsRate reflects that no income landed on operational (divisor = 0)
+      expect(result.savingsRate).toBe(0);
+    });
   });
 
   describe('capitalBalance', () => {

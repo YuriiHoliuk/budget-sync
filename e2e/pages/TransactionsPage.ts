@@ -387,6 +387,15 @@ export class TransactionsPage extends BasePage {
   }
 
   /**
+   * Click "Has Returning" button in the detail panel.
+   * The detail panel must already be open on a debit transaction without
+   * existing returning info.
+   */
+  async clickMarkAsHasReturning(): Promise<void> {
+    await this.byQa('btn-mark-as-has-returning').click();
+  }
+
+  /**
    * Get the returning selection banner element
    */
   get returningSelectionBanner(): Locator {
@@ -412,6 +421,14 @@ export class TransactionsPage extends BasePage {
    */
   async confirmReturning(): Promise<void> {
     await this.byQa('btn-returning-confirm').click();
+  }
+
+  /**
+   * Click the Done button in the returning selection banner once one or more
+   * compatible rows have been toggled on. Opens the confirmation dialog.
+   */
+  async clickReturningDone(): Promise<void> {
+    await this.byQa('btn-returning-done').click();
   }
 
   /**

@@ -2,7 +2,7 @@ import type { BankTransaction } from '@domain/entities/BankTransaction.ts';
 import { Transaction } from '@domain/entities/Transaction.ts';
 import {
   NoReturningBankTransactionsError,
-  OriginalTransactionNotDebitError,
+  TransactionIsTransferError,
   TransactionNotFoundError,
 } from '@domain/errors/DomainErrors.ts';
 import {
@@ -54,17 +54,30 @@ export class RevertReturningUseCase extends UseCase<
       request.transactionId,
     );
 
-    const creditBankTxs = bankTxs.filter((bankTx) => bankTx.isCredit);
-    if (creditBankTxs.length === 0) {
+    const survivingType = record.type;
+    const foreignBankTxs = bankTxs.filter((bankTx) =>
+      survivingType === 'debit' ? bankTx.isCredit : bankTx.isDebit,
+    );
+
+    if (foreignBankTxs.length === 0) {
       throw new NoReturningBankTransactionsError(request.transactionId);
     }
 
     const currency = Currency.fromCode(record.currency);
     let currentAmount = Math.abs(record.amount);
     const createdTransactionIds: number[] = [];
+    const resurrectedType =
+      survivingType === 'debit'
+        ? TransactionType.CREDIT
+        : TransactionType.DEBIT;
 
-    for (const bankTx of creditBankTxs) {
-      const createdId = await this.revertSingleReturn(record, bankTx, currency);
+    for (const bankTx of foreignBankTxs) {
+      const createdId = await this.revertSingleReturn(
+        record.id,
+        bankTx,
+        currency,
+        resurrectedType,
+      );
       if (createdId !== null) {
         createdTransactionIds.push(createdId);
       }
@@ -90,35 +103,46 @@ export class RevertReturningUseCase extends UseCase<
     if (!record) {
       throw new TransactionNotFoundError(transactionId);
     }
-    if (record.type !== 'debit') {
-      throw new OriginalTransactionNotDebitError(transactionId);
+    if (record.type === 'transfer') {
+      throw new TransactionIsTransferError(transactionId);
     }
     return record;
   }
 
   private async revertSingleReturn(
-    originalRecord: TransactionRecord,
-    creditBankTx: BankTransaction,
+    survivingTransactionId: number,
+    foreignBankTx: BankTransaction,
     currency: Currency,
+    resurrectedType: TransactionType,
   ): Promise<number | null> {
     await this.bankTransactionRepository.unlinkTransactionSource(
-      originalRecord.id,
-      creditBankTx.id,
+      survivingTransactionId,
+      foreignBankTx.id,
     );
 
     await this.bankTransactionRepository.deleteReturnsByReturningBankTransactionId(
-      creditBankTx.id,
+      foreignBankTx.id,
     );
 
-    const amount = Money.create(Math.abs(creditBankTx.amount.amount), currency);
+    const amount = Money.create(
+      Math.abs(foreignBankTx.amount.amount),
+      currency,
+    );
+
+    const accountExternalId = foreignBankTx.accountExternalId;
+    if (!accountExternalId) {
+      throw new Error(
+        `Cannot revert returning: bank transaction ${foreignBankTx.id} has no accountExternalId`,
+      );
+    }
 
     const newTransaction = Transaction.create({
-      externalId: creditBankTx.externalId,
-      date: creditBankTx.date,
+      externalId: foreignBankTx.externalId,
+      date: foreignBankTx.date,
       amount,
-      description: creditBankTx.bankDescription ?? '',
-      type: TransactionType.CREDIT,
-      accountId: originalRecord.accountExternalId ?? '',
+      description: foreignBankTx.bankDescription ?? '',
+      type: resurrectedType,
+      accountId: accountExternalId,
     });
 
     const savedTransaction =
@@ -128,7 +152,7 @@ export class RevertReturningUseCase extends UseCase<
     if (savedDbId !== null) {
       await this.bankTransactionRepository.linkTransactionSource(
         savedDbId,
-        creditBankTx.id,
+        foreignBankTx.id,
       );
     }
 

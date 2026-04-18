@@ -255,35 +255,71 @@ export function TransactionsTable() {
   const [filtersOpen, setFiltersOpen] = useLocalStorage(LocalStorageKey.FILTER_SIDEBAR_OPEN, true);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
 
-  // Returning selection mode
+  // Returning selection mode — direction describes what the user is picking next.
+  //   - 'pick-debit': started from a credit, now picking 1+ matching expenses.
+  //   - 'pick-credit': started from a debit, now picking 1+ compensating incomes.
+  // `selected` accumulates picked row ids+amounts until the user clicks Done.
   const [returningSelection, setReturningSelection] = useState<{
-    returningTransactionId: number;
-    returningAmount: number;
+    direction: "pick-debit" | "pick-credit";
+    anchorTransactionId: number;
+    anchorAmount: number;
     currency: string;
+    selected: Array<{ id: number; amount: number }>;
   } | null>(null);
-  const [returningConfirmation, setReturningConfirmation] = useState<{
-    originalTransactionId: number;
-    originalAmount: number;
-  } | null>(null);
+  const [returningConfirmationOpen, setReturningConfirmationOpen] =
+    useState(false);
 
   const handleStartReturningSelection = useCallback(
-    (transactionId: number, amount: number, currency: string) => {
+    (
+      direction: "pick-debit" | "pick-credit",
+      transactionId: number,
+      amount: number,
+      currency: string,
+    ) => {
       setSelectedTransaction(null);
-      setReturningSelection({ returningTransactionId: transactionId, returningAmount: amount, currency });
+      setReturningSelection({
+        direction,
+        anchorTransactionId: transactionId,
+        anchorAmount: amount,
+        currency,
+        selected: [],
+      });
     },
     [],
   );
 
   const handleCancelReturningSelection = useCallback(() => {
     setReturningSelection(null);
-    setReturningConfirmation(null);
+    setReturningConfirmationOpen(false);
   }, []);
 
-  const handleSelectOriginalTransaction = useCallback(
-    (originalId: number, originalAmount: number) => {
-      setReturningConfirmation({ originalTransactionId: originalId, originalAmount });
+  const handleToggleReturningRow = useCallback(
+    (rowId: number, rowAmount: number) => {
+      setReturningSelection((prev) => {
+        if (!prev) return prev;
+        const exists = prev.selected.some((entry) => entry.id === rowId);
+        const next = exists
+          ? prev.selected.filter((entry) => entry.id !== rowId)
+          : [...prev.selected, { id: rowId, amount: rowAmount }];
+        return { ...prev, selected: next };
+      });
     },
     [],
+  );
+
+  const handleDoneReturningSelection = useCallback(() => {
+    if (!returningSelection) return;
+    if (returningSelection.selected.length === 0) return;
+    setReturningConfirmationOpen(true);
+  }, [returningSelection]);
+
+  const selectedTotalAmount = useMemo(
+    () =>
+      returningSelection?.selected.reduce(
+        (sum, entry) => sum + entry.amount,
+        0,
+      ) ?? 0,
+    [returningSelection],
   );
 
   // Sync applied filters and selected transaction back to URL + persist filters to localStorage
@@ -344,37 +380,56 @@ export function TransactionsTable() {
   const [markAsReturning, { loading: markAsReturningLoading }] = useMutation(MarkAsReturningDocument, {
     update(cache, { data }, { variables }) {
       if (!data?.markAsReturning || !variables?.input) return;
-      const { returningTransactionId, originalTransactionId } = variables.input;
+      const { creditTransactionIds, debitTransactionIds } = variables.input;
+      const outcome = data.markAsReturning.type;
+      const survivingId = data.markAsReturning.survivingTransaction?.id ?? null;
 
-      // Returning tx is always deleted
-      removeTransactionFromCache(cache, returningTransactionId);
-
-      // For full returns, original tx is also deleted
-      if (data.markAsReturning.type === 'FULL') {
-        removeTransactionFromCache(cache, originalTransactionId);
+      // Every transaction that is not the surviving one should be evicted.
+      const allIds = [...creditTransactionIds, ...debitTransactionIds];
+      if (outcome === 'FULL_CANCEL') {
+        for (const id of allIds) {
+          removeTransactionFromCache(cache, id);
+        }
+        return;
       }
-      // For partial returns, original tx amount + bankTransactionCount
-      // are auto-updated via normalized cache from originalTransaction in response
+
+      for (const id of allIds) {
+        if (id !== survivingId) {
+          removeTransactionFromCache(cache, id);
+        }
+      }
+      // Surviving transaction's amount + bankTransactionCount are auto-updated
+      // via normalized cache from survivingTransaction in response.
     },
   });
 
   const handleConfirmReturning = useCallback(async () => {
-    if (!returningSelection || !returningConfirmation) return;
+    if (!returningSelection) return;
+    if (returningSelection.selected.length === 0) return;
+
+    const anchorIds = [returningSelection.anchorTransactionId];
+    const selectedIds = returningSelection.selected.map((entry) => entry.id);
+
+    const creditTransactionIds =
+      returningSelection.direction === 'pick-debit' ? anchorIds : selectedIds;
+    const debitTransactionIds =
+      returningSelection.direction === 'pick-debit' ? selectedIds : anchorIds;
+
     try {
       await markAsReturning({
         variables: {
           input: {
-            returningTransactionId: returningSelection.returningTransactionId,
-            originalTransactionId: returningConfirmation.originalTransactionId,
+            creditTransactionIds,
+            debitTransactionIds,
           },
         },
       });
       setReturningSelection(null);
-      setReturningConfirmation(null);
+      setReturningConfirmationOpen(false);
     } catch {
       // Error is handled by Apollo Client
     }
-  }, [returningSelection, returningConfirmation, markAsReturning]);
+  }, [returningSelection, markAsReturning]);
 
   const transactions = data?.transactions.items ?? [];
   const totalCount = data?.transactions.totalCount ?? 0;
@@ -536,8 +591,12 @@ export function TransactionsTable() {
           {returningSelection && (
             <div className="mb-4">
               <ReturningSelectionBanner
-                returningAmount={returningSelection.returningAmount}
+                direction={returningSelection.direction}
+                anchorAmount={returningSelection.anchorAmount}
                 currency={returningSelection.currency}
+                selectedCount={returningSelection.selected.length}
+                selectedTotal={selectedTotalAmount}
+                onDone={handleDoneReturningSelection}
                 onCancel={handleCancelReturningSelection}
               />
             </div>
@@ -582,14 +641,34 @@ export function TransactionsTable() {
                         onBudgetChange={handleBudgetChange}
                         onVerify={handleVerify}
                         onViewDetails={() => {
-                          if (returningSelection && transaction.type === TransactionTypeEnum.Debit && transaction.amount >= returningSelection.returningAmount) {
-                            handleSelectOriginalTransaction(transaction.id, transaction.amount);
-                          } else if (!returningSelection) {
-                            setSelectedTransaction(transaction.id);
+                          if (returningSelection) {
+                            const isMatchingTarget =
+                              returningSelection.direction === "pick-debit"
+                                ? transaction.type === TransactionTypeEnum.Debit
+                                : transaction.type === TransactionTypeEnum.Credit;
+                            const currencyMatches =
+                              transaction.currency === returningSelection.currency;
+                            if (isMatchingTarget && currencyMatches) {
+                              handleToggleReturningRow(
+                                transaction.id,
+                                transaction.amount,
+                              );
+                            }
+                            return;
                           }
+                          setSelectedTransaction(transaction.id);
                         }}
-                        returningSelectionActive={returningSelection !== null}
-                        returningAmount={returningSelection?.returningAmount}
+                        returningSelectionDirection={
+                          returningSelection?.direction ?? null
+                        }
+                        returningSelectionCurrency={
+                          returningSelection?.currency ?? null
+                        }
+                        returningSelected={
+                          returningSelection?.selected.some(
+                            (entry) => entry.id === transaction.id,
+                          ) ?? false
+                        }
                       />
                     ))}
                   </TableBody>
@@ -635,10 +714,20 @@ export function TransactionsTable() {
       />
 
       <ReturningConfirmationDialog
-        open={returningConfirmation !== null}
-        onOpenChange={(open) => { if (!open) setReturningConfirmation(null); }}
-        returningAmount={returningSelection?.returningAmount ?? 0}
-        originalAmount={returningConfirmation?.originalAmount ?? 0}
+        open={returningConfirmationOpen}
+        onOpenChange={(open) => {
+          if (!open) setReturningConfirmationOpen(false);
+        }}
+        creditAmount={
+          returningSelection?.direction === "pick-debit"
+            ? returningSelection.anchorAmount
+            : selectedTotalAmount
+        }
+        debitAmount={
+          returningSelection?.direction === "pick-debit"
+            ? selectedTotalAmount
+            : returningSelection?.anchorAmount ?? 0
+        }
         currency={returningSelection?.currency ?? "UAH"}
         loading={markAsReturningLoading}
         onConfirm={handleConfirmReturning}
@@ -664,8 +753,9 @@ interface TransactionRowProps {
   onBudgetChange: (transactionId: number, budgetId: number | null) => Promise<void>;
   onVerify: (transactionId: number) => Promise<void>;
   onViewDetails: () => void;
-  returningSelectionActive?: boolean;
-  returningAmount?: number;
+  returningSelectionDirection?: "pick-debit" | "pick-credit" | null;
+  returningSelectionCurrency?: string | null;
+  returningSelected?: boolean;
 }
 
 function TransactionRow({
@@ -680,8 +770,9 @@ function TransactionRow({
   onBudgetChange,
   onVerify,
   onViewDetails,
-  returningSelectionActive,
-  returningAmount,
+  returningSelectionDirection,
+  returningSelectionCurrency,
+  returningSelected,
 }: TransactionRowProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const typeConfig = TYPE_CONFIG[transaction.type] ?? TYPE_CONFIG[TransactionTypeEnum.Debit];
@@ -692,9 +783,16 @@ function TransactionRow({
   const counterparty = transaction.counterpartyName || "—";
   const isTransfer = transaction.type === TransactionTypeEnum.Transfer;
   const isDebitRow = transaction.type === TransactionTypeEnum.Debit;
+  const isCreditRow = transaction.type === TransactionTypeEnum.Credit;
   const isVerified = transaction.categorizationStatus === CategorizationStatusEnum.Verified;
   const isCategorized = transaction.categorizationStatus === CategorizationStatusEnum.Categorized;
-  const isSelectableForReturning = returningSelectionActive && isDebitRow && (returningAmount === undefined || transaction.amount >= returningAmount);
+  const returningSelectionActive = returningSelectionDirection != null;
+  const isSelectableForReturning =
+    returningSelectionActive &&
+    ((returningSelectionDirection === "pick-debit" && isDebitRow) ||
+      (returningSelectionDirection === "pick-credit" && isCreditRow)) &&
+    (!returningSelectionCurrency ||
+      transaction.currency === returningSelectionCurrency);
 
   const currentBudgetId = transaction.budget?.id ?? null;
   const filteredBudgets = useMemo(() => {
@@ -740,12 +838,15 @@ function TransactionRow({
         isEditing && "bg-muted/50",
         returningSelectionActive
           ? isSelectableForReturning
-            ? "cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20"
+            ? returningSelected
+              ? "cursor-pointer bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60"
+              : "cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20"
             : "cursor-not-allowed opacity-50"
           : "cursor-pointer",
       )}
       onClick={onViewDetails}
       data-qa={`transaction-row-${transaction.id}`}
+      data-qa-returning-selected={returningSelected ? "true" : undefined}
     >
       <TableCell className="font-medium text-muted-foreground">
         {formatDate(transaction.date)}

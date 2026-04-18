@@ -235,21 +235,7 @@ export class OriginalTransactionNotDebitError extends DomainError {
 }
 
 /**
- * Thrown when the returning amount exceeds the original transaction amount.
- */
-export class ReturningAmountExceedsOriginalError extends DomainError {
-  constructor(
-    public readonly returningAmount: number,
-    public readonly originalAmount: number,
-  ) {
-    super(
-      `Returning amount (${returningAmount}) exceeds original amount (${originalAmount})`,
-    );
-  }
-}
-
-/**
- * Thrown when attempting to mark a transfer transaction as returning.
+ * Thrown when attempting to mark a transfer transaction as returning or revert its returning.
  */
 export class TransactionIsTransferError extends DomainError {
   constructor(public readonly transactionId: number) {
@@ -260,21 +246,7 @@ export class TransactionIsTransferError extends DomainError {
 }
 
 /**
- * Thrown when the returning and original transactions belong to different accounts.
- */
-export class ReturningAccountMismatchError extends DomainError {
-  constructor(
-    public readonly returningAccountId: number,
-    public readonly originalAccountId: number,
-  ) {
-    super(
-      `Returning transaction (account ${returningAccountId}) and original transaction (account ${originalAccountId}) must belong to the same account`,
-    );
-  }
-}
-
-/**
- * Thrown when trying to revert a return that has no credit bank transactions linked.
+ * Thrown when trying to revert a return that has no foreign bank transactions linked.
  */
 export class NoReturningBankTransactionsError extends DomainError {
   constructor(public readonly transactionId: number) {

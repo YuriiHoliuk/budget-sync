@@ -73,10 +73,11 @@ test.describe('Mark as Returning', () => {
     // The detail panel should close and the returning selection banner should appear
     await expect(transactionsPage.returningSelectionBanner).toBeVisible();
 
-    // Step 3: Click the debit transaction row (to select it as the original)
+    // Step 3: Click the debit transaction row (toggles selection)
     await transactionsPage.getRowById(debitTxId).click();
 
-    // Step 4: The confirmation dialog should appear
+    // Step 4: Click Done in the banner to open the confirmation dialog
+    await transactionsPage.clickReturningDone();
     await expect(transactionsPage.returningConfirmationDialog).toBeVisible();
 
     // Step 5: Confirm the returning

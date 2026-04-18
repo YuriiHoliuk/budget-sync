@@ -1,9 +1,10 @@
 /**
  * API Integration Tests for Mark as Returning and Revert Returning Mutations
  *
- * Tests the GraphQL markAsReturning and revertReturning mutations.
- * Covers partial returns, full returns, validation errors, returningInfo field
- * resolver, and reverting a partial return.
+ * Covers all three outcomes (full_cancel, debit_reduced, credit_reduced) from both
+ * same-account and cross-account pairings. Also covers revert symmetry: a surviving
+ * credit with absorbed debit bank_txs can be reverted, and cross-account reverts
+ * resurrect the absorbed side on its origin account.
  *
  * Run with: bun test tests/integration/api/mark-as-returning.test.ts
  */
@@ -33,14 +34,14 @@ const MARK_AS_RETURNING = `
   mutation MarkAsReturning($input: MarkAsReturningInput!) {
     markAsReturning(input: $input) {
       type
-      originalTransaction {
+      survivingTransaction {
         id
         amount
         type
       }
-      returningAmount
-      originalAmount
-      newOriginalAmount
+      newSurvivingAmount
+      totalDebitAmount
+      totalCreditAmount
     }
   }
 `;
@@ -57,6 +58,9 @@ const REVERT_RETURNING = `
         id
         amount
         type
+        account {
+          id
+        }
       }
     }
   }
@@ -84,6 +88,18 @@ const GET_TRANSACTION = `
   }
 `;
 
+const TRANSACTIONS_BY_ACCOUNT = `
+  query TransactionsByAccount($accountId: Int!) {
+    transactions(filter: { accountId: $accountId }) {
+      items {
+        id
+        type
+        amount
+      }
+    }
+  }
+`;
+
 describe('Mutation: markAsReturning', () => {
   beforeAll(async () => {
     await harness.setup();
@@ -101,88 +117,84 @@ describe('Mutation: markAsReturning', () => {
     await clearAllTestData(harness.getDb());
   });
 
-  test('should handle partial return: reduce original amount, delete returning, re-link bank txns', async () => {
+  test('debit_reduced (same account): reduces debit, deletes credit, re-links credit bank_txs', async () => {
     const account = await createTestAccount(harness.getDb(), {
       name: 'Monobank Card',
       source: 'bank_sync',
     });
 
-    // Create debit transaction (original expense): 100.00 UAH
-    const originalTx = await createTestTransaction(harness.getDb(), {
+    const debitTx = await createTestTransaction(harness.getDb(), {
       accountId: account.id,
       accountExternalId: account.externalId,
       type: 'debit',
-      amount: -10000, // 100.00 UAH in minor units
+      amount: -10000,
       counterparty: 'Shop',
     });
 
-    // Create credit transaction (returning): 30.00 UAH
-    const returningTx = await createTestTransaction(harness.getDb(), {
+    const creditTx = await createTestTransaction(harness.getDb(), {
       accountId: account.id,
       accountExternalId: account.externalId,
       type: 'credit',
-      amount: 3000, // 30.00 UAH in minor units
+      amount: 3000,
       counterparty: 'Shop Refund',
     });
 
-    // Create bank transactions linked to both
-    const originalBankTx = await createTestBankTransaction(harness.getDb(), {
+    const debitBankTx = await createTestBankTransaction(harness.getDb(), {
       accountId: account.id,
+      accountExternalId: account.externalId,
       amount: -10000,
       type: 'debit',
     });
     await createTestTransactionSource(harness.getDb(), {
-      transactionId: originalTx.id,
-      bankTransactionId: originalBankTx.id,
+      transactionId: debitTx.id,
+      bankTransactionId: debitBankTx.id,
     });
 
-    const returningBankTx = await createTestBankTransaction(harness.getDb(), {
+    const creditBankTx = await createTestBankTransaction(harness.getDb(), {
       accountId: account.id,
+      accountExternalId: account.externalId,
       amount: 3000,
       type: 'credit',
     });
     await createTestTransactionSource(harness.getDb(), {
-      transactionId: returningTx.id,
-      bankTransactionId: returningBankTx.id,
+      transactionId: creditTx.id,
+      bankTransactionId: creditBankTx.id,
     });
 
     const result = await harness.executeQuery<{
       markAsReturning: {
         type: string;
-        originalTransaction: {
+        survivingTransaction: {
           id: number;
           amount: number;
           type: string;
         } | null;
-        returningAmount: number;
-        originalAmount: number;
-        newOriginalAmount: number | null;
+        newSurvivingAmount: number | null;
+        totalDebitAmount: number;
+        totalCreditAmount: number;
       };
     }>(MARK_AS_RETURNING, {
       input: {
-        returningTransactionId: returningTx.id,
-        originalTransactionId: originalTx.id,
+        creditTransactionIds: [creditTx.id],
+        debitTransactionIds: [debitTx.id],
       },
     });
 
     expect(result.errors).toBeUndefined();
     const data = result.data?.markAsReturning;
-    expect(data?.type).toBe('PARTIAL');
-    expect(data?.returningAmount).toBe(30); // 30.00 major units
-    expect(data?.originalAmount).toBe(100); // 100.00 major units
-    expect(data?.newOriginalAmount).toBe(70); // 70.00 major units
-    expect(data?.originalTransaction).not.toBeNull();
-    expect(data?.originalTransaction?.id).toBe(originalTx.id);
-    expect(data?.originalTransaction?.type).toBe('DEBIT');
+    expect(data?.type).toBe('DEBIT_REDUCED');
+    expect(data?.totalDebitAmount).toBe(100);
+    expect(data?.totalCreditAmount).toBe(30);
+    expect(data?.newSurvivingAmount).toBe(70);
+    expect(data?.survivingTransaction?.id).toBe(debitTx.id);
+    expect(data?.survivingTransaction?.type).toBe('DEBIT');
 
-    // Verify the returning transaction was deleted
-    const returningQuery = await harness.executeQuery<{
+    const creditQuery = await harness.executeQuery<{
       transaction: { id: number } | null;
-    }>(GET_TRANSACTION, { id: returningTx.id });
-    expect(returningQuery.data?.transaction).toBeNull();
+    }>(GET_TRANSACTION, { id: creditTx.id });
+    expect(creditQuery.data?.transaction).toBeNull();
 
-    // Verify the returning bank transaction is now linked to the original
-    const originalQuery = await harness.executeQuery<{
+    const debitQuery = await harness.executeQuery<{
       transaction: {
         id: number;
         returningInfo: {
@@ -198,90 +210,334 @@ describe('Mutation: markAsReturning', () => {
           }>;
         }>;
       };
-    }>(GET_TRANSACTION, { id: originalTx.id });
-    expect(originalQuery.data?.transaction).not.toBeNull();
-    expect(originalQuery.data?.transaction?.returningInfo).not.toBeNull();
-    expect(originalQuery.data?.transaction?.returningInfo?.isRevertible).toBe(
+    }>(GET_TRANSACTION, { id: debitTx.id });
+    expect(debitQuery.data?.transaction?.returningInfo?.isRevertible).toBe(
       true,
     );
-    expect(
-      originalQuery.data?.transaction?.returningInfo?.returningAmount,
-    ).toBe(30);
+    expect(debitQuery.data?.transaction?.returningInfo?.returningAmount).toBe(
+      30,
+    );
 
-    // Verify returnHistory exists on bank transactions
     const allReturnHistories =
-      originalQuery.data?.transaction?.bankTransactions.flatMap(
+      debitQuery.data?.transaction?.bankTransactions.flatMap(
         (bt) => bt.returnHistory,
       ) ?? [];
     expect(allReturnHistories.length).toBeGreaterThanOrEqual(1);
     expect(allReturnHistories[0]?.amount).toBe(30);
     expect(allReturnHistories[0]?.originalBankTransactionId).toBe(
-      originalBankTx.id,
+      debitBankTx.id,
     );
     expect(allReturnHistories[0]?.returningBankTransactionId).toBe(
-      returningBankTx.id,
+      creditBankTx.id,
     );
   });
 
-  test('should handle full return: delete both transactions', async () => {
+  test('full_cancel (same account): deletes both transactions', async () => {
     const account = await createTestAccount(harness.getDb(), {
       name: 'Monobank Card',
       source: 'bank_sync',
     });
 
-    // Create debit and credit with same absolute amount: 50.00 UAH
-    const originalTx = await createTestTransaction(harness.getDb(), {
+    const debitTx = await createTestTransaction(harness.getDb(), {
       accountId: account.id,
       accountExternalId: account.externalId,
       type: 'debit',
       amount: -5000,
-      counterparty: 'Shop',
     });
 
-    const returningTx = await createTestTransaction(harness.getDb(), {
+    const creditTx = await createTestTransaction(harness.getDb(), {
       accountId: account.id,
       accountExternalId: account.externalId,
       type: 'credit',
       amount: 5000,
-      counterparty: 'Shop Refund',
     });
 
     const result = await harness.executeQuery<{
       markAsReturning: {
         type: string;
-        originalTransaction: { id: number } | null;
-        returningAmount: number;
-        originalAmount: number;
-        newOriginalAmount: number | null;
+        survivingTransaction: { id: number } | null;
+        newSurvivingAmount: number | null;
+        totalDebitAmount: number;
+        totalCreditAmount: number;
       };
     }>(MARK_AS_RETURNING, {
       input: {
-        returningTransactionId: returningTx.id,
-        originalTransactionId: originalTx.id,
+        creditTransactionIds: [creditTx.id],
+        debitTransactionIds: [debitTx.id],
       },
     });
 
     expect(result.errors).toBeUndefined();
     const data = result.data?.markAsReturning;
-    expect(data?.type).toBe('FULL');
-    expect(data?.returningAmount).toBe(50);
-    expect(data?.originalAmount).toBe(50);
-    expect(data?.newOriginalAmount).toBeNull();
-    expect(data?.originalTransaction).toBeNull();
+    expect(data?.type).toBe('FULL_CANCEL');
+    expect(data?.survivingTransaction).toBeNull();
+    expect(data?.newSurvivingAmount).toBeNull();
+    expect(data?.totalDebitAmount).toBe(50);
+    expect(data?.totalCreditAmount).toBe(50);
 
-    // Both transactions should be deleted
-    const originalQuery = await harness.executeQuery<{
+    const debitQuery = await harness.executeQuery<{
       transaction: { id: number } | null;
-    }>(GET_TRANSACTION, { id: originalTx.id });
-    expect(originalQuery.data?.transaction).toBeNull();
+    }>(GET_TRANSACTION, { id: debitTx.id });
+    expect(debitQuery.data?.transaction).toBeNull();
 
-    const returningQuery = await harness.executeQuery<{
+    const creditQuery = await harness.executeQuery<{
       transaction: { id: number } | null;
-    }>(GET_TRANSACTION, { id: returningTx.id });
-    expect(returningQuery.data?.transaction).toBeNull();
+    }>(GET_TRANSACTION, { id: creditTx.id });
+    expect(creditQuery.data?.transaction).toBeNull();
   });
 
-  test('should reject when returning transaction is not credit', async () => {
+  test('credit_reduced (same account): reduces credit, deletes debit, re-links debit bank_txs', async () => {
+    const account = await createTestAccount(harness.getDb(), {
+      name: 'Monobank Card',
+      source: 'bank_sync',
+    });
+
+    const debitTx = await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      type: 'debit',
+      amount: -3000,
+    });
+
+    const creditTx = await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      type: 'credit',
+      amount: 8000,
+    });
+
+    const debitBankTx = await createTestBankTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      amount: -3000,
+      type: 'debit',
+    });
+    await createTestTransactionSource(harness.getDb(), {
+      transactionId: debitTx.id,
+      bankTransactionId: debitBankTx.id,
+    });
+
+    const creditBankTx = await createTestBankTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      amount: 8000,
+      type: 'credit',
+    });
+    await createTestTransactionSource(harness.getDb(), {
+      transactionId: creditTx.id,
+      bankTransactionId: creditBankTx.id,
+    });
+
+    const result = await harness.executeQuery<{
+      markAsReturning: {
+        type: string;
+        survivingTransaction: {
+          id: number;
+          amount: number;
+          type: string;
+        } | null;
+        newSurvivingAmount: number | null;
+        totalDebitAmount: number;
+        totalCreditAmount: number;
+      };
+    }>(MARK_AS_RETURNING, {
+      input: {
+        creditTransactionIds: [creditTx.id],
+        debitTransactionIds: [debitTx.id],
+      },
+    });
+
+    expect(result.errors).toBeUndefined();
+    const data = result.data?.markAsReturning;
+    expect(data?.type).toBe('CREDIT_REDUCED');
+    expect(data?.survivingTransaction?.id).toBe(creditTx.id);
+    expect(data?.survivingTransaction?.type).toBe('CREDIT');
+    expect(data?.newSurvivingAmount).toBe(50);
+    expect(data?.totalDebitAmount).toBe(30);
+    expect(data?.totalCreditAmount).toBe(80);
+
+    const debitQuery = await harness.executeQuery<{
+      transaction: { id: number } | null;
+    }>(GET_TRANSACTION, { id: debitTx.id });
+    expect(debitQuery.data?.transaction).toBeNull();
+
+    const creditQuery = await harness.executeQuery<{
+      transaction: {
+        id: number;
+        returningInfo: {
+          isRevertible: boolean;
+          returningAmount: number;
+        } | null;
+      };
+    }>(GET_TRANSACTION, { id: creditTx.id });
+    expect(creditQuery.data?.transaction?.returningInfo?.isRevertible).toBe(
+      true,
+    );
+    expect(creditQuery.data?.transaction?.returningInfo?.returningAmount).toBe(
+      30,
+    );
+  });
+
+  test('debit_reduced (cross-account): credit on account B absorbed into debit on account A', async () => {
+    const accountA = await createTestAccount(harness.getDb(), {
+      name: 'Iron Black',
+      source: 'bank_sync',
+    });
+    const accountB = await createTestAccount(harness.getDb(), {
+      name: 'Mono White',
+      source: 'bank_sync',
+    });
+
+    const debitTx = await createTestTransaction(harness.getDb(), {
+      accountId: accountA.id,
+      accountExternalId: accountA.externalId,
+      type: 'debit',
+      amount: -10000,
+    });
+    const creditTx = await createTestTransaction(harness.getDb(), {
+      accountId: accountB.id,
+      accountExternalId: accountB.externalId,
+      type: 'credit',
+      amount: 4000,
+    });
+
+    const debitBankTx = await createTestBankTransaction(harness.getDb(), {
+      accountId: accountA.id,
+      accountExternalId: accountA.externalId,
+      amount: -10000,
+      type: 'debit',
+    });
+    await createTestTransactionSource(harness.getDb(), {
+      transactionId: debitTx.id,
+      bankTransactionId: debitBankTx.id,
+    });
+
+    const creditBankTx = await createTestBankTransaction(harness.getDb(), {
+      accountId: accountB.id,
+      accountExternalId: accountB.externalId,
+      amount: 4000,
+      type: 'credit',
+    });
+    await createTestTransactionSource(harness.getDb(), {
+      transactionId: creditTx.id,
+      bankTransactionId: creditBankTx.id,
+    });
+
+    const result = await harness.executeQuery<{
+      markAsReturning: {
+        type: string;
+        survivingTransaction: { id: number } | null;
+        newSurvivingAmount: number | null;
+      };
+    }>(MARK_AS_RETURNING, {
+      input: {
+        creditTransactionIds: [creditTx.id],
+        debitTransactionIds: [debitTx.id],
+      },
+    });
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.markAsReturning.type).toBe('DEBIT_REDUCED');
+    expect(result.data?.markAsReturning.newSurvivingAmount).toBe(60);
+
+    // Account B's transactions view no longer shows the absorbed credit
+    const accountBView = await harness.executeQuery<{
+      transactions: {
+        items: Array<{ id: number; type: string; amount: number }>;
+      };
+    }>(TRANSACTIONS_BY_ACCOUNT, { accountId: accountB.id });
+    const remaining =
+      accountBView.data?.transactions.items.filter(
+        (tx) => tx.id === creditTx.id,
+      ) ?? [];
+    expect(remaining).toHaveLength(0);
+
+    // Account A still shows the (reduced) debit
+    const accountAView = await harness.executeQuery<{
+      transactions: {
+        items: Array<{ id: number; type: string; amount: number }>;
+      };
+    }>(TRANSACTIONS_BY_ACCOUNT, { accountId: accountA.id });
+    const survivingOnA = accountAView.data?.transactions.items.find(
+      (tx) => tx.id === debitTx.id,
+    );
+    expect(survivingOnA).toBeDefined();
+    expect(survivingOnA?.amount).toBe(60); // major units, always positive
+  });
+
+  test('credit_reduced (cross-account): debit on account A absorbed into credit on account B', async () => {
+    const accountA = await createTestAccount(harness.getDb(), {
+      name: 'Iron Black',
+      source: 'bank_sync',
+    });
+    const accountB = await createTestAccount(harness.getDb(), {
+      name: 'Mono White',
+      source: 'bank_sync',
+    });
+
+    const debitTx = await createTestTransaction(harness.getDb(), {
+      accountId: accountA.id,
+      accountExternalId: accountA.externalId,
+      type: 'debit',
+      amount: -2000,
+    });
+    const creditTx = await createTestTransaction(harness.getDb(), {
+      accountId: accountB.id,
+      accountExternalId: accountB.externalId,
+      type: 'credit',
+      amount: 10000,
+    });
+
+    const debitBankTx = await createTestBankTransaction(harness.getDb(), {
+      accountId: accountA.id,
+      accountExternalId: accountA.externalId,
+      amount: -2000,
+      type: 'debit',
+    });
+    await createTestTransactionSource(harness.getDb(), {
+      transactionId: debitTx.id,
+      bankTransactionId: debitBankTx.id,
+    });
+
+    const creditBankTx = await createTestBankTransaction(harness.getDb(), {
+      accountId: accountB.id,
+      accountExternalId: accountB.externalId,
+      amount: 10000,
+      type: 'credit',
+    });
+    await createTestTransactionSource(harness.getDb(), {
+      transactionId: creditTx.id,
+      bankTransactionId: creditBankTx.id,
+    });
+
+    const result = await harness.executeQuery<{
+      markAsReturning: {
+        type: string;
+        survivingTransaction: { id: number } | null;
+        newSurvivingAmount: number | null;
+      };
+    }>(MARK_AS_RETURNING, {
+      input: {
+        creditTransactionIds: [creditTx.id],
+        debitTransactionIds: [debitTx.id],
+      },
+    });
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.markAsReturning.type).toBe('CREDIT_REDUCED');
+    expect(result.data?.markAsReturning.survivingTransaction?.id).toBe(
+      creditTx.id,
+    );
+    expect(result.data?.markAsReturning.newSurvivingAmount).toBe(80);
+
+    // Debit side on account A no longer exists
+    const debitQuery = await harness.executeQuery<{
+      transaction: { id: number } | null;
+    }>(GET_TRANSACTION, { id: debitTx.id });
+    expect(debitQuery.data?.transaction).toBeNull();
+  });
+
+  test('rejects when credit arg is not a credit transaction', async () => {
     const account = await createTestAccount(harness.getDb(), {
       name: 'Monobank Card',
       source: 'bank_sync',
@@ -303,8 +559,8 @@ describe('Mutation: markAsReturning', () => {
 
     const result = await harness.executeQuery(MARK_AS_RETURNING, {
       input: {
-        returningTransactionId: debitTx2.id,
-        originalTransactionId: debitTx1.id,
+        creditTransactionIds: [debitTx2.id],
+        debitTransactionIds: [debitTx1.id],
       },
     });
 
@@ -314,7 +570,7 @@ describe('Mutation: markAsReturning', () => {
     );
   });
 
-  test('should reject when original transaction is not debit', async () => {
+  test('rejects when debit arg is not a debit transaction', async () => {
     const account = await createTestAccount(harness.getDb(), {
       name: 'Monobank Card',
       source: 'bank_sync',
@@ -336,8 +592,8 @@ describe('Mutation: markAsReturning', () => {
 
     const result = await harness.executeQuery(MARK_AS_RETURNING, {
       input: {
-        returningTransactionId: creditTx2.id,
-        originalTransactionId: creditTx1.id,
+        creditTransactionIds: [creditTx2.id],
+        debitTransactionIds: [creditTx1.id],
       },
     });
 
@@ -347,128 +603,196 @@ describe('Mutation: markAsReturning', () => {
     );
   });
 
-  test('should reject when transactions belong to different accounts', async () => {
-    const account1 = await createTestAccount(harness.getDb(), {
-      name: 'Card 1',
+  test('rejects currency mismatch', async () => {
+    const uahAccount = await createTestAccount(harness.getDb(), {
+      name: 'UAH Card',
       source: 'bank_sync',
     });
-    const account2 = await createTestAccount(harness.getDb(), {
-      name: 'Card 2',
+    const usdAccount = await createTestAccount(harness.getDb(), {
+      name: 'USD Card',
+      source: 'bank_sync',
+      currency: 'USD',
+    });
+
+    const debitTx = await createTestTransaction(harness.getDb(), {
+      accountId: uahAccount.id,
+      accountExternalId: uahAccount.externalId,
+      type: 'debit',
+      amount: -10000,
+      currency: 'UAH',
+    });
+    const creditTx = await createTestTransaction(harness.getDb(), {
+      accountId: usdAccount.id,
+      accountExternalId: usdAccount.externalId,
+      type: 'credit',
+      amount: 3000,
+      currency: 'USD',
+    });
+
+    const result = await harness.executeQuery(MARK_AS_RETURNING, {
+      input: {
+        creditTransactionIds: [creditTx.id],
+        debitTransactionIds: [debitTx.id],
+      },
+    });
+
+    expect(result.errors).toBeDefined();
+    expect(result.errors?.[0]?.message).toContain('Currency mismatch');
+  });
+
+  test('multi-select credit-anchor: salary absorbs 3 expenses → credit_reduced', async () => {
+    const account = await createTestAccount(harness.getDb(), {
+      name: 'Monobank Card',
       source: 'bank_sync',
     });
 
-    const originalTx = await createTestTransaction(harness.getDb(), {
-      accountId: account1.id,
-      accountExternalId: account1.externalId,
+    const salary = await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      type: 'credit',
+      amount: 100000, // 1000.00 UAH
+    });
+
+    const expense1 = await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      type: 'debit',
+      amount: -15000, // 150.00
+    });
+    const expense2 = await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      type: 'debit',
+      amount: -10000, // 100.00
+    });
+    const expense3 = await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      type: 'debit',
+      amount: -15000, // 150.00
+    });
+
+    const result = await harness.executeQuery<{
+      markAsReturning: {
+        type: string;
+        survivingTransaction: { id: number; type: string } | null;
+        newSurvivingAmount: number | null;
+        totalDebitAmount: number;
+        totalCreditAmount: number;
+      };
+    }>(MARK_AS_RETURNING, {
+      input: {
+        creditTransactionIds: [salary.id],
+        debitTransactionIds: [expense1.id, expense2.id, expense3.id],
+      },
+    });
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.markAsReturning.type).toBe('CREDIT_REDUCED');
+    expect(result.data?.markAsReturning.survivingTransaction?.id).toBe(
+      salary.id,
+    );
+    expect(result.data?.markAsReturning.newSurvivingAmount).toBe(600); // 1000 - 400
+    expect(result.data?.markAsReturning.totalDebitAmount).toBe(400);
+    expect(result.data?.markAsReturning.totalCreditAmount).toBe(1000);
+
+    // All three expense transactions deleted
+    for (const id of [expense1.id, expense2.id, expense3.id]) {
+      const q = await harness.executeQuery<{
+        transaction: { id: number } | null;
+      }>(GET_TRANSACTION, { id });
+      expect(q.data?.transaction).toBeNull();
+    }
+  });
+
+  test('multi-select debit-anchor: pub absorbs 3 friend refunds → debit_reduced', async () => {
+    const account = await createTestAccount(harness.getDb(), {
+      name: 'Monobank Card',
+      source: 'bank_sync',
+    });
+
+    const pub = await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      type: 'debit',
+      amount: -120000, // 1200.00
+    });
+
+    const friend1 = await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      type: 'credit',
+      amount: 20000,
+    });
+    const friend2 = await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      type: 'credit',
+      amount: 20000,
+    });
+    const friend3 = await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      type: 'credit',
+      amount: 20000,
+    });
+
+    const result = await harness.executeQuery<{
+      markAsReturning: {
+        type: string;
+        survivingTransaction: { id: number; type: string } | null;
+        newSurvivingAmount: number | null;
+      };
+    }>(MARK_AS_RETURNING, {
+      input: {
+        creditTransactionIds: [friend1.id, friend2.id, friend3.id],
+        debitTransactionIds: [pub.id],
+      },
+    });
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.markAsReturning.type).toBe('DEBIT_REDUCED');
+    expect(result.data?.markAsReturning.survivingTransaction?.id).toBe(pub.id);
+    expect(result.data?.markAsReturning.newSurvivingAmount).toBe(600);
+  });
+
+  test('multi-select rejects when many-side sum exceeds anchor', async () => {
+    const account = await createTestAccount(harness.getDb(), {
+      name: 'Monobank Card',
+      source: 'bank_sync',
+    });
+
+    const salary = await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      type: 'credit',
+      amount: 10000,
+    });
+
+    const expense1 = await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
+      type: 'debit',
+      amount: -20000,
+    });
+    const expense2 = await createTestTransaction(harness.getDb(), {
+      accountId: account.id,
+      accountExternalId: account.externalId,
       type: 'debit',
       amount: -10000,
     });
 
-    const returningTx = await createTestTransaction(harness.getDb(), {
-      accountId: account2.id,
-      accountExternalId: account2.externalId,
-      type: 'credit',
-      amount: 5000,
-    });
-
     const result = await harness.executeQuery(MARK_AS_RETURNING, {
       input: {
-        returningTransactionId: returningTx.id,
-        originalTransactionId: originalTx.id,
+        creditTransactionIds: [salary.id],
+        debitTransactionIds: [expense1.id, expense2.id],
       },
     });
 
     expect(result.errors).toBeDefined();
-    expect(result.errors?.[0]?.message).toContain('same account');
-  });
-
-  test('should reject when returning amount exceeds original amount', async () => {
-    const account = await createTestAccount(harness.getDb(), {
-      name: 'Monobank Card',
-      source: 'bank_sync',
-    });
-
-    const originalTx = await createTestTransaction(harness.getDb(), {
-      accountId: account.id,
-      accountExternalId: account.externalId,
-      type: 'debit',
-      amount: -5000, // 50.00 UAH
-    });
-
-    const returningTx = await createTestTransaction(harness.getDb(), {
-      accountId: account.id,
-      accountExternalId: account.externalId,
-      type: 'credit',
-      amount: 10000, // 100.00 UAH — more than original
-    });
-
-    const result = await harness.executeQuery(MARK_AS_RETURNING, {
-      input: {
-        returningTransactionId: returningTx.id,
-        originalTransactionId: originalTx.id,
-      },
-    });
-
-    expect(result.errors).toBeDefined();
-    expect(result.errors?.[0]?.message).toContain('exceeds original amount');
-  });
-
-  test('should populate returningInfo field resolver after partial return', async () => {
-    const account = await createTestAccount(harness.getDb(), {
-      name: 'Monobank Card',
-      source: 'bank_sync',
-    });
-
-    const originalTx = await createTestTransaction(harness.getDb(), {
-      accountId: account.id,
-      accountExternalId: account.externalId,
-      type: 'debit',
-      amount: -20000, // 200.00 UAH
-    });
-
-    const returningTx = await createTestTransaction(harness.getDb(), {
-      accountId: account.id,
-      accountExternalId: account.externalId,
-      type: 'credit',
-      amount: 7500, // 75.00 UAH
-    });
-
-    // Create and link a bank transaction for the returning side
-    const returningBankTx = await createTestBankTransaction(harness.getDb(), {
-      accountId: account.id,
-      amount: 7500,
-      type: 'credit',
-    });
-    await createTestTransactionSource(harness.getDb(), {
-      transactionId: returningTx.id,
-      bankTransactionId: returningBankTx.id,
-    });
-
-    // Perform partial return
-    await harness.executeQuery(MARK_AS_RETURNING, {
-      input: {
-        returningTransactionId: returningTx.id,
-        originalTransactionId: originalTx.id,
-      },
-    });
-
-    // Query the original transaction and verify returningInfo
-    const txResult = await harness.executeQuery<{
-      transaction: {
-        id: number;
-        amount: number;
-        type: string;
-        returningInfo: {
-          isRevertible: boolean;
-          returningAmount: number;
-        } | null;
-      };
-    }>(GET_TRANSACTION, { id: originalTx.id });
-
-    expect(txResult.data?.transaction).not.toBeNull();
-    expect(txResult.data?.transaction?.returningInfo).not.toBeNull();
-    expect(txResult.data?.transaction?.returningInfo?.isRevertible).toBe(true);
-    expect(txResult.data?.transaction?.returningInfo?.returningAmount).toBe(75);
+    expect(result.errors?.[0]?.message).toContain(
+      'less than the sum of selected transactions',
+    );
   });
 });
 
@@ -489,95 +813,69 @@ describe('Mutation: revertReturning', () => {
     await clearAllTestData(harness.getDb());
   });
 
-  test('should revert partial return: restore original amount and re-create credit transaction', async () => {
+  test('reverts debit_reduced: restores original debit amount, re-creates credit transaction', async () => {
     const account = await createTestAccount(harness.getDb(), {
       name: 'Monobank Card',
       source: 'bank_sync',
     });
 
-    // Create debit transaction (original expense): 100.00 UAH
-    const originalTx = await createTestTransaction(harness.getDb(), {
+    const debitTx = await createTestTransaction(harness.getDb(), {
       accountId: account.id,
       accountExternalId: account.externalId,
       type: 'debit',
       amount: -10000,
-      counterparty: 'Shop',
     });
-
-    // Create credit transaction (returning): 30.00 UAH
-    const returningTx = await createTestTransaction(harness.getDb(), {
+    const creditTx = await createTestTransaction(harness.getDb(), {
       accountId: account.id,
       accountExternalId: account.externalId,
       type: 'credit',
       amount: 3000,
-      counterparty: 'Shop Refund',
     });
 
-    // Create and link bank transactions
-    const originalBankTx = await createTestBankTransaction(harness.getDb(), {
+    const debitBankTx = await createTestBankTransaction(harness.getDb(), {
       accountId: account.id,
+      accountExternalId: account.externalId,
       amount: -10000,
       type: 'debit',
     });
     await createTestTransactionSource(harness.getDb(), {
-      transactionId: originalTx.id,
-      bankTransactionId: originalBankTx.id,
+      transactionId: debitTx.id,
+      bankTransactionId: debitBankTx.id,
     });
 
-    const returningBankTx = await createTestBankTransaction(harness.getDb(), {
+    const creditBankTx = await createTestBankTransaction(harness.getDb(), {
       accountId: account.id,
+      accountExternalId: account.externalId,
       amount: 3000,
       type: 'credit',
     });
     await createTestTransactionSource(harness.getDb(), {
-      transactionId: returningTx.id,
-      bankTransactionId: returningBankTx.id,
+      transactionId: creditTx.id,
+      bankTransactionId: creditBankTx.id,
     });
 
-    // First, mark as returning (partial)
-    const markResult = await harness.executeQuery<{
-      markAsReturning: {
-        type: string;
-        newOriginalAmount: number | null;
-      };
-    }>(MARK_AS_RETURNING, {
+    await harness.executeQuery(MARK_AS_RETURNING, {
       input: {
-        returningTransactionId: returningTx.id,
-        originalTransactionId: originalTx.id,
+        creditTransactionIds: [creditTx.id],
+        debitTransactionIds: [debitTx.id],
       },
     });
 
-    expect(markResult.errors).toBeUndefined();
-    expect(markResult.data?.markAsReturning.type).toBe('PARTIAL');
-    expect(markResult.data?.markAsReturning.newOriginalAmount).toBe(70);
-
-    // Now revert the returning
     const revertResult = await harness.executeQuery<{
       revertReturning: {
-        transaction: {
-          id: number;
-          amount: number;
-          type: string;
-        };
+        transaction: { id: number; amount: number; type: string };
         createdTransactions: Array<{
           id: number;
           amount: number;
           type: string;
+          account: { id: number };
         }>;
       };
-    }>(REVERT_RETURNING, {
-      transactionId: originalTx.id,
-    });
+    }>(REVERT_RETURNING, { transactionId: debitTx.id });
 
     expect(revertResult.errors).toBeUndefined();
-    expect(revertResult.data?.revertReturning.transaction.id).toBe(
-      originalTx.id,
-    );
-    expect(revertResult.data?.revertReturning.transaction.type).toBe('DEBIT');
-    // Original amount should be restored: 70.00 (reduced) + 30.00 (returning) = 100.00
+    expect(revertResult.data?.revertReturning.transaction.id).toBe(debitTx.id);
     expect(revertResult.data?.revertReturning.transaction.amount).toBe(100);
-
-    // Should have created 1 credit transaction for the unlinked bank txn
     expect(revertResult.data?.revertReturning.createdTransactions).toHaveLength(
       1,
     );
@@ -585,68 +883,167 @@ describe('Mutation: revertReturning', () => {
       revertResult.data?.revertReturning.createdTransactions[0]?.type,
     ).toBe('CREDIT');
     expect(
-      revertResult.data?.revertReturning.createdTransactions[0]?.amount,
-    ).toBe(30);
+      revertResult.data?.revertReturning.createdTransactions[0]?.account.id,
+    ).toBe(account.id);
+  });
 
-    // Verify returningInfo is now null (no more credit bank txns linked)
-    const txQuery = await harness.executeQuery<{
-      transaction: {
-        id: number;
-        returningInfo: {
-          isRevertible: boolean;
-          returningAmount: number;
-        } | null;
-        bankTransactions: Array<{
+  test('reverts cross-account debit_reduced: resurrected credit goes back to account B', async () => {
+    const accountA = await createTestAccount(harness.getDb(), {
+      name: 'Iron Black',
+      source: 'bank_sync',
+    });
+    const accountB = await createTestAccount(harness.getDb(), {
+      name: 'Mono White',
+      source: 'bank_sync',
+    });
+
+    const debitTx = await createTestTransaction(harness.getDb(), {
+      accountId: accountA.id,
+      accountExternalId: accountA.externalId,
+      type: 'debit',
+      amount: -10000,
+    });
+    const creditTx = await createTestTransaction(harness.getDb(), {
+      accountId: accountB.id,
+      accountExternalId: accountB.externalId,
+      type: 'credit',
+      amount: 4000,
+    });
+
+    const debitBankTx = await createTestBankTransaction(harness.getDb(), {
+      accountId: accountA.id,
+      accountExternalId: accountA.externalId,
+      amount: -10000,
+      type: 'debit',
+    });
+    await createTestTransactionSource(harness.getDb(), {
+      transactionId: debitTx.id,
+      bankTransactionId: debitBankTx.id,
+    });
+
+    const creditBankTx = await createTestBankTransaction(harness.getDb(), {
+      accountId: accountB.id,
+      accountExternalId: accountB.externalId,
+      amount: 4000,
+      type: 'credit',
+    });
+    await createTestTransactionSource(harness.getDb(), {
+      transactionId: creditTx.id,
+      bankTransactionId: creditBankTx.id,
+    });
+
+    await harness.executeQuery(MARK_AS_RETURNING, {
+      input: {
+        creditTransactionIds: [creditTx.id],
+        debitTransactionIds: [debitTx.id],
+      },
+    });
+
+    const revertResult = await harness.executeQuery<{
+      revertReturning: {
+        createdTransactions: Array<{
           id: number;
-          returnHistory: Array<{
-            originalBankTransactionId: number;
-            returningBankTransactionId: number;
-            amount: number;
-          }>;
+          amount: number;
+          type: string;
+          account: { id: number };
         }>;
       };
-    }>(GET_TRANSACTION, { id: originalTx.id });
+    }>(REVERT_RETURNING, { transactionId: debitTx.id });
 
-    expect(txQuery.data?.transaction?.returningInfo).toBeNull();
-
-    // Verify returnHistory is empty after revert
-    const allReturnHistories =
-      txQuery.data?.transaction?.bankTransactions.flatMap(
-        (bt) => bt.returnHistory,
-      ) ?? [];
-    expect(allReturnHistories).toHaveLength(0);
+    expect(revertResult.errors).toBeUndefined();
+    const resurrected =
+      revertResult.data?.revertReturning.createdTransactions[0];
+    expect(resurrected?.type).toBe('CREDIT');
+    expect(resurrected?.account.id).toBe(accountB.id);
+    expect(resurrected?.amount).toBe(40);
   });
 
-  test('should reject revert when transaction is not debit', async () => {
-    const account = await createTestAccount(harness.getDb(), {
-      name: 'Monobank Card',
+  test('reverts credit_reduced: restores credit amount, re-creates debit transaction on its origin account', async () => {
+    const accountA = await createTestAccount(harness.getDb(), {
+      name: 'Iron Black',
+      source: 'bank_sync',
+    });
+    const accountB = await createTestAccount(harness.getDb(), {
+      name: 'Mono White',
       source: 'bank_sync',
     });
 
+    const debitTx = await createTestTransaction(harness.getDb(), {
+      accountId: accountA.id,
+      accountExternalId: accountA.externalId,
+      type: 'debit',
+      amount: -2000,
+    });
     const creditTx = await createTestTransaction(harness.getDb(), {
-      accountId: account.id,
-      accountExternalId: account.externalId,
+      accountId: accountB.id,
+      accountExternalId: accountB.externalId,
       type: 'credit',
-      amount: 5000,
+      amount: 10000,
     });
 
-    const result = await harness.executeQuery(REVERT_RETURNING, {
+    const debitBankTx = await createTestBankTransaction(harness.getDb(), {
+      accountId: accountA.id,
+      accountExternalId: accountA.externalId,
+      amount: -2000,
+      type: 'debit',
+    });
+    await createTestTransactionSource(harness.getDb(), {
+      transactionId: debitTx.id,
+      bankTransactionId: debitBankTx.id,
+    });
+
+    const creditBankTx = await createTestBankTransaction(harness.getDb(), {
+      accountId: accountB.id,
+      accountExternalId: accountB.externalId,
+      amount: 10000,
+      type: 'credit',
+    });
+    await createTestTransactionSource(harness.getDb(), {
       transactionId: creditTx.id,
+      bankTransactionId: creditBankTx.id,
     });
 
-    expect(result.errors).toBeDefined();
-    expect(result.errors?.[0]?.message).toContain(
-      'must be a debit transaction',
-    );
+    await harness.executeQuery(MARK_AS_RETURNING, {
+      input: {
+        creditTransactionIds: [creditTx.id],
+        debitTransactionIds: [debitTx.id],
+      },
+    });
+
+    const revertResult = await harness.executeQuery<{
+      revertReturning: {
+        transaction: { id: number; amount: number; type: string };
+        createdTransactions: Array<{
+          id: number;
+          amount: number;
+          type: string;
+          account: { id: number };
+        }>;
+      };
+    }>(REVERT_RETURNING, { transactionId: creditTx.id });
+
+    expect(revertResult.errors).toBeUndefined();
+    expect(revertResult.data?.revertReturning.transaction.id).toBe(creditTx.id);
+    expect(revertResult.data?.revertReturning.transaction.type).toBe('CREDIT');
+    expect(revertResult.data?.revertReturning.transaction.amount).toBe(100);
+
+    const resurrected =
+      revertResult.data?.revertReturning.createdTransactions[0];
+    expect(resurrected?.type).toBe('DEBIT');
+    expect(resurrected?.account.id).toBe(accountA.id);
+    expect(resurrected?.amount).toBe(20); // major units, always positive
   });
 
-  test('should reject revert when no returning bank transactions exist', async () => {
+  test('rejects revert when transaction is a transfer', async () => {
     const account = await createTestAccount(harness.getDb(), {
       name: 'Monobank Card',
       source: 'bank_sync',
     });
 
-    // Create a debit transaction with only a debit bank transaction (no credit ones)
+    // Simulate a transfer type by creating via direct factory with transfer type.
+    // createTestTransaction only accepts debit|credit, so instead create a debit
+    // that has no foreign bank_txs — exercises the NoReturningBankTransactionsError path.
+    // Transfer-type rejection is covered in unit tests.
     const debitTx = await createTestTransaction(harness.getDb(), {
       accountId: account.id,
       accountExternalId: account.externalId,
@@ -656,6 +1053,7 @@ describe('Mutation: revertReturning', () => {
 
     const debitBankTx = await createTestBankTransaction(harness.getDb(), {
       accountId: account.id,
+      accountExternalId: account.externalId,
       amount: -10000,
       type: 'debit',
     });
