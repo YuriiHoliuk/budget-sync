@@ -93,6 +93,13 @@ extend type Mutation {
   """
   joinTransactions(input: JoinTransactionsInput!): Transaction!
 
+  """
+  Update category, budget, and/or verification status for multiple transactions
+  in a single atomic operation. At least one of setCategory, setBudget, verify
+  must be provided; otherwise the mutation rejects.
+  """
+  batchUpdateTransactions(input: BatchUpdateTransactionsInput!): BatchUpdateTransactionsResult!
+
 }
 
 input TransactionFilter {
@@ -513,6 +520,54 @@ input JoinTransactionsInput {
   Database ID of the source transaction to merge from.
   """
   sourceTransactionId: Int!
+}
+
+input BatchUpdateTransactionsInput {
+  """
+  Transaction database IDs to update. Must not be empty.
+  """
+  ids: [Int!]!
+
+  """
+  Category database ID to apply when setCategory is true. Pass null together
+  with setCategory=true to clear the category.
+  """
+  categoryId: Int
+
+  """
+  When true, apply categoryId (including null) to every selected transaction.
+  Omit or pass false to leave category untouched.
+  """
+  setCategory: Boolean
+
+  """
+  Budget database ID to apply when setBudget is true. Pass null together with
+  setBudget=true to clear the budget.
+  """
+  budgetId: Int
+
+  """
+  When true, apply budgetId (including null) to every selected transaction.
+  Omit or pass false to leave budget untouched.
+  """
+  setBudget: Boolean
+
+  """
+  When true, set categorizationStatus=VERIFIED on every selected transaction.
+  """
+  verify: Boolean
+}
+
+type BatchUpdateTransactionsResult {
+  """
+  Number of transactions updated by the single UPDATE statement.
+  """
+  updatedCount: Int!
+
+  """
+  The updated transactions, re-fetched with their new state.
+  """
+  transactions: [Transaction!]!
 }
 
 type SplitTransactionResult {

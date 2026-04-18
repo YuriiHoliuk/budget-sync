@@ -88,14 +88,14 @@ export async function createBudget(input: CreateBudgetInput): Promise<Budget> {
  */
 interface CreateCategoryInput {
   name: string;
-  parentId?: number;
+  parentName?: string;
 }
 
 interface Category {
   id: number;
   name: string;
   status: string;
-  parentId: number | null;
+  parentName: string | null;
 }
 
 export async function createCategory(
@@ -107,15 +107,13 @@ export async function createCategory(
         id
         name
         status
-        parent {
-          id
-        }
+        parentName
       }
     }
   `;
 
   const result = await executeGraphQL<{
-    createCategory: { id: number; name: string; status: string; parent: { id: number } | null };
+    createCategory: { id: number; name: string; status: string; parentName: string | null };
   }>(mutation, { input });
 
   if (result.errors) {
@@ -131,7 +129,7 @@ export async function createCategory(
     id: cat.id,
     name: cat.name,
     status: cat.status,
-    parentId: cat.parent?.id ?? null,
+    parentName: cat.parentName ?? null,
   };
 }
 

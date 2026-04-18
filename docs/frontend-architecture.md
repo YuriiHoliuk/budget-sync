@@ -128,6 +128,8 @@ web/src/components/
     transactions-table.tsx            # Full transaction list with two-column layout
     transaction-filters-sidebar.tsx   # Always-visible filter sidebar (desktop) / Sheet (mobile)
     transaction-detail-panel.tsx      # Side panel for transaction details
+    batch-edit-bar.tsx                # Bulk-edit bar (category/budget/verify) for selected rows
+    returning-selection-banner.tsx    # Amber banner for mark-as-returning pair selection
   accounts/
     accounts-table.tsx
     create-account-dialog.tsx
@@ -162,6 +164,7 @@ Top-level components that compose the shell:
 - **Smart table components**: Table components like `TransactionsTable` own their own queries, filters, pagination, and mutation logic. They are self-contained widgets. The transactions page uses a two-column layout on desktop (lg+): the table/pagination on the left and a persistent filter sidebar (`TransactionFiltersSidebar`) on the right. On mobile, filters are accessible via a Sheet overlay triggered by a "Filters" button.
 - **Dialog pattern**: CRUD operations use controlled dialogs (open state managed by parent). Each entity has create/edit/archive dialogs.
 - **Inline editing**: Budget allocations use click-to-edit inline inputs (`InlineAllocationEditor`) that submit on Enter/blur and cancel on Escape.
+- **Batch selection (transactions)**: The transactions table supports multi-select via a checkbox column, shift-click on desktop, and long-press (500ms) on mobile. Selection persists across pagination. When one or more rows are selected, `BatchEditBar` renders above the table on desktop and as a fixed bottom bar on mobile, offering Category / Budget / Verify actions through the shared `BatchUpdateTransactions` GraphQL mutation. Batch selection and mark-as-returning selection are mutually exclusive — entering either mode cancels the other.
 - **`data-qa` attributes**: Interactive elements carry `data-qa` attributes for E2E test selectors.
 
 ## Authentication

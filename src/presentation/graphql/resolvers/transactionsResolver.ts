@@ -1,3 +1,4 @@
+import { BatchUpdateTransactionsUseCase } from '@application/use-cases/BatchUpdateTransactions.ts';
 import { ConvertToTransferUseCase } from '@application/use-cases/ConvertToTransfer.ts';
 import {
   type CreateTransactionRequestDTO,
@@ -116,6 +117,7 @@ export class TransactionsResolver extends Resolver {
     private revertReturningUseCase: RevertReturningUseCase,
     private splitTransactionUseCase: SplitTransactionUseCase,
     private joinTransactionsUseCase: JoinTransactionsUseCase,
+    private batchUpdateTransactionsUseCase: BatchUpdateTransactionsUseCase,
   ) {
     super();
   }
@@ -214,6 +216,19 @@ export class TransactionsResolver extends Resolver {
             };
           },
         ) => this.joinTransactions(args.input),
+        batchUpdateTransactions: (
+          _parent: unknown,
+          args: {
+            input: {
+              ids: number[];
+              categoryId?: number | null;
+              setCategory?: boolean | null;
+              budgetId?: number | null;
+              setBudget?: boolean | null;
+              verify?: boolean | null;
+            };
+          },
+        ) => this.batchUpdateTransactions(args.input),
       },
       Transaction: {
         account: (parent: TransactionGql) =>
@@ -617,6 +632,39 @@ export class TransactionsResolver extends Resolver {
     }
 
     return mapTransactionRecordToGql(record);
+  }
+
+  private async batchUpdateTransactions(input: {
+    ids: number[];
+    categoryId?: number | null;
+    setCategory?: boolean | null;
+    budgetId?: number | null;
+    setBudget?: boolean | null;
+    verify?: boolean | null;
+  }) {
+    const result = await this.batchUpdateTransactionsUseCase.execute({
+      ids: input.ids,
+      categoryId: input.categoryId ?? null,
+      setCategory: input.setCategory ?? false,
+      budgetId: input.budgetId ?? null,
+      setBudget: input.setBudget ?? false,
+      verify: input.verify ?? false,
+    });
+
+    const records = await Promise.all(
+      result.transactionIds.map((id) =>
+        this.transactionRepository.findRecordById(id),
+      ),
+    );
+
+    const validRecords = records.filter(
+      (record): record is NonNullable<typeof record> => record !== null,
+    );
+
+    return {
+      updatedCount: result.updatedCount,
+      transactions: validRecords.map(mapTransactionRecordToGql),
+    };
   }
 
   private async getSiblingTransactions(transactionId: number) {

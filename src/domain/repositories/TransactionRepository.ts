@@ -83,6 +83,27 @@ export abstract class TransactionRepository extends Repository<
     notes: string | null,
   ): Promise<TransactionRecord | null>;
 
+  /**
+   * Atomically update category, budget, and/or verification status for many
+   * transactions in a single UPDATE statement. Flags disambiguate "leave
+   * untouched" from "set to null":
+   *   - setCategory: when true, applies categoryId (nullable) to all
+   *   - setBudget: when true, applies budgetId (nullable) to all
+   *   - verify: when true, bumps categorizationStatus to 'verified'
+   * When setCategory is true, categorizationStatus is also bumped to 'verified'
+   * (matches {@link updateRecordCategory} single-record behavior).
+   */
+  abstract batchUpdate(
+    ids: number[],
+    patch: {
+      categoryId?: number | null;
+      setCategory?: boolean;
+      budgetId?: number | null;
+      setBudget?: boolean;
+      verify?: boolean;
+    },
+  ): Promise<{ updatedCount: number; transactionIds: number[] }>;
+
   // Type and relationship mutations
   abstract updateRecordType(dbId: number, type: string): Promise<void>;
   abstract createTransferPair(

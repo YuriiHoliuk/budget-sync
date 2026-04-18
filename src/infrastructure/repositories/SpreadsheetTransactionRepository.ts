@@ -431,6 +431,21 @@ export class SpreadsheetTransactionRepository
     );
   }
 
+  batchUpdate(
+    _ids: number[],
+    _patch: {
+      categoryId?: number | null;
+      setCategory?: boolean;
+      budgetId?: number | null;
+      setBudget?: boolean;
+      verify?: boolean;
+    },
+  ): Promise<{ updatedCount: number; transactionIds: number[] }> {
+    throw new Error(
+      'batchUpdate is not supported by SpreadsheetTransactionRepository',
+    );
+  }
+
   findTransactionSummaries(): Promise<TransactionSummary[]> {
     throw new Error(
       'findTransactionSummaries is not supported by SpreadsheetTransactionRepository',

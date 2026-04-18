@@ -35,6 +35,25 @@ mutation VerifyTransaction($id: Int!) {
   }
 }
 
+mutation BatchUpdateTransactions($input: BatchUpdateTransactionsInput!) {
+  batchUpdateTransactions(input: $input) {
+    updatedCount
+    transactions {
+      id
+      categorizationStatus
+      category {
+        id
+        name
+        fullPath
+      }
+      budget {
+        id
+        name
+      }
+    }
+  }
+}
+
 mutation CreateTransaction($input: CreateTransactionInput!) {
   createTransaction(input: $input) {
     id

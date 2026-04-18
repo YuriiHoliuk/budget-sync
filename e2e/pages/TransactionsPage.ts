@@ -438,6 +438,113 @@ export class TransactionsPage extends BasePage {
     await this.byQa('btn-returning-cancel').click();
   }
 
+  // ========== BATCH EDIT FLOW ==========
+
+  /**
+   * The batch edit bar (visible when one or more rows are selected).
+   */
+  get batchEditBar(): Locator {
+    return this.byQa('batch-edit-bar');
+  }
+
+  /**
+   * The text showing how many rows are selected in the batch bar.
+   */
+  get batchSelectedCount(): Locator {
+    return this.byQa('text-batch-selected-count');
+  }
+
+  /**
+   * The header checkbox that toggles all rows on the current page.
+   */
+  get batchSelectPageCheckbox(): Locator {
+    return this.byQa('checkbox-batch-select-page');
+  }
+
+  /**
+   * Get the per-row batch-edit checkbox by transaction id.
+   */
+  batchRowCheckbox(transactionId: number): Locator {
+    return this.byQa(`checkbox-batch-row-${transactionId}`);
+  }
+
+  /**
+   * Toggle the per-row batch checkbox for the given transaction.
+   */
+  async toggleRowCheckbox(transactionId: number): Promise<void> {
+    await this.batchRowCheckbox(transactionId).click();
+  }
+
+  /**
+   * Read the current count from the batch bar's "N selected" label.
+   */
+  async readBatchSelectedCount(): Promise<number> {
+    const text = (await this.batchSelectedCount.textContent()) ?? '';
+    const match = text.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  }
+
+  /**
+   * Pick a category from the batch bar's category combobox.
+   */
+  async batchApplyCategory(categoryName: string): Promise<void> {
+    await this.byQa('select-batch-category').click();
+    const searchInput = this.page.locator('[cmdk-input]');
+    await searchInput.waitFor({ state: 'visible' });
+    await searchInput.fill(categoryName);
+    const target = this.page
+      .locator('[cmdk-item]')
+      .filter({ hasText: categoryName })
+      .first();
+    await target.waitFor({ state: 'visible' });
+    await target.click();
+  }
+
+  /**
+   * Pick a budget from the batch bar's budget combobox.
+   */
+  async batchApplyBudget(budgetName: string): Promise<void> {
+    await this.byQa('select-batch-budget').click();
+    const searchInput = this.page.locator('[cmdk-input]');
+    await searchInput.waitFor({ state: 'visible' });
+    await searchInput.fill(budgetName);
+    const target = this.page
+      .locator('[cmdk-item]')
+      .filter({ hasText: budgetName })
+      .first();
+    await target.waitFor({ state: 'visible' });
+    await target.click();
+  }
+
+  /**
+   * Click the Verify button in the batch bar.
+   */
+  async batchVerify(): Promise<void> {
+    await this.byQa('btn-batch-verify').click();
+  }
+
+  /**
+   * Click the Clear button in the batch bar.
+   */
+  async batchClear(): Promise<void> {
+    await this.byQa('btn-batch-clear').click();
+  }
+
+  /**
+   * Click the close (X) button in the batch bar.
+   */
+  async batchClose(): Promise<void> {
+    await this.byQa('btn-batch-close').click();
+  }
+
+  /**
+   * Shift-click the transaction row (toggles batch selection without opening
+   * the detail panel).
+   */
+  async shiftClickRow(transactionId: number): Promise<void> {
+    await this.getRowById(transactionId).click({ modifiers: ['Shift'] });
+  }
+
   // ========== SPLIT FLOW ==========
 
   /**

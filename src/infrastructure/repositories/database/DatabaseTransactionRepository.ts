@@ -390,6 +390,52 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     return this.findRecordById(dbId);
   }
 
+  async batchUpdate(
+    ids: number[],
+    patch: {
+      categoryId?: number | null;
+      setCategory?: boolean;
+      budgetId?: number | null;
+      setBudget?: boolean;
+      verify?: boolean;
+    },
+  ): Promise<{ updatedCount: number; transactionIds: number[] }> {
+    if (ids.length === 0) {
+      return { updatedCount: 0, transactionIds: [] };
+    }
+
+    const updateSet: {
+      categoryId?: number | null;
+      budgetId?: number | null;
+      categorizationStatus?: 'verified';
+      updatedAt: Date;
+    } = { updatedAt: new Date() };
+
+    if (patch.setCategory) {
+      updateSet.categoryId = patch.categoryId ?? null;
+    }
+    if (patch.setBudget) {
+      updateSet.budgetId = patch.budgetId ?? null;
+    }
+    // Auto-verify when category is explicitly set OR verify flag is true.
+    // Matches updateRecordCategory/updateRecordBudget single-record behavior.
+    if (patch.setCategory || patch.verify) {
+      updateSet.categorizationStatus = 'verified';
+    }
+
+    const rows = await this.db
+      .update(transactions)
+      .set(updateSet)
+      .where(inArray(transactions.id, ids))
+      .returning({ id: transactions.id });
+
+    const transactionIds = rows.map((row) => row.id);
+    return {
+      updatedCount: transactionIds.length,
+      transactionIds,
+    };
+  }
+
   async findTransactionSummaries(): Promise<TransactionSummary[]> {
     const rows = await this.db
       .select({

@@ -52,6 +52,7 @@ import {
   UpdateTransactionBudgetDocument,
   VerifyTransactionDocument,
   MarkAsReturningDocument,
+  BatchUpdateTransactionsDocument,
   TransactionTypeEnum,
   CategorizationStatusEnum,
   AccountSource,
@@ -66,6 +67,8 @@ import { TransactionDetailPanel } from "./transaction-detail-panel";
 import { CreateTransactionSheet } from "./create-transaction-sheet";
 import { ReturningSelectionBanner } from "./returning-selection-banner";
 import { ReturningConfirmationDialog } from "./returning-confirmation-dialog";
+import { BatchEditBar } from "./batch-edit-bar";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   TransactionFiltersSidebar,
   type TransactionFilters,
@@ -269,6 +272,10 @@ export function TransactionsTable() {
   const [returningConfirmationOpen, setReturningConfirmationOpen] =
     useState(false);
 
+  // Batch-edit selection — Set of transaction ids selected via checkboxes,
+  // shift-click (desktop), or long-press (mobile). Persists across pagination.
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+
   const handleStartReturningSelection = useCallback(
     (
       direction: "pick-debit" | "pick-credit",
@@ -277,6 +284,8 @@ export function TransactionsTable() {
       currency: string,
     ) => {
       setSelectedTransaction(null);
+      // Batch-edit and returning-selection are mutually exclusive.
+      setSelectedIds(new Set());
       setReturningSelection({
         direction,
         anchorTransactionId: transactionId,
@@ -431,7 +440,22 @@ export function TransactionsTable() {
     }
   }, [returningSelection, markAsReturning]);
 
-  const transactions = data?.transactions.items ?? [];
+  const [batchUpdate, { loading: batchUpdateLoading }] = useMutation(
+    BatchUpdateTransactionsDocument,
+    {
+      update(cache, _result, { variables }) {
+        // Only invalidate budget-related cache if budget actually changed.
+        if (variables?.input.setBudget) {
+          invalidateBudgetRelatedCache(cache);
+        }
+      },
+    },
+  );
+
+  const transactions = useMemo(
+    () => data?.transactions.items ?? [],
+    [data?.transactions.items],
+  );
   const totalCount = data?.transactions.totalCount ?? 0;
   const hasMore = data?.transactions.hasMore ?? false;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -483,6 +507,137 @@ export function TransactionsTable() {
       variables: { id: transactionId },
     });
   };
+
+  // --- Batch-edit selection ---
+  const batchSelectionActive = selectedIds.size > 0;
+  const returningSelectionActive = returningSelection !== null;
+
+  const toggleRowSelection = useCallback(
+    (transactionId: number) => {
+      // Entering batch selection cancels returning-selection mode.
+      setReturningSelection(null);
+      setReturningConfirmationOpen(false);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(transactionId)) {
+          next.delete(transactionId);
+        } else {
+          next.add(transactionId);
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const clearBatchSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const pageIds = useMemo(
+    () => transactions.map((transaction) => transaction.id),
+    [transactions],
+  );
+
+  const pageSelectedCount = useMemo(
+    () => pageIds.filter((id) => selectedIds.has(id)).length,
+    [pageIds, selectedIds],
+  );
+
+  const pageCheckboxState: boolean | "indeterminate" =
+    pageIds.length > 0 && pageSelectedCount === pageIds.length
+      ? true
+      : pageSelectedCount > 0
+        ? "indeterminate"
+        : false;
+
+  const handleTogglePageSelection = useCallback(
+    (checked: boolean) => {
+      setReturningSelection(null);
+      setReturningConfirmationOpen(false);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (checked) {
+          for (const id of pageIds) next.add(id);
+        } else {
+          for (const id of pageIds) next.delete(id);
+        }
+        return next;
+      });
+    },
+    [pageIds],
+  );
+
+  const selectedTransactions = useMemo(
+    () => transactions.filter((transaction) => selectedIds.has(transaction.id)),
+    [transactions, selectedIds],
+  );
+
+  // Filter budgets for the batch bar to those whose date range overlaps the
+  // selection's date range (i.e. at least one selected transaction's date falls
+  // within the budget's range). Falls back to all active budgets if we can't
+  // see any selected transactions on the current page.
+  const batchBudgetOptions = useMemo(() => {
+    if (selectedTransactions.length === 0) return budgets;
+    const dates = selectedTransactions.map((transaction) => transaction.date);
+    const minDate = dates.reduce((acc, date) => (date < acc ? date : acc), dates[0]);
+    const maxDate = dates.reduce((acc, date) => (date > acc ? date : acc), dates[0]);
+    return budgets.filter((budget) => {
+      const afterStart = !budget.startDate || budget.startDate <= maxDate;
+      const beforeEnd = !budget.endDate || budget.endDate >= minDate;
+      return afterStart && beforeEnd;
+    });
+  }, [budgets, selectedTransactions]);
+
+  const runBatchUpdate = useCallback(
+    async (patch: {
+      setCategory?: boolean;
+      categoryId?: number | null;
+      setBudget?: boolean;
+      budgetId?: number | null;
+      verify?: boolean;
+    }) => {
+      if (selectedIds.size === 0) return;
+      const ids = Array.from(selectedIds);
+      try {
+        await batchUpdate({
+          variables: {
+            input: {
+              ids,
+              setCategory: patch.setCategory,
+              categoryId: patch.categoryId ?? null,
+              setBudget: patch.setBudget,
+              budgetId: patch.budgetId ?? null,
+              verify: patch.verify,
+            },
+          },
+        });
+        // Clear selection on success to mirror single-row inline edit behavior.
+        setSelectedIds(new Set());
+      } catch {
+        // Apollo surfaces errors; keep selection so user can retry.
+      }
+    },
+    [selectedIds, batchUpdate],
+  );
+
+  const handleBatchApplyCategory = useCallback(
+    async (categoryId: number | null) => {
+      await runBatchUpdate({ setCategory: true, categoryId });
+    },
+    [runBatchUpdate],
+  );
+
+  const handleBatchApplyBudget = useCallback(
+    async (budgetId: number | null) => {
+      await runBatchUpdate({ setBudget: true, budgetId });
+    },
+    [runBatchUpdate],
+  );
+
+  const handleBatchVerify = useCallback(async () => {
+    await runBatchUpdate({ verify: true });
+  }, [runBatchUpdate]);
 
   const activeFilterCount = countActiveFilters(appliedFilters);
 
@@ -601,6 +756,20 @@ export function TransactionsTable() {
               />
             </div>
           )}
+          {batchSelectionActive && !returningSelectionActive && (
+            <div className="mb-4">
+              <BatchEditBar
+                selectedCount={selectedIds.size}
+                categories={categories}
+                budgets={batchBudgetOptions}
+                onApplyCategory={handleBatchApplyCategory}
+                onApplyBudget={handleBatchApplyBudget}
+                onVerify={handleBatchVerify}
+                onClear={clearBatchSelection}
+                loading={batchUpdateLoading}
+              />
+            </div>
+          )}
           {transactions.length === 0 ? (
             <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed">
               <p className="text-sm text-muted-foreground" data-qa="text-no-transactions">
@@ -615,6 +784,18 @@ export function TransactionsTable() {
                 <Table data-qa="transactions-table">
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
+                      {!returningSelectionActive && (
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={pageCheckboxState}
+                            onCheckedChange={(checked) =>
+                              handleTogglePageSelection(checked === true)
+                            }
+                            aria-label="Select all on this page"
+                            data-qa="checkbox-batch-select-page"
+                          />
+                        </TableHead>
+                      )}
                       <TableHead className="w-28">Date</TableHead>
                       <TableHead>Counterparty</TableHead>
                       <TableHead>Description</TableHead>
@@ -640,7 +821,7 @@ export function TransactionsTable() {
                         onCategoryChange={handleCategoryChange}
                         onBudgetChange={handleBudgetChange}
                         onVerify={handleVerify}
-                        onViewDetails={() => {
+                        onRowActivate={(options) => {
                           if (returningSelection) {
                             const isMatchingTarget =
                               returningSelection.direction === "pick-debit"
@@ -661,8 +842,18 @@ export function TransactionsTable() {
                             }
                             return;
                           }
+                          // Shift-click on desktop and long-press on mobile
+                          // route to batch selection instead of opening the
+                          // detail panel.
+                          if (options?.asSelection) {
+                            toggleRowSelection(transaction.id);
+                            return;
+                          }
                           setSelectedTransaction(transaction.id);
                         }}
+                        onToggleSelected={() => toggleRowSelection(transaction.id)}
+                        isSelected={selectedIds.has(transaction.id)}
+                        showSelectionCheckbox={!returningSelectionActive}
                         returningSelectionDirection={
                           returningSelection?.direction ?? null
                         }
@@ -757,11 +948,22 @@ interface TransactionRowProps {
   onCategoryChange: (transactionId: number, categoryId: number | null) => Promise<void>;
   onBudgetChange: (transactionId: number, budgetId: number | null) => Promise<void>;
   onVerify: (transactionId: number) => Promise<void>;
-  onViewDetails: () => void;
+  /**
+   * Handle row activation. `options.asSelection === true` means the row should
+   * toggle its batch-selection state instead of opening the detail panel
+   * (emitted on shift-click and long-press).
+   */
+  onRowActivate: (options?: { asSelection?: boolean }) => void;
+  onToggleSelected: () => void;
+  isSelected: boolean;
+  showSelectionCheckbox: boolean;
   returningSelectionDirection?: "pick-debit" | "pick-credit" | null;
   returningSelectionCurrency?: string | null;
   returningSelected?: boolean;
 }
+
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_TOLERANCE_PX = 8;
 
 function TransactionRow({
   transaction,
@@ -774,12 +976,87 @@ function TransactionRow({
   onCategoryChange,
   onBudgetChange,
   onVerify,
-  onViewDetails,
+  onRowActivate,
+  onToggleSelected,
+  isSelected,
+  showSelectionCheckbox,
   returningSelectionDirection,
   returningSelectionCurrency,
   returningSelected,
 }: TransactionRowProps) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFiredRef = useRef(false);
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current !== null) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  // Long-press on mobile = toggle batch selection. 500ms pointerdown timer
+  // is canceled by pointermove > tolerance, pointerup, or pointercancel.
+  // Only starts the timer for touch input so mouse users aren't affected.
+  const handleRowPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLTableRowElement>) => {
+      if (isEditing) return;
+      longPressFiredRef.current = false;
+      if (event.pointerType !== "touch") {
+        return;
+      }
+      pointerStartRef.current = { x: event.clientX, y: event.clientY };
+      clearLongPressTimer();
+      longPressTimerRef.current = setTimeout(() => {
+        longPressFiredRef.current = true;
+        onToggleSelected();
+      }, LONG_PRESS_MS);
+    },
+    [isEditing, clearLongPressTimer, onToggleSelected],
+  );
+
+  const handleRowPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLTableRowElement>) => {
+      if (longPressTimerRef.current === null) return;
+      const start = pointerStartRef.current;
+      if (!start) return;
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_TOLERANCE_PX) {
+        clearLongPressTimer();
+      }
+    },
+    [clearLongPressTimer],
+  );
+
+  const handleRowPointerUp = useCallback(() => {
+    clearLongPressTimer();
+  }, [clearLongPressTimer]);
+
+  const handleRowPointerCancel = useCallback(() => {
+    clearLongPressTimer();
+    longPressFiredRef.current = false;
+  }, [clearLongPressTimer]);
+
+  useEffect(() => () => clearLongPressTimer(), [clearLongPressTimer]);
+
+  const handleRowClick = useCallback(
+    (event: React.MouseEvent<HTMLTableRowElement>) => {
+      // Swallow the click that follows a long-press-triggered selection.
+      if (longPressFiredRef.current) {
+        longPressFiredRef.current = false;
+        return;
+      }
+      // Shift-click on desktop toggles selection instead of opening detail.
+      if (event.shiftKey) {
+        onRowActivate({ asSelection: true });
+        return;
+      }
+      onRowActivate();
+    },
+    [onRowActivate],
+  );
   const typeConfig = TYPE_CONFIG[transaction.type] ?? TYPE_CONFIG[TransactionTypeEnum.Debit];
   const statusConfig = STATUS_CONFIG[transaction.categorizationStatus];
   const TypeIcon = typeConfig.icon;
@@ -852,11 +1129,33 @@ function TransactionRow({
               : "cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20"
             : "cursor-not-allowed opacity-50"
           : "cursor-pointer",
+        !returningSelectionActive && isSelected && "bg-muted/60",
+        "select-none",
       )}
-      onClick={onViewDetails}
+      onClick={handleRowClick}
+      onPointerDown={handleRowPointerDown}
+      onPointerMove={handleRowPointerMove}
+      onPointerUp={handleRowPointerUp}
+      onPointerCancel={handleRowPointerCancel}
+      onPointerLeave={handleRowPointerCancel}
       data-qa={`transaction-row-${transaction.id}`}
       data-qa-returning-selected={returningSelected ? "true" : undefined}
+      data-qa-batch-selected={isSelected ? "true" : undefined}
     >
+      {showSelectionCheckbox && (
+        <TableCell
+          className="w-10"
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => onToggleSelected()}
+            aria-label="Select row"
+            data-qa={`checkbox-batch-row-${transaction.id}`}
+          />
+        </TableCell>
+      )}
       <TableCell className="font-medium text-muted-foreground">
         {formatDate(transaction.date)}
       </TableCell>
