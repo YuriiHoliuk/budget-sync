@@ -259,13 +259,22 @@ export class MarkAsReturningUseCase extends UseCase<
     return records;
   }
 
+  /**
+   * Pairs are compatible when they settle in the same currency — i.e. their
+   * accounts share a currency. `transactions.currency` captures the charge
+   * currency (which can differ from account currency for foreign-currency
+   * purchases on a domestic card). Using account currency lets a UAH salary
+   * absorb USD-labeled FAL-style expenses that actually settled in UAH.
+   * Falls back to `currency` when account currency is not available (e.g.
+   * archived account with no settlement currency recorded).
+   */
   private validateCurrency(
     credits: TransactionRecord[],
     debits: TransactionRecord[],
   ): void {
     const allCurrencies = [
-      ...credits.map((record) => record.currency),
-      ...debits.map((record) => record.currency),
+      ...credits.map((record) => record.accountCurrency ?? record.currency),
+      ...debits.map((record) => record.accountCurrency ?? record.currency),
     ];
     const firstCurrency = allCurrencies[0];
     if (!firstCurrency) {

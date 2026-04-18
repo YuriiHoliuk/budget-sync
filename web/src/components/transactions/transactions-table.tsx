@@ -787,12 +787,16 @@ function TransactionRow({
   const isVerified = transaction.categorizationStatus === CategorizationStatusEnum.Verified;
   const isCategorized = transaction.categorizationStatus === CategorizationStatusEnum.Categorized;
   const returningSelectionActive = returningSelectionDirection != null;
+  // Pair compatibility is keyed on ACCOUNT currency (settlement currency),
+  // not charge currency. This lets a UAH salary absorb USD-labeled expenses
+  // that settled in UAH on the same card.
+  const rowCurrency = transaction.account?.currency ?? transaction.currency;
   const isSelectableForReturning =
     returningSelectionActive &&
     ((returningSelectionDirection === "pick-debit" && isDebitRow) ||
       (returningSelectionDirection === "pick-credit" && isCreditRow)) &&
     (!returningSelectionCurrency ||
-      transaction.currency === returningSelectionCurrency);
+      rowCurrency === returningSelectionCurrency);
 
   const currentBudgetId = transaction.budget?.id ?? null;
   const filteredBudgets = useMemo(() => {

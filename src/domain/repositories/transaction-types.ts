@@ -19,6 +19,13 @@ export interface TransactionRecord {
   type: 'credit' | 'debit' | 'transfer';
   accountId: number | null;
   accountExternalId: string | null;
+  /**
+   * Settlement currency of the account this transaction lives on. May differ
+   * from `currency` for foreign-currency purchases (e.g., a USD-charged swipe
+   * on a UAH card stores currency=USD but settles in UAH on the account).
+   * Returning-pair compatibility is keyed on THIS, not `currency`.
+   */
+  accountCurrency: string | null;
   categoryId: number | null;
   budgetId: number | null;
   categorizationStatus: string | null;

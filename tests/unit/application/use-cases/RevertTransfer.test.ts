@@ -24,6 +24,7 @@ function createMockTransactionRecord(
     type: 'transfer',
     accountId: 10,
     accountExternalId: 'acc-123',
+    accountCurrency: 'UAH',
     categoryId: null,
     budgetId: null,
     categorizationStatus: 'pending',

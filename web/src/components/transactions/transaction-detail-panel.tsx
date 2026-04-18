@@ -430,7 +430,7 @@ function TransactionDetailContent({
       "pick-debit",
       transaction.id,
       transaction.amount,
-      transaction.currency,
+      transaction.account?.currency ?? transaction.currency,
     );
   };
 
@@ -439,7 +439,7 @@ function TransactionDetailContent({
       "pick-credit",
       transaction.id,
       transaction.amount,
-      transaction.currency,
+      transaction.account?.currency ?? transaction.currency,
     );
   };
 

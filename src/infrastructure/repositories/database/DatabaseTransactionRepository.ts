@@ -253,18 +253,24 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       .select({
         transaction: transactions,
         bankTransactionCount: count(transactionSources.id),
+        accountCurrency: accounts.currency,
       })
       .from(transactions)
       .leftJoin(
         transactionSources,
         eq(transactions.id, transactionSources.transactionId),
       )
+      .leftJoin(accounts, eq(transactions.accountId, accounts.id))
       .where(eq(transactions.id, dbId))
-      .groupBy(transactions.id)
+      .groupBy(transactions.id, accounts.currency)
       .limit(1);
     const row = rows[0];
     return row
-      ? this.rowToRecord(row.transaction, row.bankTransactionCount)
+      ? this.rowToRecord(
+          row.transaction,
+          row.bankTransactionCount,
+          row.accountCurrency,
+        )
       : null;
   }
 
@@ -273,32 +279,31 @@ export class DatabaseTransactionRepository implements TransactionRepository {
     pagination: PaginationParams,
   ): Promise<TransactionRecord[]> {
     const conditions = this.buildFilterConditions(filter);
-    const needsAccountJoin = filter.accountRole !== undefined;
 
-    const baseQuery = this.db
+    const rows = await this.db
       .select({
         transaction: transactions,
         bankTransactionCount: count(transactionSources.id),
+        accountCurrency: accounts.currency,
       })
       .from(transactions)
       .leftJoin(
         transactionSources,
         eq(transactions.id, transactionSources.transactionId),
-      );
-
-    const queryWithJoin = needsAccountJoin
-      ? baseQuery.innerJoin(accounts, eq(transactions.accountId, accounts.id))
-      : baseQuery;
-
-    const rows = await queryWithJoin
+      )
+      .leftJoin(accounts, eq(transactions.accountId, accounts.id))
       .where(and(...conditions))
-      .groupBy(transactions.id)
+      .groupBy(transactions.id, accounts.currency)
       .orderBy(desc(transactions.date), desc(transactions.id))
       .limit(pagination.limit)
       .offset(pagination.offset);
 
     return rows.map((row) =>
-      this.rowToRecord(row.transaction, row.bankTransactionCount),
+      this.rowToRecord(
+        row.transaction,
+        row.bankTransactionCount,
+        row.accountCurrency,
+      ),
     );
   }
 
@@ -753,6 +758,7 @@ export class DatabaseTransactionRepository implements TransactionRepository {
   private rowToRecord(
     row: TransactionRow,
     bankTransactionCount = 0,
+    accountCurrency: string | null = null,
   ): TransactionRecord {
     return {
       id: row.id,
@@ -763,6 +769,7 @@ export class DatabaseTransactionRepository implements TransactionRepository {
       type: row.type as 'credit' | 'debit' | 'transfer',
       accountId: row.accountId,
       accountExternalId: row.accountExternalId,
+      accountCurrency,
       categoryId: row.categoryId,
       budgetId: row.budgetId,
       categorizationStatus: row.categorizationStatus,

@@ -30,6 +30,7 @@ query GetTransactions(
       account {
         id
         name
+        currency
       }
     }
     totalCount
@@ -66,6 +67,7 @@ query GetTransaction($id: Int!) {
       id
       name
       source
+      currency
     }
     transferPair {
       pairedTransactionId

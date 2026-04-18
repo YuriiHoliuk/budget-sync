@@ -33,6 +33,7 @@ function createMockTransactionRecord(
     type: 'debit',
     accountId: 10,
     accountExternalId: 'acc-123',
+    accountCurrency: 'UAH',
     categoryId: null,
     budgetId: null,
     categorizationStatus: 'pending',
@@ -414,18 +415,20 @@ describe('MarkAsReturningUseCase — single-pair', () => {
     ).rejects.toThrow(TransactionIsTransferError);
   });
 
-  test('throws CurrencyMismatchError when currencies differ', async () => {
+  test('throws CurrencyMismatchError when account currencies differ', async () => {
     const credit = createMockTransactionRecord({
       id: 2,
       type: 'credit',
       amount: 3000,
       currency: 'UAH',
+      accountCurrency: 'UAH',
     });
     const debit = createMockTransactionRecord({
       id: 1,
       type: 'debit',
       amount: -5000,
       currency: 'USD',
+      accountCurrency: 'USD',
     });
     mockFindRecordByIdLookup(mockTransactionRepository, [credit, debit]);
 
@@ -435,6 +438,43 @@ describe('MarkAsReturningUseCase — single-pair', () => {
         debitTransactionIds: [debit.id],
       }),
     ).rejects.toThrow(CurrencyMismatchError);
+  });
+
+  test('allows pairing when transaction currencies differ but account currencies match (FX on domestic card)', async () => {
+    const salary = createMockTransactionRecord({
+      id: 2,
+      externalId: 'tx-salary',
+      type: 'credit',
+      amount: 5000,
+      currency: 'UAH',
+      accountCurrency: 'UAH',
+    });
+    const foreignPurchase = createMockTransactionRecord({
+      id: 1,
+      externalId: 'tx-fx',
+      type: 'debit',
+      amount: -2000,
+      currency: 'USD', // charge currency
+      accountCurrency: 'UAH', // settled in UAH
+    });
+
+    mockFindRecordByIdLookup(mockTransactionRepository, [
+      salary,
+      foreignPurchase,
+    ]);
+    (
+      mockBankTransactionRepository.findByTransactionId as ReturnType<
+        typeof mock
+      >
+    ).mockResolvedValue([]);
+
+    const result = await useCase.execute({
+      creditTransactionIds: [salary.id],
+      debitTransactionIds: [foreignPurchase.id],
+    });
+
+    expect(result.type).toBe('credit_reduced');
+    expect(result.newSurvivingAmount).toBe(3000);
   });
 });
 
