@@ -218,3 +218,49 @@ Before shipping:
    - Debit on Iron Black → "has returning" → pick a larger credit on Mono White → credit amount reduces; debit row vanishes.
    - Revert each → verify the absorbed side is resurrected on its correct original account.
 7. Spot-check the monthly overview before/after a cross-account refund on an operational↔savings pair — operational income should not go up by the refund amount.
+
+## Addenda (post-approval follow-ups actually shipped)
+
+The initial plan above was approved and implemented as written. Two additional changes were layered on top during the same branch/PR stream, driven by real production scenarios. They are part of the same feature effort and worth documenting here.
+
+### Addendum 1 — Multi-select pairing (one anchor + N opposite-side)
+
+**Motivation.** The single-pair flow forced a user to either pair one expense at a time (tedious: 10 work expenses against one salary = 10 clicks) or pre-split the income manually. Neither matches the "one refund / many absorbed items" shape that shows up constantly (salary covering many work expenses; one pub bill reimbursed by several friends).
+
+**Shape.** The mutation input generalises:
+- `creditTransactionId` → `creditTransactionIds: [Int!]!`
+- `debitTransactionId` → `debitTransactionIds: [Int!]!`
+- `originalDebitAmount` / `originalCreditAmount` → `totalDebitAmount` / `totalCreditAmount`
+
+**Invariants.**
+- At least one ID on each side.
+- Exactly one side has length === 1 (the "anchor"). Many-to-many is rejected with `MultiOnBothSidesUnsupportedError` — there's no unambiguous way to decide which of several survivors to reduce.
+- `sum(many-side) ≤ anchor.amount`, else `AnchorAmountInsufficientError`.
+
+**Outcomes unchanged:** `full_cancel` when sums equal; otherwise `debit_reduced` (debit anchor) or `credit_reduced` (credit anchor) with the anchor reduced by the many-side sum. All N absorbed transactions are deleted and their bank_txs reparented to the anchor.
+
+**Audit simplification carries over:** pair every opposite-type bank_tx against the first debit bank_tx we find. Multi-debit × multi-credit fidelity remains a tracked follow-up.
+
+**UI.** Row click accumulates into a selected set instead of opening the confirmation dialog immediately; the banner shows `N selected · total X`; a new "Done" button opens the dialog when the user is happy with the selection. Confirmation dialog classifies the outcome from the totals and submits the array-shaped mutation.
+
+### Addendum 2 — Compatibility keyed on ACCOUNT currency, not charge currency
+
+**Motivation.** Real production data: Monobank stores each transaction's *charge* currency. For a foreign-currency merchant charge on a domestic card (e.g., USD-denominated SaaS on a UAH card), `transactions.currency = 'USD'` but the actual money that left the card is UAH — the bank settled the conversion at swipe time. The initial plan keyed compatibility on `transactions.currency`, which rejected these rows from pairing with a UAH salary despite both clearly moving UAH.
+
+**Fix.**
+- Added `accountCurrency` to `TransactionRecord`, populated via `LEFT JOIN accounts` in `findRecordById` / `findRecordsFiltered`.
+- `MarkAsReturningUseCase.validateCurrency` compares `accountCurrency ?? currency` across all inputs, not per-transaction charge currency.
+- Frontend: `GetTransaction` and `GetTransactions` queries now select `account.currency`; the selection banner, row-selectability check, and **row-click handler** all compare account currency. (The click-handler path was initially missed — rows appeared enabled but clicks were no-ops — and fixed in a follow-up commit.)
+
+**Trade-off.** Amounts are still summed as raw minor-unit integers on the assumption they're all in the account's settlement currency. This works for Monobank-style single-currency accounts where bank_tx.amount is always settled in the account's currency (regardless of the mis-labeled `currency` column). If a genuine multi-currency account ever appears, arithmetic would need FX-aware conversion — tracked as a follow-up if it becomes a real case.
+
+### Addendum 3 — Drive-by fix: stale `edit-budget-readonly` E2E
+
+CI E2E failed on the first push because commit `8e30d0c` (target-date became editable) had left `edit-budget-readonly.spec.ts` asserting on a read-only display row that no longer exists. The test was updated to read the editable input's value instead; unrelated to returning but blocked the deploy gate.
+
+### Actually-shipped commits
+
+- `8e9059d` — cross-account + bidirectional + multi-select use case + UI + tests.
+- `df3b54a` — drive-by fix for the stale budget-readonly test.
+- `3f9e88a` — key compatibility on account currency (backend + frontend row gating).
+- `327cc4b` — align the row click handler with the same account-currency check.
