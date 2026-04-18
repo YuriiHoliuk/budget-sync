@@ -646,8 +646,13 @@ export function TransactionsTable() {
                               returningSelection.direction === "pick-debit"
                                 ? transaction.type === TransactionTypeEnum.Debit
                                 : transaction.type === TransactionTypeEnum.Credit;
+                            // Compare ACCOUNT currency, not charge currency:
+                            // FAL-style USD-charged rows on a UAH card still
+                            // settle in UAH and should be selectable.
+                            const rowCurrency =
+                              transaction.account?.currency ?? transaction.currency;
                             const currencyMatches =
-                              transaction.currency === returningSelection.currency;
+                              rowCurrency === returningSelection.currency;
                             if (isMatchingTarget && currencyMatches) {
                               handleToggleReturningRow(
                                 transaction.id,
