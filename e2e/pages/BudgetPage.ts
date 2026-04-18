@@ -683,18 +683,12 @@ class EditBudgetDialog extends Dialog {
   }
 
   /**
-   * Get the target date display value (if shown)
+   * Get the target date input value in the edit dialog.
+   * Target date is now editable, so this reads the input's value instead of
+   * searching for a read-only "Target Date:" row that no longer exists.
    */
   async getTargetDateDisplay(): Promise<string> {
-    const rows = this.readOnlySection.locator('.flex.justify-between');
-    const count = await rows.count();
-    for (let index = 0; index < count; index++) {
-      const text = (await rows.nth(index).textContent()) ?? '';
-      if (text.includes('Target Date:')) {
-        return (await rows.nth(index).locator('.font-medium').textContent()) ?? '';
-      }
-    }
-    return '';
+    return (await this.getInput('input-target-date').inputValue()) ?? '';
   }
 
   // ========== EDITABLE FIELDS ==========

@@ -88,9 +88,11 @@ test('should allow editing name, target amount, cap, and end date', async ({
 });
 
 /**
- * Verify budget with target date shows target date in read-only section.
+ * Verify budget with target date pre-fills the target-date input.
+ * Target date became editable in 8e30d0c; the assertion now checks the input's
+ * current value rather than a read-only display row.
  */
-test('should display target date in read-only section when set', async ({
+test('should pre-fill target date input when set', async ({
   authenticatedPage,
 }) => {
   const budget = await createBudget({
@@ -105,9 +107,8 @@ test('should display target date in read-only section when set', async ({
 
   const dialog = await budgetPage.openEditBudgetDialog(budget.id);
 
-  // Target date should be displayed as read-only text
   const targetDate = await dialog.getTargetDateDisplay();
-  expect(targetDate).toContain('2027');
+  expect(targetDate).toBe('2027-12-31');
 
   await dialog.close();
 });
