@@ -4,6 +4,7 @@ import {
   type CreateTransactionRequestDTO,
   CreateTransactionUseCase,
 } from '@application/use-cases/CreateTransaction.ts';
+import { DeleteTransactionUseCase } from '@application/use-cases/DeleteTransaction.ts';
 import { JoinTransactionsUseCase } from '@application/use-cases/JoinTransactions.ts';
 import { MarkAsReturningUseCase } from '@application/use-cases/MarkAsReturning.ts';
 import { RevertReturningUseCase } from '@application/use-cases/RevertReturning.ts';
@@ -111,6 +112,7 @@ export class TransactionsResolver extends Resolver {
     @inject(BANK_TRANSACTION_REPOSITORY_TOKEN)
     private bankTransactionRepository: BankTransactionRepository,
     private createTransactionUseCase: CreateTransactionUseCase,
+    private deleteTransactionUseCase: DeleteTransactionUseCase,
     private convertToTransferUseCase: ConvertToTransferUseCase,
     private revertTransferUseCase: RevertTransferUseCase,
     private markAsReturningUseCase: MarkAsReturningUseCase,
@@ -137,6 +139,8 @@ export class TransactionsResolver extends Resolver {
           _parent: unknown,
           args: { input: CreateTransactionInput },
         ) => this.createTransaction(args.input),
+        deleteTransaction: (_parent: unknown, args: { id: number }) =>
+          this.deleteTransaction(args.id),
         updateTransactionCategory: (
           _parent: unknown,
           args: { input: UpdateCategoryInput },
@@ -308,6 +312,10 @@ export class TransactionsResolver extends Resolver {
     }
 
     return mapTransactionRecordToGql(record);
+  }
+
+  private deleteTransaction(id: number): Promise<boolean> {
+    return this.deleteTransactionUseCase.execute({ id });
   }
 
   private async updateTransactionCategory(input: UpdateCategoryInput) {

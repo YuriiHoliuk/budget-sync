@@ -72,6 +72,10 @@ mutation CreateTransaction($input: CreateTransactionInput!) {
   }
 }
 
+mutation DeleteTransaction($id: Int!) {
+  deleteTransaction(id: $id)
+}
+
 mutation ConvertToTransfer($input: ConvertToTransferInput!) {
   convertToTransfer(input: $input) {
     sourceTransaction {

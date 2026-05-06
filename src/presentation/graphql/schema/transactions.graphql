@@ -19,6 +19,12 @@ extend type Mutation {
   createTransaction(input: CreateTransactionInput!): Transaction!
 
   """
+  Delete a transaction on a manual (non-synced) account.
+  Bank-synced accounts cannot have their transactions deleted manually.
+  """
+  deleteTransaction(id: Int!): Boolean!
+
+  """
   Update the category of a transaction.
   """
   updateTransactionCategory(input: UpdateTransactionCategoryInput!): Transaction!

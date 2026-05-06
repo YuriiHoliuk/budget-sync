@@ -27,6 +27,7 @@ import {
   X,
   Scissors,
   Merge,
+  Trash2,
 } from "lucide-react";
 import {
   Sheet,
@@ -63,6 +64,7 @@ import {
   RevertTransferDocument,
   RevertReturningDocument,
   JoinTransactionsDocument,
+  DeleteTransactionDocument,
   TransactionTypeEnum,
   CategorizationStatusEnum,
   AccountSource,
@@ -208,6 +210,7 @@ export function TransactionDetailPanel({
             categories={categories}
             budgets={budgets}
             onStartReturningSelection={onStartReturningSelection}
+            onClose={onClose}
           />
         ) : (
           <div className="flex h-full items-center justify-center">
@@ -229,6 +232,7 @@ interface TransactionDetailContentProps {
     amount: number,
     currency: string,
   ) => void;
+  onClose: () => void;
 }
 
 function TransactionDetailContent({
@@ -236,6 +240,7 @@ function TransactionDetailContent({
   categories,
   budgets,
   onStartReturningSelection,
+  onClose,
 }: TransactionDetailContentProps) {
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -291,6 +296,14 @@ function TransactionDetailContent({
     },
   });
 
+  const [deleteTransaction, { loading: deleteLoading }] = useMutation(DeleteTransactionDocument, {
+    update(cache, _result, { variables }) {
+      if (variables?.id !== undefined) {
+        removeTransactionFromCache(cache, variables.id);
+      }
+    },
+  });
+
   const [joinTransactions, { loading: joinLoading }] = useMutation(JoinTransactionsDocument, {
     update(cache, { data }, { variables }) {
       if (!data?.joinTransactions || !variables?.input) return;
@@ -329,6 +342,7 @@ function TransactionDetailContent({
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [showSplitForm, setShowSplitForm] = useState(false);
   const [joinTargetSibling, setJoinTargetSibling] = useState<TransactionSibling | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [notesValue, setNotesValue] = useState(transaction.notes ?? "");
   const [notesSaved, setNotesSaved] = useState(false);
@@ -452,6 +466,12 @@ function TransactionDetailContent({
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleDeleteTransaction = async () => {
+    await deleteTransaction({ variables: { id: transaction.id } });
+    setShowDeleteConfirm(false);
+    onClose();
   };
 
   const handleJoinTransaction = async (sourceTransactionId: number) => {
@@ -962,6 +982,22 @@ function TransactionDetailContent({
             </div>
           </div>
         </div>
+
+        {isManualAccount && (
+          <>
+            <Separator />
+            <Button
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={isUpdating || deleteLoading}
+              variant="outline"
+              className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+              data-qa="btn-delete-transaction"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Transaction
+            </Button>
+          </>
+        )}
       </div>
 
       <Dialog
@@ -1018,6 +1054,60 @@ function TransactionDetailContent({
                 <>
                   <Merge className="mr-2 h-4 w-4" />
                   Confirm Join
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showDeleteConfirm}
+        onOpenChange={(open) => {
+          if (!open) setShowDeleteConfirm(false);
+        }}
+      >
+        <DialogContent className="sm:max-w-[400px]" data-qa="dialog-delete-confirmation">
+          <DialogHeader>
+            <DialogTitle>Delete Transaction</DialogTitle>
+            <DialogDescription>
+              This will permanently remove the transaction from the manual account.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{description}</span>{" "}
+              ({transaction.type === TransactionTypeEnum.Debit ? "-" : "+"}
+              {formatCurrency(transaction.amount)} {transaction.currency})
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deleteLoading}
+              data-qa="btn-delete-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteTransaction}
+              disabled={deleteLoading}
+              data-qa="btn-delete-confirm"
+            >
+              {deleteLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
                 </>
               )}
             </Button>
