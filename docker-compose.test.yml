@@ -1,6 +1,6 @@
 # Docker Compose for API Integration Tests
 #
-# Isolated test database on port 5433 (separate from dev on 5432).
+# Isolated test database on port 5435 (separate from dev on 5432).
 # Used by: just test-api, just test-api-file
 #
 # Usage:
@@ -15,7 +15,7 @@ services:
   db-test:
     image: postgres:16-alpine
     ports:
-      - "5433:5432"
+      - "5435:5432"
     environment:
       POSTGRES_USER: budget_sync_test
       POSTGRES_PASSWORD: budget_sync_test

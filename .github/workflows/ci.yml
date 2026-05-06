@@ -150,14 +150,14 @@ jobs:
           POSTGRES_PASSWORD: budget_sync_test
           POSTGRES_DB: budget_sync_test
         ports:
-          - 5433:5432
+          - 5435:5432
         options: >-
           --health-cmd "pg_isready -U budget_sync_test"
           --health-interval 2s
           --health-timeout 2s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://budget_sync_test:budget_sync_test@localhost:5433/budget_sync_test
+      DATABASE_URL: postgresql://budget_sync_test:budget_sync_test@localhost:5435/budget_sync_test
     steps:
       - uses: actions/checkout@v4
 

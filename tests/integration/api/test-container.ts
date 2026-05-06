@@ -11,7 +11,7 @@
  * SAFETY:
  * - Validates DATABASE_URL doesn't point to production (neon.tech, supabase.co, etc.)
  * - Run tests via `just test-api` which sets DATABASE_URL to test database
- * - Defaults to local Docker test database on port 5433
+ * - Defaults to local Docker test database on port 5435
  */
 
 import 'reflect-metadata';
@@ -98,7 +98,7 @@ function getTestDatabaseUrl(): string {
   }
 
   // Default to local Docker test database
-  return 'postgresql://budget_sync_test:budget_sync_test@localhost:5433/budget_sync_test';
+  return 'postgresql://budget_sync_test:budget_sync_test@localhost:5435/budget_sync_test';
 }
 
 /**

@@ -103,7 +103,7 @@ just check             # typecheck + lint
 just fix               # auto-fix issues
 just test              # unit tests
 
-# API integration tests (uses isolated Docker DB on port 5433)
+# API integration tests (uses isolated Docker DB on port 5435)
 just test-api                          # Run all API tests
 just test-api-file <path>              # Run single test file
 just test-api-down                     # Stop test database

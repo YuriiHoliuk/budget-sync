@@ -139,7 +139,7 @@ test-integration:
 test-api:
     #!/bin/bash
     set -e
-    export DATABASE_URL="postgresql://budget_sync_test:budget_sync_test@localhost:5433/budget_sync_test"
+    export DATABASE_URL="postgresql://budget_sync_test:budget_sync_test@localhost:5435/budget_sync_test"
     docker compose -f docker-compose.test.yml up -d --wait
     bunx drizzle-kit migrate
     bun test tests/integration/api
@@ -148,7 +148,7 @@ test-api:
 test-api-file file:
     #!/bin/bash
     set -e
-    export DATABASE_URL="postgresql://budget_sync_test:budget_sync_test@localhost:5433/budget_sync_test"
+    export DATABASE_URL="postgresql://budget_sync_test:budget_sync_test@localhost:5435/budget_sync_test"
     docker compose -f docker-compose.test.yml up -d --wait
     bunx drizzle-kit migrate
     bun test {{file}}
