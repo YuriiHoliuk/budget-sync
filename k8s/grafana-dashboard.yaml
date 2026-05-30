@@ -1,0 +1,166 @@
+# Grafana dashboard for budget-sync, delivered as a ConfigMap.
+#
+# The kube-prometheus-stack Grafana sidecar watches ALL namespaces for
+# ConfigMaps labelled `grafana_dashboard: "1"` and auto-loads them — so this
+# dashboard ships with the service (GitOps) and needs no manual import.
+# Datasources are referenced via template variables ($prometheus / $loki) so
+# the dashboard stays portable across cluster reinstalls.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: budget-sync-dashboard
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: budget-sync
+data:
+  budget-sync.json: |
+    {
+      "uid": "budget-sync",
+      "title": "budget-sync",
+      "tags": ["budget-sync"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": { "from": "now-6h", "to": "now" },
+      "templating": {
+        "list": [
+          { "name": "prometheus", "type": "datasource", "query": "prometheus", "label": "Prometheus", "hide": 0, "current": {} },
+          { "name": "loki", "type": "datasource", "query": "loki", "label": "Loki", "hide": 0, "current": {} }
+        ]
+      },
+      "panels": [
+        { "id": 1, "type": "row", "title": "Overview", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+        {
+          "id": 2, "type": "stat", "title": "Pods up",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } } },
+          "targets": [ { "refId": "A", "expr": "count(up{namespace=\"budget-sync\"} == 1)" } ]
+        },
+        {
+          "id": 3, "type": "stat", "title": "Webhooks received (24h)",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+          "targets": [ { "refId": "A", "expr": "sum(increase(budget_sync_webhooks_received_total[24h]))" } ]
+        },
+        {
+          "id": 4, "type": "stat", "title": "Transactions processed (24h)",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+          "targets": [ { "refId": "A", "expr": "sum(increase(budget_sync_transaction_processing_seconds_count[24h]))" } ]
+        },
+        {
+          "id": 5, "type": "stat", "title": "Sync runs (24h)",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+          "targets": [ { "refId": "A", "expr": "sum(increase(budget_sync_sync_runs_total[24h]))" } ]
+        },
+
+        { "id": 10, "type": "row", "title": "Resources (per pod)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 } },
+        {
+          "id": 11, "type": "timeseries", "title": "CPU (cores)",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+          "fieldConfig": { "defaults": { "unit": "none" } },
+          "targets": [ { "refId": "A", "legendFormat": "{{pod}}", "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"budget-sync\", container!=\"\"}[5m]))" } ]
+        },
+        {
+          "id": 12, "type": "timeseries", "title": "Memory (working set)",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+          "fieldConfig": { "defaults": { "unit": "bytes" } },
+          "targets": [ { "refId": "A", "legendFormat": "{{pod}}", "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"budget-sync\", container!=\"\"})" } ]
+        },
+        {
+          "id": 13, "type": "timeseries", "title": "Network I/O",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+          "fieldConfig": { "defaults": { "unit": "Bps" } },
+          "targets": [
+            { "refId": "A", "legendFormat": "{{pod}} rx", "expr": "sum by (pod) (rate(container_network_receive_bytes_total{namespace=\"budget-sync\"}[5m]))" },
+            { "refId": "B", "legendFormat": "{{pod}} tx", "expr": "sum by (pod) (rate(container_network_transmit_bytes_total{namespace=\"budget-sync\"}[5m]))" }
+          ]
+        },
+        {
+          "id": 14, "type": "timeseries", "title": "Container restarts",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+          "fieldConfig": { "defaults": { "unit": "none" } },
+          "targets": [ { "refId": "A", "legendFormat": "{{pod}}", "expr": "sum by (pod) (kube_pod_container_status_restarts_total{namespace=\"budget-sync\"})" } ]
+        },
+
+        { "id": 20, "type": "row", "title": "Runtime (process)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 } },
+        {
+          "id": 21, "type": "timeseries", "title": "Process & heap memory",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+          "fieldConfig": { "defaults": { "unit": "bytes" } },
+          "targets": [
+            { "refId": "A", "legendFormat": "resident {{pod}}", "expr": "process_resident_memory_bytes{job=~\"budget-sync.*\"}" },
+            { "refId": "B", "legendFormat": "heap used {{pod}}", "expr": "nodejs_heap_size_used_bytes{job=~\"budget-sync.*\"}" }
+          ]
+        },
+        {
+          "id": 22, "type": "timeseries", "title": "Process CPU",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 8, "w": 6, "x": 12, "y": 23 },
+          "fieldConfig": { "defaults": { "unit": "none" } },
+          "targets": [ { "refId": "A", "legendFormat": "{{pod}}", "expr": "rate(process_cpu_seconds_total{job=~\"budget-sync.*\"}[5m])" } ]
+        },
+        {
+          "id": 23, "type": "timeseries", "title": "Event-loop lag p99",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 8, "w": 6, "x": 18, "y": 23 },
+          "fieldConfig": { "defaults": { "unit": "s" } },
+          "targets": [ { "refId": "A", "legendFormat": "{{pod}}", "expr": "nodejs_eventloop_lag_p99_seconds{job=~\"budget-sync.*\"}" } ]
+        },
+
+        { "id": 30, "type": "row", "title": "Application", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 } },
+        {
+          "id": 31, "type": "timeseries", "title": "Webhooks received rate",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 8, "w": 6, "x": 0, "y": 32 },
+          "fieldConfig": { "defaults": { "unit": "reqps" } },
+          "targets": [ { "refId": "A", "expr": "sum(rate(budget_sync_webhooks_received_total[5m]))" } ]
+        },
+        {
+          "id": 32, "type": "timeseries", "title": "Transaction throughput",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 8, "w": 6, "x": 6, "y": 32 },
+          "fieldConfig": { "defaults": { "unit": "ops" } },
+          "targets": [ { "refId": "A", "expr": "sum(rate(budget_sync_transaction_processing_seconds_count[5m]))" } ]
+        },
+        {
+          "id": 33, "type": "timeseries", "title": "Transaction latency p95",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 8, "w": 6, "x": 12, "y": 32 },
+          "fieldConfig": { "defaults": { "unit": "s" } },
+          "targets": [ { "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(budget_sync_transaction_processing_seconds_bucket[5m])))" } ]
+        },
+        {
+          "id": 34, "type": "timeseries", "title": "Sync runs rate",
+          "datasource": { "type": "prometheus", "uid": "${prometheus}" },
+          "gridPos": { "h": 8, "w": 6, "x": 18, "y": 32 },
+          "fieldConfig": { "defaults": { "unit": "ops" } },
+          "targets": [ { "refId": "A", "expr": "sum(rate(budget_sync_sync_runs_total[5m]))" } ]
+        },
+
+        { "id": 40, "type": "row", "title": "Logs", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 } },
+        {
+          "id": 41, "type": "logs", "title": "Logs (all pods)",
+          "datasource": { "type": "loki", "uid": "${loki}" },
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 41 },
+          "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true },
+          "targets": [ { "refId": "A", "expr": "{namespace=\"budget-sync\"}" } ]
+        },
+        {
+          "id": 42, "type": "logs", "title": "Errors & warnings",
+          "datasource": { "type": "loki", "uid": "${loki}" },
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 51 },
+          "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true },
+          "targets": [ { "refId": "A", "expr": "{namespace=\"budget-sync\"} |~ \"(?i)(error|warn|exception|fail)\"" } ]
+        }
+      ]
+    }
