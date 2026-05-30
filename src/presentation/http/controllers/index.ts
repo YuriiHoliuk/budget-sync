@@ -7,6 +7,7 @@
 
 import type { Controller } from '../Controller.ts';
 import { HealthController } from './HealthController.ts';
+import { MetricsController } from './MetricsController.ts';
 import { WebhookController } from './WebhookController.ts';
 
 /** Type for controller class constructor that can be resolved from DI */
@@ -20,7 +21,9 @@ export type ControllerClass = new (...args: any[]) => Controller;
 export const CONTROLLERS: ControllerClass[] = [
   HealthController,
   WebhookController,
+  MetricsController,
 ];
 
 export { HealthController };
+export { MetricsController };
 export { WebhookController };

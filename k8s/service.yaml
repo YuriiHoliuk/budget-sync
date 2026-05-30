@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: budget-sync
+  labels:
+    app: budget-sync
+spec:
+  type: ClusterIP
+  selector:
+    app: budget-sync
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

@@ -32,3 +32,5 @@ export {
   PubSubMessageQueueGateway,
 } from './pubsub/PubSubMessageQueueGateway.ts';
 export type { PubSubQueueConfig } from './pubsub/types.ts';
+// Redis/BullMQ Message Queue Gateway
+export * from './redis/index.ts';

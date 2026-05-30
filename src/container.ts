@@ -25,6 +25,8 @@ import {
   GEMINI_CLIENT_TOKEN,
   GeminiLLMGateway,
 } from '@infrastructure/gateways/llm/index.ts';
+import { MockCategorizationQueueGateway } from '@infrastructure/gateways/mocks/MockCategorizationQueueGateway.ts';
+import { MockMessageQueueGateway } from '@infrastructure/gateways/mocks/MockMessageQueueGateway.ts';
 import {
   MONOBANK_CONFIG_TOKEN,
   MonobankGateway,
@@ -36,6 +38,14 @@ import {
   PubSubCategorizationQueueGateway,
   PubSubMessageQueueGateway,
 } from '@infrastructure/gateways/pubsub/index.ts';
+import {
+  createRedisConnection,
+  REDIS_CONNECTION_TOKEN,
+  REDIS_QUEUE_CONFIG_TOKEN,
+  RedisCategorizationQueueGateway,
+  RedisMessageQueueGateway,
+  type RedisQueueConfig,
+} from '@infrastructure/gateways/redis/index.ts';
 import { DatabaseAccountRepository } from '@infrastructure/repositories/database/DatabaseAccountRepository.ts';
 import { DatabaseAllocationRepository } from '@infrastructure/repositories/database/DatabaseAllocationRepository.ts';
 import { DatabaseBankTransactionRepository } from '@infrastructure/repositories/database/DatabaseBankTransactionRepository.ts';
@@ -54,6 +64,11 @@ import {
 import { DatabaseClient } from '@modules/database/DatabaseClient.ts';
 import { GeminiClient } from '@modules/llm/index.ts';
 import { ConsoleLogger, LOGGER_TOKEN } from '@modules/logging/index.ts';
+import {
+  METRICS_TOKEN,
+  NoopMetrics,
+  PromMetrics,
+} from '@modules/metrics/index.ts';
 import { PubSubClient } from '@modules/pubsub/index.ts';
 import { SpreadsheetsClient } from '@modules/spreadsheet/SpreadsheetsClient.ts';
 import { container } from 'tsyringe';
@@ -84,6 +99,90 @@ function getOptionalEnv(variableName: string): string | undefined {
 }
 
 /**
+ * Register the Redis/BullMQ queue gateways.
+ *
+ * Gateways are registered as singletons so the in-process worker and the
+ * publishers share the same underlying BullMQ Queue instances.
+ */
+function registerRedisQueueGateways(): void {
+  const connection = createRedisConnection(getRequiredEnv('REDIS_URL'));
+  container.register(REDIS_CONNECTION_TOKEN, { useValue: connection });
+
+  const redisQueueConfig: RedisQueueConfig = {
+    webhookQueueName:
+      getOptionalEnv('WEBHOOK_QUEUE_NAME') ?? 'webhook-transactions',
+    categorizationQueueName:
+      getOptionalEnv('CATEGORIZATION_QUEUE_NAME') ?? 'categorization-queue',
+    maxAttempts: Number.parseInt(
+      getOptionalEnv('QUEUE_MAX_ATTEMPTS') ?? '5',
+      10,
+    ),
+    backoffMs: Number.parseInt(
+      getOptionalEnv('QUEUE_BACKOFF_MS') ?? '2000',
+      10,
+    ),
+    workerConcurrency: Number.parseInt(
+      getOptionalEnv('WORKER_CONCURRENCY') ?? '4',
+      10,
+    ),
+  };
+  container.register(REDIS_QUEUE_CONFIG_TOKEN, { useValue: redisQueueConfig });
+
+  container.registerSingleton(RedisMessageQueueGateway);
+  container.registerSingleton(RedisCategorizationQueueGateway);
+  container.register(MESSAGE_QUEUE_GATEWAY_TOKEN, {
+    useToken: RedisMessageQueueGateway,
+  });
+  container.register(CATEGORIZATION_QUEUE_GATEWAY_TOKEN, {
+    useToken: RedisCategorizationQueueGateway,
+  });
+}
+
+/**
+ * Register mock queue gateways (no external dependencies).
+ */
+function registerMockQueueGateways(): void {
+  container.register(MESSAGE_QUEUE_GATEWAY_TOKEN, {
+    useClass: MockMessageQueueGateway,
+  });
+  container.register(CATEGORIZATION_QUEUE_GATEWAY_TOKEN, {
+    useClass: MockCategorizationQueueGateway,
+  });
+}
+
+/**
+ * Register the Pub/Sub queue gateways (default GCP Cloud Run path).
+ */
+function registerPubSubQueueGateways(serviceAccountFile?: string): void {
+  const pubSubQueueConfig = {
+    topicName: getOptionalEnv('PUBSUB_TOPIC') ?? 'webhook-transactions',
+    subscriptionName:
+      getOptionalEnv('PUBSUB_SUBSCRIPTION') ?? 'webhook-transactions-sub',
+  };
+  const categorizationTopic =
+    getOptionalEnv('CATEGORIZATION_TOPIC') ?? 'categorization-queue';
+  const gcpProjectId = getOptionalEnv('GCP_PROJECT_ID');
+  const pubSubClient = new PubSubClient({
+    projectId: gcpProjectId,
+    serviceAccountFile,
+  });
+
+  container.register(PUBSUB_CLIENT_TOKEN, { useValue: pubSubClient });
+  container.register(PUBSUB_QUEUE_CONFIG_TOKEN, {
+    useValue: pubSubQueueConfig,
+  });
+  container.register(CATEGORIZATION_TOPIC_TOKEN, {
+    useValue: categorizationTopic,
+  });
+  container.register(MESSAGE_QUEUE_GATEWAY_TOKEN, {
+    useClass: PubSubMessageQueueGateway,
+  });
+  container.register(CATEGORIZATION_QUEUE_GATEWAY_TOKEN, {
+    useClass: PubSubCategorizationQueueGateway,
+  });
+}
+
+/**
  * Sets up the dependency injection container with all required dependencies.
  *
  * This function should be called once at application startup, before
@@ -107,19 +206,8 @@ export function setupContainer(): typeof container {
     serviceAccountFile ? { serviceAccountFile } : {},
   );
 
-  // Pub/Sub configuration
-  const pubSubQueueConfig = {
-    topicName: getOptionalEnv('PUBSUB_TOPIC') ?? 'webhook-transactions',
-    subscriptionName:
-      getOptionalEnv('PUBSUB_SUBSCRIPTION') ?? 'webhook-transactions-sub',
-  };
-  const categorizationTopic =
-    getOptionalEnv('CATEGORIZATION_TOPIC') ?? 'categorization-queue';
-  const gcpProjectId = getOptionalEnv('GCP_PROJECT_ID');
-  const pubSubClient = new PubSubClient({
-    projectId: gcpProjectId,
-    serviceAccountFile,
-  });
+  // Queue driver selection (defaults to Pub/Sub for the GCP Cloud Run path)
+  const queueDriver = getOptionalEnv('QUEUE_DRIVER') ?? 'pubsub';
 
   // LLM configuration (Gemini API)
   const geminiApiKey = getOptionalEnv('GEMINI_API_KEY');
@@ -140,10 +228,6 @@ export function setupContainer(): typeof container {
   });
   container.register(MONOBANK_CONFIG_TOKEN, { useValue: monobankConfig });
   container.register(SPREADSHEET_CONFIG_TOKEN, { useValue: spreadsheetConfig });
-  container.register(PUBSUB_CLIENT_TOKEN, { useValue: pubSubClient });
-  container.register(PUBSUB_QUEUE_CONFIG_TOKEN, {
-    useValue: pubSubQueueConfig,
-  });
   container.register(DATABASE_CLIENT_TOKEN, { useValue: databaseClient });
 
   // LLM Client (optional - categorization disabled if not configured)
@@ -151,19 +235,29 @@ export function setupContainer(): typeof container {
     container.register(GEMINI_CLIENT_TOKEN, { useValue: geminiClient });
   }
 
-  // Register categorization queue config
-  container.register(CATEGORIZATION_TOPIC_TOKEN, {
-    useValue: categorizationTopic,
-  });
-
-  // Register gateways
+  // Register bank gateway (driver-independent)
   container.register(BANK_GATEWAY_TOKEN, { useClass: MonobankGateway });
-  container.register(MESSAGE_QUEUE_GATEWAY_TOKEN, {
-    useClass: PubSubMessageQueueGateway,
-  });
-  container.register(CATEGORIZATION_QUEUE_GATEWAY_TOKEN, {
-    useClass: PubSubCategorizationQueueGateway,
-  });
+
+  // Register queue gateways based on the selected driver.
+  switch (queueDriver) {
+    case 'redis':
+      registerRedisQueueGateways();
+      break;
+    case 'mock':
+      registerMockQueueGateways();
+      break;
+    default:
+      // 'pubsub' — default GCP Cloud Run path (behavior unchanged).
+      registerPubSubQueueGateways(serviceAccountFile);
+      break;
+  }
+
+  // Register metrics (Prometheus unless explicitly disabled).
+  if (getOptionalEnv('METRICS_ENABLED') !== 'false') {
+    container.register(METRICS_TOKEN, { useClass: PromMetrics });
+  } else {
+    container.register(METRICS_TOKEN, { useClass: NoopMetrics });
+  }
 
   // Register repositories (all direct Database implementations)
   container.register(BANK_TRANSACTION_REPOSITORY_TOKEN, {

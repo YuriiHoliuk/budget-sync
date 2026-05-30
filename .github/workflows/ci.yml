@@ -364,6 +364,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: check
     if: needs.check.outputs.should_deploy_backend == 'true'
+    permissions:
+      contents: read
+      packages: write
     outputs:
       image: ${{ steps.meta.outputs.image }}
     steps:
@@ -392,11 +395,40 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.image }}
 
+      # ── GHCR multi-arch mirror (parallel to GCP, does not affect Cloud Run) ──
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx (GHCR)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push to GHCR (multi-arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/yuriiholiuk/budget-sync:${{ github.sha }}
+            ghcr.io/yuriiholiuk/budget-sync:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   build-web:
     name: Build Web App
     runs-on: ubuntu-latest
     needs: check
     if: needs.check.outputs.should_deploy_web == 'true'
+    permissions:
+      contents: read
+      packages: write
     outputs:
       image: ${{ steps.meta.outputs.image }}
     steps:
@@ -447,6 +479,37 @@ jobs:
             NEXT_PUBLIC_ALLOWED_EMAIL=${{ secrets.ALLOWED_EMAIL }}
             NEXT_PUBLIC_ALLOWED_PASSWORD=${{ secrets.ALLOWED_PASSWORD }}
             API_URL=${{ steps.webhook.outputs.url }}
+
+      # ── GHCR multi-arch mirror (parallel to GCP, does not affect Cloud Run) ──
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx (GHCR)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push to GHCR (multi-arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.web
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/yuriiholiuk/budget-sync-web:${{ github.sha }}
+            ghcr.io/yuriiholiuk/budget-sync-web:main
+          build-args: |
+            NEXT_PUBLIC_ALLOWED_EMAIL=${{ secrets.ALLOWED_EMAIL }}
+            NEXT_PUBLIC_ALLOWED_PASSWORD=${{ secrets.ALLOWED_PASSWORD }}
+            API_URL=${{ steps.webhook.outputs.url }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy-backend:
     name: Deploy Backend
