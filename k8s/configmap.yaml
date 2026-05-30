@@ -6,7 +6,12 @@ data:
   # --- Queue / runtime topology (monolith: server + worker + scheduler) ---
   QUEUE_DRIVER: "redis"
   RUN_WORKER: "true"
-  RUN_SCHEDULER: "true"
+  # SHADOW DEFAULT: scheduler OFF. While GCP is still the active deployment, the
+  # Jetson must NOT run the 3-hourly sync (it would double-run against the shared
+  # Neon DB and, worse, re-register the Monobank webhook to WEBHOOK_URL).
+  # CUTOVER: flip to "true" in the same change that sets the real WEBHOOK_URL and
+  # pauses the GCP Cloud Scheduler. Only one side may be active at a time.
+  RUN_SCHEDULER: "false"
   REDIS_URL: "redis://budget-sync-redis:6379"
 
   # --- Scheduler ---
