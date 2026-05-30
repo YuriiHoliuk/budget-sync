@@ -21,8 +21,7 @@ spec:
       labels:
         app: budget-sync
     spec:
-      imagePullSecrets:
-        - name: ghcr-pull
+      # GHCR packages are public — no imagePullSecret needed.
       containers:
         - name: budget-sync
           image: ghcr.io/yuriiholiuk/budget-sync:main
