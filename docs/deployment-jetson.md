@@ -56,7 +56,7 @@ the `budget-sync-secrets` Secret. Both are mounted into the pod via `envFrom`.
 | `QUEUE_DRIVER` | ConfigMap | `redis` |
 | `RUN_SERVER` | (default) | `true` — HTTP server on |
 | `RUN_WORKER` | ConfigMap | `true` |
-| `RUN_SCHEDULER` | ConfigMap | `true` |
+| `RUN_SCHEDULER` | ConfigMap | **`false` while in shadow** — flip to `true` at cutover (see below) |
 | `REDIS_URL` | ConfigMap | `redis://budget-sync-redis:6379` |
 | `SCHEDULER_SYNC_CRON` | ConfigMap | `0 */3 * * *` |
 | `METRICS_ENABLED` | ConfigMap | `true` |
@@ -76,11 +76,11 @@ The manifests live in this repo under `k8s/` (Kustomize). The homelab repo
 defines an Argo CD `Application` pointing at that directory; Argo CD renders the
 kustomization and syncs into the `budget-sync` namespace.
 
-Images come from private GHCR
+Images come from **public** GHCR
 (`ghcr.io/yuriiholiuk/budget-sync:main`, `…/budget-sync-web:main`), built
 multi-arch (incl. arm64) by CI on merge to `main`. **Argo CD Image Updater**
 watches GHCR and updates the deployed image automatically, so CI → cluster needs
-no manual step. Pulls use the `ghcr-pull` image pull secret in the namespace.
+no manual step. The packages are public, so **no image pull secret is needed**.
 
 ### Secrets (SealedSecret)
 
@@ -100,16 +100,35 @@ Monobank --> Tailscale Funnel (https://<node>.<tailnet>.ts.net/webhook)
 ```
 
 `budget-sync-webhook` is a NodePort Service (`nodePort: 30081`) selecting the
-monolith pod. Tailscale Funnel is configured on the node to forward the public
-`/webhook` path to that NodePort. At cutover, set `WEBHOOK_URL` in the ConfigMap
-to the Funnel URL and let the scheduler re-register it with Monobank on its next
-run (or run a manual sync).
+monolith pod. `homelab/scripts/tailscale-funnel.sh` configures Tailscale Funnel
+to forward the public `/webhook` path to that NodePort. At cutover, set
+`WEBHOOK_URL` in the ConfigMap to the Funnel URL and let the scheduler
+re-register it with Monobank on its next run (or run a manual sync).
+
+> ⚠️ **Funnel is currently OFF.** Tailscale Funnel/Serve takes over `:443` on the
+> tailnet interface, which breaks remote `https://*.lab` access to every homelab
+> service (they'd all fail TLS). While budget-sync is in shadow the Funnel is
+> disabled (`tailscale serve reset`). Before cutover, the webhook-vs-`:443`
+> coexistence must be solved (e.g. Funnel on `:8443`/`:10000`, or routing the
+> `.lab` vhosts behind Tailscale Serve). See `homelab/docs/budget-sync-migration-research.md`.
+
+## Current status: shadow
+
+The deployment runs in **shadow**: the monolith + Redis + web are up against the
+real Neon DB, but `RUN_SCHEDULER=false` and the Monobank webhook still points at
+GCP — so the Jetson does no syncs and receives no webhooks yet. GCP remains the
+active deployment. **Only one side may run the scheduler / hold the webhook at a
+time** (shared Neon DB → split-brain risk). Cutover runbook:
+`homelab/docs/budget-sync-migration-research.md`.
 
 ## Web UI (money.lab)
 
-The frontend is reached at `https://money.lab` via the cluster's nginx Ingress
-(`ingressClassName: nginx`, host `money.lab` → `budget-sync-web:3000`). TLS is
-terminated upstream at the homelab edge, not by the Ingress.
+The frontend is reached at `https://money.lab`. The in-cluster Ingress
+(`ingressClassName: nginx`, host `money.lab` → `budget-sync-web:3000`) has no TLS
+block — TLS is terminated at the homelab **Compose nginx** edge, which proxies
+`money.lab` to the K3s ingress HTTP NodePort (`30080`); ingress-nginx then routes
+by `Host` to the web Service. The cert is the internal `homelab-root-ca` (same as
+other `.lab` services).
 
 ## Observability
 
@@ -118,3 +137,15 @@ With `METRICS_ENABLED=true`, the backend exposes Prometheus metrics at
 `release: kube-prometheus-stack`) tells the Prometheus Operator to scrape it.
 This requires the kube-prometheus-stack CRDs installed by the homelab platform
 (see `homelab/docs/k3s-cluster.md`).
+
+A **Grafana dashboard** ships with the service: `k8s/grafana-dashboard.yaml` is a
+ConfigMap (labelled `grafana_dashboard: "1"`) that the kube-prometheus-stack
+Grafana sidecar auto-loads — no manual import. It shows pod CPU/memory/network,
+process + Node.js runtime metrics, app throughput (webhooks, transactions, p95
+latency, sync runs), and Loki log panels (all + errors). Open it at
+`https://grafana.lab/d/budget-sync/budget-sync`. App-throughput panels stay flat
+until cutover (no traffic in shadow); resource/runtime/log panels are live now.
+
+Custom app metrics: `budget_sync_webhooks_received_total`,
+`budget_sync_transaction_processing_seconds` (histogram),
+`budget_sync_sync_runs_total`.

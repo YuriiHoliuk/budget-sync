@@ -42,10 +42,14 @@ Environment variables in `.env`:
 
 ## Deployment
 
-Deployed to **Google Cloud Run Jobs** with automated CI/CD via GitHub Actions. See `docs/deployment.md` for full details (Docker builds, pipeline stages, secrets, rollback).
+Two deployment targets run from the same images, in parallel during the homelab migration:
 
-- **Project**: `budget-sync-483105` | **Region**: `europe-central2` (Warsaw)
-- **Scheduling**: Cloud Scheduler triggers jobs on cron schedules
+1. **Google Cloud Run Jobs** (currently active) — automated CI/CD via GitHub Actions. See `docs/deployment.md` (Docker builds, pipeline stages, secrets, rollback).
+   - **Project**: `budget-sync-483105` | **Region**: `europe-central2` (Warsaw)
+   - **Scheduling**: Cloud Scheduler triggers jobs on cron schedules
+2. **Self-hosted K3s monolith** on the homelab Jetson (currently in **shadow** — running but not active). One process (`src/jobs/monolith.ts`) runs the HTTP server + in-process BullMQ worker + scheduler, env-gated by `QUEUE_DRIVER`/`RUN_SERVER`/`RUN_WORKER`/`RUN_SCHEDULER`. Manifests in `k8s/` (Kustomize), deployed by Argo CD from public GHCR; web UI at `money.lab`, dashboard at `grafana.lab`. See `docs/deployment-jetson.md`. **The GCP path is unchanged and additive** — `QUEUE_DRIVER` defaults to `pubsub`, so `git push` keeps deploying GCP exactly as before.
+
+> The two deployments share the same Neon DB, so only ONE may run the scheduler / hold the Monobank webhook at a time (split-brain). GCP holds both today; the Jetson is shadow-only until cutover.
 
 ## Infrastructure
 

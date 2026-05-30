@@ -29,9 +29,10 @@ Personal finance management tool for tracking spendings, income, capital, and bu
 - **Code Generation**: GraphQL Codegen
 
 ### Infrastructure
-- **Deployment**: Google Cloud Run
-- **CI/CD**: GitHub Actions
-- **Scheduling**: Cloud Scheduler
+- **Deployment**: Google Cloud Run (active), plus a self-hosted K3s monolith on the homelab Jetson (shadow — see `docs/deployment-jetson.md`)
+- **CI/CD**: GitHub Actions (multi-arch images to GCP Artifact Registry + public GHCR)
+- **Scheduling**: Cloud Scheduler (GCP) / in-process scheduler (monolith)
+- **Queue**: GCP Pub/Sub (GCP) / Redis + BullMQ (monolith), behind one env-gated gateway (`QUEUE_DRIVER`)
 
 ## Quick Start
 
@@ -228,6 +229,15 @@ Cloud Scheduler (cron) ──────────────────┘
 | `budget-sync-runner` | Runs Cloud Run Jobs, accesses Sheets API |
 | `budget-sync-scheduler` | Triggers jobs on schedule |
 | `budget-sync-deployer` | GitHub Actions deployment |
+
+### Self-hosted (homelab K3s)
+
+A parallel deployment runs the app as a single **monolith** process on a
+homelab Jetson K3s cluster (HTTP + BullMQ worker + scheduler in one pod), with
+data still on Neon. It is deployed by Argo CD from public GHCR, exposed at
+`money.lab`, and monitored via a Grafana dashboard at `grafana.lab`. It is
+**additive and env-gated** — the GCP path is unchanged. Currently in shadow
+(not active). Full details: [`docs/deployment-jetson.md`](docs/deployment-jetson.md).
 
 ## Documentation
 
