@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: budget-sync
+  labels:
+    app: budget-sync-web
+  # TLS is terminated upstream at the homelab edge (nginx reverse proxy /
+  # Tailscale), not by this Ingress — so no tls: block here. The edge presents
+  # the cert for money.lab and forwards plaintext to the ingress controller.
+  annotations: {}
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: money.lab
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: budget-sync-web
+                port:
+                  number: 3000

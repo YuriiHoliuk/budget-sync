@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: budget-sync-web
+  labels:
+    app: budget-sync-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: budget-sync-web
+  template:
+    metadata:
+      labels:
+        app: budget-sync-web
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: web
+          image: ghcr.io/yuriiholiuk/budget-sync-web:main
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            # Next.js standalone reads API_URL at runtime; point it at the
+            # in-cluster backend Service.
+            - name: API_URL
+              value: "http://budget-sync:8080"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"

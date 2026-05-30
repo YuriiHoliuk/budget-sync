@@ -38,6 +38,7 @@ import { DatabaseTransactionRepository } from '@infrastructure/repositories/data
 import { DATABASE_CLIENT_TOKEN } from '@infrastructure/repositories/database/tokens.ts';
 import { DatabaseClient } from '@modules/database/DatabaseClient.ts';
 import { ConsoleLogger, LOGGER_TOKEN } from '@modules/logging/index.ts';
+import { METRICS_TOKEN, NoopMetrics } from '@modules/metrics/index.ts';
 import { container } from 'tsyringe';
 
 /**
@@ -101,6 +102,9 @@ export function setupLocalContainer(): typeof container {
     useClass: MockCategorizationQueueGateway,
   });
   container.register(LLM_GATEWAY_TOKEN, { useClass: MockLLMGateway });
+
+  // Metrics (no-op in local dev) so MetricsController resolves.
+  container.register(METRICS_TOKEN, { useClass: NoopMetrics });
 
   return container;
 }

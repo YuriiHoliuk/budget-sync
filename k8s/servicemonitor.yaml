@@ -1,0 +1,18 @@
+# Requires the kube-prometheus-stack CRDs (monitoring.coreos.com/v1), which are
+# installed by the homelab platform. The `release: kube-prometheus-stack` label
+# is what the Prometheus Operator's serviceMonitorSelector matches on, so the
+# operator discovers this monitor and scrapes the backend's /metrics endpoint.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: budget-sync
+  labels:
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: budget-sync
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s

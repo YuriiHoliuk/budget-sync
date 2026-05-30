@@ -1,0 +1,18 @@
+# NodePort exposing the monolith's HTTP server (which serves POST /webhook).
+# This nodePort is the target for the Tailscale Funnel, which gives Monobank a
+# public HTTPS URL (https://<node>.<tailnet>.ts.net/webhook) to POST to.
+apiVersion: v1
+kind: Service
+metadata:
+  name: budget-sync-webhook
+  labels:
+    app: budget-sync
+spec:
+  type: NodePort
+  selector:
+    app: budget-sync
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30081
