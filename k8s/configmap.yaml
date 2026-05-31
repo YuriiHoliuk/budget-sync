@@ -9,9 +9,11 @@ data:
   # SHADOW DEFAULT: scheduler OFF. While GCP is still the active deployment, the
   # Jetson must NOT run the 3-hourly sync (it would double-run against the shared
   # Neon DB and, worse, re-register the Monobank webhook to WEBHOOK_URL).
-  # CUTOVER: flip to "true" in the same change that sets the real WEBHOOK_URL and
-  # pauses the GCP Cloud Scheduler. Only one side may be active at a time.
-  RUN_SCHEDULER: "false"
+  # CUTOVER (2026-05-31): Jetson is now ACTIVE. GCP Cloud Scheduler is paused and
+  # the Monobank webhook points at the Jetson Funnel URL (below). Only one side
+  # may be active at a time — to revert, set this back to "false", re-register the
+  # GCP webhook, and `gcloud scheduler jobs resume sync-accounts-scheduler`.
+  RUN_SCHEDULER: "true"
   REDIS_URL: "redis://budget-sync-redis:6379"
 
   # --- Scheduler ---
@@ -25,6 +27,8 @@ data:
   METRICS_ENABLED: "true"
 
   # --- Webhook re-registration target (Monobank webhook) ---
-  # PLACEHOLDER: set at cutover to the Tailscale Funnel URL exposing the
-  # budget-sync-webhook NodePort, e.g. https://<node>.<tailnet>.ts.net/webhook
-  WEBHOOK_URL: "https://CHANGEME.ts.net/webhook"
+  # Tailscale Funnel public URL on :8443 (NOT :443 — :443 is owned by ingress-nginx
+  # for the *.lab sites; Funnel on :8443 coexists). Funnel scopes the public path
+  # to /webhook only → budget-sync-webhook NodePort 30081. The scheduler re-registers
+  # this with Monobank on each 3-hourly sync.
+  WEBHOOK_URL: "https://ubuntu.tailea9b10.ts.net:8443/webhook"
